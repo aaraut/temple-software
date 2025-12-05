@@ -1,3 +1,31 @@
+server:
+  port: 8080
+
 spring:
-  application:
-    name: temple-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/templedb?options=-c%20TimeZone=Asia/Kolkata
+    username: temple
+    password: temple123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update   # only for development
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  sql:
+    init:
+      mode: never   # no auto .sql scripts for now
+
+logging:
+  level:
+    org.springframework: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
