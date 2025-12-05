@@ -86,8 +86,8 @@ export default function GotraList() {
             {gotras.map((g) => (
               <tr key={g.id} style={{ borderBottom: "1px solid #f2f2f2" }}>
                 <td style={{ padding: 8, width: 220, fontSize: 12 }}>{g.id}</td>
-                <td style={{ padding: 8 }}>{g.gotraNameHi}</td>
-                <td style={{ padding: 8 }}>{g.gotraNameEn}</td>
+                <td style={{ padding: 8 }}>{g.hindiName}</td>
+                <td style={{ padding: 8 }}>{g.englishName}</td>
                 <td style={{ padding: 8 }}>{g.createdBy}</td>
                 <td style={{ padding: 8 }}>{new Date(g.createdAt).toLocaleString()}</td>
                 <td style={{ padding: 8 }}>
