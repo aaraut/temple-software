@@ -1,7 +1,7 @@
 // src/api/gotraApi.js
 import axios from "axios";
 
-const base = "http://localhost:8080/api/gotras";
+const base = "http://192.168.1.102:8080/api/gotras";
 
 export async function listGotras() {
   const resp = await axios.get(base);
