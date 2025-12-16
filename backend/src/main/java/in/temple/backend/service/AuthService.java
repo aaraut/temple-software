@@ -21,6 +21,10 @@ public class AuthService {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
+        if (user.isAccountLocked()) {
+            throw new RuntimeException("Account is locked. Contact Super Admin.");
+        }
+
         if (!user.isActive()) {
             throw new RuntimeException("User is inactive");
         }
@@ -41,11 +45,20 @@ public class AuthService {
             // 🔁 Auto-upgrade to BCrypt after successful login
             if (passwordMatches) {
                 user.setPassword(passwordEncoder.encode(request.getPassword()));
+                user.setFailedLoginAttempts(0);
                 userRepository.save(user);
             }
         }
 
         if (!passwordMatches) {
+            user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+
+            if (user.getFailedLoginAttempts() >= 5) {
+                user.setAccountLocked(true);
+            }
+
+            userRepository.save(user);
+
             throw new RuntimeException("Invalid username or password");
         }
 

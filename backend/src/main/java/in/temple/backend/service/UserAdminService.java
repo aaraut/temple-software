@@ -15,6 +15,7 @@ public class UserAdminService {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     public void resetUserPassword(User admin, Long userId, String tempPassword) {
 
@@ -31,6 +32,14 @@ public class UserAdminService {
         user.setForcePasswordChange(true);
 
         userRepository.save(user);
+
+        // 🔍 AUDIT
+        auditService.log(
+                "RESET_PASSWORD",
+                admin.getUsername(),
+                user.getUsername(),
+                "Temporary password reset"
+        );
     }
 
     public List<User> getAllUsersForAdmin(User admin) {
@@ -72,7 +81,17 @@ public class UserAdminService {
         newUser.setAddedBy(admin.getUsername());
         newUser.setActive(true);
 
-        return userRepository.save(newUser);
+        User savedUser = userRepository.save(newUser);
+
+        // 🔍 AUDIT
+        auditService.log(
+                "CREATE_USER",
+                admin.getUsername(),
+                savedUser.getUsername(),
+                "User created"
+        );
+
+        return savedUser;
     }
 
     public User updateUser(User admin, Long userId, User updated) {
@@ -95,7 +114,17 @@ public class UserAdminService {
         existing.setAddress(updated.getAddress());
         existing.setActive(updated.isActive());
 
-        return userRepository.save(existing);
+        User savedUser = userRepository.save(existing);
+
+        // 🔍 AUDIT
+        auditService.log(
+                "UPDATE_USER",
+                admin.getUsername(),
+                savedUser.getUsername(),
+                "User details updated"
+        );
+
+        return savedUser;
     }
 
     public void updateUserStatus(User admin, Long userId, boolean active) {
@@ -117,9 +146,32 @@ public class UserAdminService {
 
         user.setActive(active);
         userRepository.save(user);
+
+        // 🔍 AUDIT
+        auditService.log(
+                "STATUS_CHANGE",
+                admin.getUsername(),
+                user.getUsername(),
+                "Active set to " + active
+        );
     }
 
+    public void unlockUser(Long userId, String performedBy) {
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
+        user.setAccountLocked(false);
+        user.setFailedLoginAttempts(0);
+
+        userRepository.save(user);
+
+        auditService.log(
+                "UNLOCK_USER",
+                performedBy,
+                user.getUsername(),
+                "Account unlocked"
+        );
+    }
 
 }

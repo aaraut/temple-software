@@ -46,4 +46,9 @@ public class User {
 
     private LocalDate dateOfJoining;
     private String addedBy;
+
+    private int failedLoginAttempts = 0;
+
+    private boolean accountLocked = false;
+
 }

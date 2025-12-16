@@ -73,6 +73,18 @@ public class UserAdminController {
         userAdminService.updateUserStatus(admin, userId, active);
     }
 
+    @PatchMapping("/{userId}/unlock")
+    public void unlockUser(
+            @RequestHeader("X-USERNAME") String adminUsername,
+            @PathVariable Long userId
+    ) {
+        User admin = authContextService.getLoggedInUser(adminUsername);
+        authContextService.requireRole(admin, "SUPER_ADMIN");
+
+        userAdminService.unlockUser(userId, admin.getUsername());
+    }
+
+
 
 
 
