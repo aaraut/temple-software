@@ -1,6 +1,8 @@
 package in.temple.backend.controller;
 
 import in.temple.backend.model.Gotra;
+import in.temple.backend.model.User;
+import in.temple.backend.service.AuthContextService;
 import in.temple.backend.service.GotraService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -19,67 +21,100 @@ import java.util.List;
 public class GotraController {
 
     private final Logger log = LoggerFactory.getLogger(GotraController.class);
-    private final GotraService gotraService;
 
-    public GotraController(GotraService gotraService) {
+    private final GotraService gotraService;
+    private final AuthContextService authContextService;
+
+    public GotraController(GotraService gotraService,
+                           AuthContextService authContextService) {
         this.gotraService = gotraService;
+        this.authContextService = authContextService;
     }
 
-    // DTO for creating Gotra
+    // ---------- DTOs ----------
+
     public static record CreateGotraRequest(
             @NotBlank String gotraNameHi,
             @NotBlank String gotraNameEn
     ) {}
 
-    // DTO for updating Gotra (Hindi only, English cannot change)
     public static record UpdateGotraRequest(
             @NotBlank String gotraNameHi
     ) {}
 
-    // Create Gotra
+    // ---------- APIs ----------
+
+    // Create Gotra (ADMIN / SUPER_ADMIN)
     @PostMapping
     public ResponseEntity<Gotra> create(
-            @RequestHeader(value = "X-Operator-Id", required = false) String operatorId,
+            @RequestHeader("X-USERNAME") String username,
             @Valid @RequestBody CreateGotraRequest req) {
 
-        String createdBy = operatorId == null ? "system" : operatorId;
+        User user = authContextService.getLoggedInUser(username);
+        authContextService.requireRole(user, "ADMIN", "SUPER_ADMIN");
+
+        log.info("Creating gotra by {}", user.getUsername());
 
         Gotra saved = gotraService.createGotra(
                 req.gotraNameHi(),
                 req.gotraNameEn(),
-                createdBy
+                user.getUsername()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // List all Gotras
+    // List all Gotras (Any logged-in user)
     @GetMapping
-    public ResponseEntity<List<Gotra>> list() {
+    public ResponseEntity<List<Gotra>> list(
+            @RequestHeader("X-USERNAME") String username) {
+
+        authContextService.getLoggedInUser(username); // login check only
         return ResponseEntity.ok(gotraService.listAll());
     }
 
-    // Get by English Name (ID)
+    // Get Gotra by ID (Any logged-in user)
     @GetMapping("/{id}")
-    public ResponseEntity<Gotra> get(@PathVariable("id") String id) {
+    public ResponseEntity<Gotra> get(
+            @RequestHeader("X-USERNAME") String username,
+            @PathVariable("id") String id) {
+
+        authContextService.getLoggedInUser(username);
         return ResponseEntity.ok(gotraService.getById(id));
     }
 
-    // Update Hindi Name ONLY (English = ID cannot change)
+    // Update Gotra (ADMIN / SUPER_ADMIN)
     @PutMapping("/{id}")
     public ResponseEntity<Gotra> update(
+            @RequestHeader("X-USERNAME") String username,
             @PathVariable("id") String id,
             @Valid @RequestBody UpdateGotraRequest req) {
 
-        Gotra updated = gotraService.updateGotra(id, req.gotraNameHi(), id);
-        // Passing 'id' as newEnglish because it's unchanged
+        User user = authContextService.getLoggedInUser(username);
+        authContextService.requireRole(user, "ADMIN", "SUPER_ADMIN");
+
+        log.info("Updating gotra {} by {}", id, user.getUsername());
+
+        Gotra updated = gotraService.updateGotra(
+                id,
+                req.gotraNameHi(),
+                id // English name (ID) unchanged
+        );
 
         return ResponseEntity.ok(updated);
     }
 
-    // Delete Gotra
+    // Delete Gotra (SUPER_ADMIN only)
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable("id") String id) {
+    public ResponseEntity<Void> delete(
+            @RequestHeader("X-USERNAME") String username,
+            @PathVariable("id") String id) {
+
+        User user = authContextService.getLoggedInUser(username);
+        authContextService.requireRole(user, "SUPER_ADMIN");
+
+        log.warn("Deleting gotra {} by {}", id, user.getUsername());
+
         gotraService.deleteGotra(id);
         return ResponseEntity.noContent().build();
     }
