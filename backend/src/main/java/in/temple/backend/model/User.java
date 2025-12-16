@@ -1,5 +1,7 @@
 package in.temple.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,8 +23,9 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
-    private String password; // hashed later
+    private String password;
 
     @Column(nullable = false)
     private String role; // SUPER_ADMIN, ADMIN, USER
