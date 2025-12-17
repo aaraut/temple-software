@@ -3,6 +3,7 @@ package in.temple.backend.controller;
 import in.temple.backend.model.User;
 import in.temple.backend.service.AuthContextService;
 import in.temple.backend.service.UserAdminService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,21 +19,19 @@ public class UserAdminController {
 
     @PostMapping("/{userId}/reset-password")
     public void resetUserPassword(
-            @RequestHeader("X-USERNAME") String adminUsername,
+            HttpServletRequest request,
             @PathVariable Long userId,
             @RequestParam String tempPassword
     ) {
-        User admin = authContextService.getLoggedInUser(adminUsername);
+        User admin = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(admin, "ADMIN", "SUPER_ADMIN");
 
         userAdminService.resetUserPassword(admin, userId, tempPassword);
     }
 
     @GetMapping
-    public List<User> listUsers(
-            @RequestHeader("X-USERNAME") String adminUsername
-    ) {
-        User admin = authContextService.getLoggedInUser(adminUsername);
+    public List<User> listUsers(HttpServletRequest request) {
+        User admin = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(admin, "ADMIN", "SUPER_ADMIN");
 
         return userAdminService.getAllUsersForAdmin(admin);
@@ -40,10 +39,10 @@ public class UserAdminController {
 
     @PostMapping
     public User createUser(
-            @RequestHeader("X-USERNAME") String adminUsername,
+            HttpServletRequest request,
             @RequestBody User user
     ) {
-        User admin = authContextService.getLoggedInUser(adminUsername);
+        User admin = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(admin, "ADMIN", "SUPER_ADMIN");
 
         return userAdminService.createUser(admin, user);
@@ -51,11 +50,11 @@ public class UserAdminController {
 
     @PutMapping("/{userId}")
     public User updateUser(
-            @RequestHeader("X-USERNAME") String adminUsername,
+            HttpServletRequest request,
             @PathVariable Long userId,
             @RequestBody User updatedUser
     ) {
-        User admin = authContextService.getLoggedInUser(adminUsername);
+        User admin = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(admin, "ADMIN", "SUPER_ADMIN");
 
         return userAdminService.updateUser(admin, userId, updatedUser);
@@ -63,11 +62,11 @@ public class UserAdminController {
 
     @PatchMapping("/{userId}/status")
     public void updateUserStatus(
-            @RequestHeader("X-USERNAME") String adminUsername,
+            HttpServletRequest request,
             @PathVariable Long userId,
             @RequestParam boolean active
     ) {
-        User admin = authContextService.getLoggedInUser(adminUsername);
+        User admin = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(admin, "ADMIN", "SUPER_ADMIN");
 
         userAdminService.updateUserStatus(admin, userId, active);
@@ -75,17 +74,12 @@ public class UserAdminController {
 
     @PatchMapping("/{userId}/unlock")
     public void unlockUser(
-            @RequestHeader("X-USERNAME") String adminUsername,
+            HttpServletRequest request,
             @PathVariable Long userId
     ) {
-        User admin = authContextService.getLoggedInUser(adminUsername);
+        User admin = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(admin, "SUPER_ADMIN");
 
         userAdminService.unlockUser(userId, admin.getUsername());
     }
-
-
-
-
-
 }

@@ -15,6 +15,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public LoginResponse login(LoginRequest request) {
 
@@ -66,7 +67,9 @@ public class AuthService {
         response.setUsername(user.getUsername());
         response.setRole(user.getRole());
         response.setForcePasswordChange(user.isForcePasswordChange());
-
+        response.setToken(
+                jwtService.generateToken(user.getUsername(), user.getRole())
+        );
         return response;
     }
 
@@ -74,6 +77,14 @@ public class AuthService {
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isActive()) {
+            throw new RuntimeException("User is inactive");
+        }
+
+        if (user.isAccountLocked()) {
+            throw new RuntimeException("Account is locked");
+        }
 
         boolean matches;
 
@@ -92,8 +103,10 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setForcePasswordChange(false);
+        user.setFailedLoginAttempts(0);
 
         userRepository.save(user);
     }
+
 
 }

@@ -3,7 +3,9 @@ package in.temple.backend.controller;
 import in.temple.backend.model.ChangePasswordRequest;
 import in.temple.backend.model.LoginRequest;
 import in.temple.backend.model.LoginResponse;
+import in.temple.backend.model.User;
 import in.temple.backend.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,17 +16,19 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // ---------- LOGIN (NO JWT REQUIRED) ----------
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest request) {
         return authService.login(request);
     }
 
+    // ---------- CHANGE PASSWORD (JWT REQUIRED) ----------
     @PostMapping("/change-password")
     public void changePassword(
-            @RequestHeader("X-USERNAME") String username,
-            @RequestBody ChangePasswordRequest request
+            HttpServletRequest request,
+            @RequestBody ChangePasswordRequest changePasswordRequest
     ) {
-        authService.changePassword(username, request);
+        User user = (User) request.getAttribute("loggedInUser");
+        authService.changePassword(user.getUsername(), changePasswordRequest);
     }
-
 }

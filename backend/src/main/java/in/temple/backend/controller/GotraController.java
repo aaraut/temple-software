@@ -4,6 +4,7 @@ import in.temple.backend.model.Gotra;
 import in.temple.backend.model.User;
 import in.temple.backend.service.AuthContextService;
 import in.temple.backend.service.GotraService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
@@ -47,10 +48,10 @@ public class GotraController {
     // Create Gotra (ADMIN / SUPER_ADMIN)
     @PostMapping
     public ResponseEntity<Gotra> create(
-            @RequestHeader("X-USERNAME") String username,
+            HttpServletRequest request,
             @Valid @RequestBody CreateGotraRequest req) {
 
-        User user = authContextService.getLoggedInUser(username);
+        User user = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(user, "ADMIN", "SUPER_ADMIN");
 
         log.info("Creating gotra by {}", user.getUsername());
@@ -66,31 +67,33 @@ public class GotraController {
 
     // List all Gotras (Any logged-in user)
     @GetMapping
-    public ResponseEntity<List<Gotra>> list(
-            @RequestHeader("X-USERNAME") String username) {
+    public ResponseEntity<List<Gotra>> list(HttpServletRequest request) {
 
-        authContextService.getLoggedInUser(username); // login check only
+        // JWT already validated by interceptor
+        request.getAttribute("loggedInUser");
+
         return ResponseEntity.ok(gotraService.listAll());
     }
 
     // Get Gotra by ID (Any logged-in user)
     @GetMapping("/{id}")
     public ResponseEntity<Gotra> get(
-            @RequestHeader("X-USERNAME") String username,
+            HttpServletRequest request,
             @PathVariable("id") String id) {
 
-        authContextService.getLoggedInUser(username);
+        request.getAttribute("loggedInUser");
+
         return ResponseEntity.ok(gotraService.getById(id));
     }
 
     // Update Gotra (ADMIN / SUPER_ADMIN)
     @PutMapping("/{id}")
     public ResponseEntity<Gotra> update(
-            @RequestHeader("X-USERNAME") String username,
+            HttpServletRequest request,
             @PathVariable("id") String id,
             @Valid @RequestBody UpdateGotraRequest req) {
 
-        User user = authContextService.getLoggedInUser(username);
+        User user = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(user, "ADMIN", "SUPER_ADMIN");
 
         log.info("Updating gotra {} by {}", id, user.getUsername());
@@ -107,10 +110,10 @@ public class GotraController {
     // Delete Gotra (SUPER_ADMIN only)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @RequestHeader("X-USERNAME") String username,
+            HttpServletRequest request,
             @PathVariable("id") String id) {
 
-        User user = authContextService.getLoggedInUser(username);
+        User user = (User) request.getAttribute("loggedInUser");
         authContextService.requireRole(user, "SUPER_ADMIN");
 
         log.warn("Deleting gotra {} by {}", id, user.getUsername());
