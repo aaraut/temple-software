@@ -24,7 +24,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
 
         // Allow login without token
-        if (path.startsWith("/api/auth/login")) {
+        if (path.startsWith("/api/auth")) {
             return true;
         }
 

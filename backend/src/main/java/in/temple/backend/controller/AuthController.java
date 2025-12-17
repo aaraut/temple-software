@@ -1,9 +1,6 @@
 package in.temple.backend.controller;
 
-import in.temple.backend.model.ChangePasswordRequest;
-import in.temple.backend.model.LoginRequest;
-import in.temple.backend.model.LoginResponse;
-import in.temple.backend.model.User;
+import in.temple.backend.model.*;
 import in.temple.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -31,4 +28,10 @@ public class AuthController {
         User user = (User) request.getAttribute("loggedInUser");
         authService.changePassword(user.getUsername(), changePasswordRequest);
     }
+
+    @PostMapping("/forgot-password")
+    public void forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+    }
+
 }

@@ -1,9 +1,6 @@
 package in.temple.backend.service;
 
-import in.temple.backend.model.ChangePasswordRequest;
-import in.temple.backend.model.LoginRequest;
-import in.temple.backend.model.LoginResponse;
-import in.temple.backend.model.User;
+import in.temple.backend.model.*;
 import in.temple.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -16,6 +13,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuditService auditService;
 
     public LoginResponse login(LoginRequest request) {
 
@@ -106,6 +104,39 @@ public class AuthService {
         user.setFailedLoginAttempts(0);
 
         userRepository.save(user);
+    }
+
+    public void forgotPassword(ForgotPasswordRequest request) {
+
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isActive()) {
+            throw new RuntimeException("User is inactive");
+        }
+
+        if (user.isAccountLocked()) {
+            throw new RuntimeException("Account is locked. Contact Super Admin.");
+        }
+
+        // Identity verification
+        if (!user.getDob().equals(request.getDob()) ||
+                !user.getAadhaarLast4().equals(request.getAadhaarLast4())) {
+            throw new RuntimeException("Identity verification failed");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setForcePasswordChange(false);
+        user.setFailedLoginAttempts(0);
+
+        userRepository.save(user);
+
+        auditService.log(
+                "FORGOT_PASSWORD",
+                user.getUsername(),
+                user.getUsername(),
+                "Password reset via identity verification"
+        );
     }
 
 
