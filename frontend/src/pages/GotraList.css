@@ -1,0 +1,86 @@
+.gotra-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.gotra-header {
+  margin-bottom: 20px;
+}
+
+.gotra-header h2 {
+  margin: 0;
+  color: #7a1f1f;
+}
+
+.subtitle {
+  color: #555;
+  font-size: 14px;
+}
+
+.alert {
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.alert.error {
+  background: #fdecea;
+  color: #b71c1c;
+}
+
+.alert.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.gotra-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.gotra-form input {
+  flex: 1;
+  padding: 8px;
+}
+
+.gotra-form button {
+  background: #7a1f1f;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.gotra-form button:hover {
+  background: #5e1717;
+}
+
+.gotra-card {
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 15px;
+}
+
+.gotra-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gotra-table th,
+.gotra-table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.gotra-table th {
+  background: #f4e9d8;
+  color: #333;
+}
+
+.status-text {
+  text-align: center;
+  color: #777;
+}

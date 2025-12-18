@@ -21,19 +21,23 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             Object handler
     ) {
 
+        // ✅ Allow CORS preflight
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
         String path = request.getRequestURI();
 
-        // Allow login without token
-        if (path.startsWith("/api/auth")) {
+        if (path.equals("/api/auth/login") ||
+                path.equals("/api/auth/forgot-password")) {
             return true;
         }
 
         String authHeader = request.getHeader("Authorization");
-
         User user = jwtContextService.getUserFromAuthHeader(authHeader);
-
         request.setAttribute("loggedInUser", user);
 
         return true;
     }
+
 }

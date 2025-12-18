@@ -1,0 +1,54 @@
+.app-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #7a1f1f;
+  color: white;
+}
+
+.logo {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.menu a {
+  margin-right: 16px;
+  color: white;
+  text-decoration: none;
+}
+
+.menu a:hover {
+  text-decoration: underline;
+}
+
+.profile {
+  position: relative;
+  cursor: pointer;
+}
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  background: white;
+  color: #333;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 160px;
+}
+
+.dropdown div {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.dropdown div:hover {
+  background: #f2f2f2;
+}
+
+.logout {
+  color: #7a1f1f;
+  font-weight: 500;
+}

@@ -23,10 +23,10 @@ public class AuthController {
     @PostMapping("/change-password")
     public void changePassword(
             HttpServletRequest request,
-            @RequestBody ChangePasswordRequest changePasswordRequest
+            @RequestBody ChangePasswordRequest body
     ) {
         User user = (User) request.getAttribute("loggedInUser");
-        authService.changePassword(user.getUsername(), changePasswordRequest);
+        authService.changePassword(user, body);
     }
 
     @PostMapping("/forgot-password")

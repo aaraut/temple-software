@@ -1,128 +1,108 @@
-// src/pages/GotraList.jsx
-import React, { useEffect, useState } from "react";
-import * as api from "../api/gotraApi";
+import { useEffect, useState } from "react";
+import { listGotras, createGotra } from "../api/gotraApi";
+import { useAuth } from "../context/AuthContext";
 import GotraForm from "../components/GotraForm";
+import "./GotraList.css";
 
 export default function GotraList() {
+  const { auth } = useAuth();
+
   const [gotras, setGotras] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // record being edited or null
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState(null);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
+  const isAdmin =
+    auth.role === "ADMIN" || auth.role === "SUPER_ADMIN";
+
+  const loadGotras = async () => {
     try {
-      const data = await api.listGotras();
-      console.log("Gotra API Response:", data);
-      setGotras(data || []);
-    } catch (err) {
-      setError("Failed to load gotras: " + (err?.message || ""));
+      setLoading(true);
+      const data = await listGotras();
+      setGotras(data);
+      setError("");
+    } catch {
+      setError("Failed to load gotra list");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    loadGotras();
   }, []);
 
-  const handleCreate = () => {
-    setEditing(null);
-    setShowForm(true);
-  };
-
-  const handleEdit = (g) => {
-    setEditing(g);
-    setShowForm(true);
-  };
-
-  const handleDelete = async (g) => {
-    if (!window.confirm(`Delete gotra "${g.gotraNameEn}" ?`)) return;
-    try {
-      await api.deleteGotra(g.id);
-      await load();
-    } catch (err) {
-      alert("Delete failed: " + (err?.response?.data?.error || err?.message));
-    }
-  };
-
-  const handleSaved = async (payload) => {
-    if (editing) {
-      await api.updateGotra(editing.id, payload);
-    } else {
-      await api.createGotra(payload, "admin-ui");
-    }
+  const handleSave = async (payload) => {
+    await createGotra(payload);
+    setSuccess("Gotra added successfully");
     setShowForm(false);
-    setEditing(null);
-    await load();
+    loadGotras();
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Gotra Master</h2>
-
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={handleCreate}>Add Gotra</button>
+    <div className="gotra-page">
+      <div className="gotra-header">
+        <h2>Gotra Management</h2>
+        <p className="subtitle">
+          Manage gotras in Hindi and English
+        </p>
       </div>
 
-      {loading && <div>Loading...</div>}
-      {error && <div style={{ color: "crimson" }}>{error}</div>}
+      {error && <div className="alert error">{error}</div>}
+      {success && <div className="alert success">{success}</div>}
 
-      {!loading && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-              <th style={{ padding: 8 }}>ID</th>
-              <th style={{ padding: 8 }}>Hindi</th>
-              <th style={{ padding: 8 }}>English</th>
-              <th style={{ padding: 8 }}>Created By</th>
-              <th style={{ padding: 8 }}>Created At</th>
-              <th style={{ padding: 8 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {gotras.map((g) => (
-              <tr key={g.id} style={{ borderBottom: "1px solid #f2f2f2" }}>
-                <td style={{ padding: 8, width: 220, fontSize: 12 }}>{g.id}</td>
-                <td style={{ padding: 8 }}>{g.hindiName}</td>
-                <td style={{ padding: 8 }}>{g.englishName}</td>
-                <td style={{ padding: 8 }}>{g.createdBy}</td>
-                <td style={{ padding: 8 }}>{new Date(g.createdAt).toLocaleString()}</td>
-                <td style={{ padding: 8 }}>
-                  <button onClick={() => handleEdit(g)} style={{ marginRight: 8 }}>
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(g)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-            {gotras.length === 0 && (
+      {isAdmin && (
+        <>
+          {!showForm && (
+            <button
+              className="primary-btn"
+              onClick={() => {
+                setShowForm(true);
+                setSuccess("");
+              }}
+            >
+              + Add Gotra
+            </button>
+          )}
+
+          {showForm && (
+            <div style={{ marginTop: 16 }}>
+              <GotraForm
+                onSaved={handleSave}
+                onCancel={() => setShowForm(false)}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="gotra-card">
+        {loading ? (
+          <p className="status-text">Loading gotras...</p>
+        ) : gotras.length === 0 ? (
+          <p className="status-text">No gotras found</p>
+        ) : (
+          <table className="gotra-table">
+            <thead>
               <tr>
-                <td colSpan={6} style={{ padding: 16 }}>
-                  No records
-                </td>
+                <th>#</th>
+                <th>Gotra (हिंदी)</th>
+                <th>Gotra (English)</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      )}
-
-      {/* form area */}
-      {showForm && (
-        <div style={{ marginTop: 16 }}>
-          <h3>{editing ? "Edit Gotra" : "Add Gotra"}</h3>
-          <GotraForm
-            initial={editing}
-            onCancel={() => {
-              setShowForm(false);
-              setEditing(null);
-            }}
-            onSaved={handleSaved}
-          />
-        </div>
-      )}
+            </thead>
+            <tbody>
+              {gotras.map((g, index) => (
+                <tr key={g.id}>
+                  <td>{index + 1}</td>
+                  <td>{g.hindiName}</td>
+                  <td>{g.englishName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

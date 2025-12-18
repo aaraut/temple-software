@@ -21,7 +21,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "http://127.0.0.1:8080",
                         "http://192.168.1.102:8080" // no trailing slash
                 )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
@@ -32,7 +32,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
-                        "/api/auth/login"
+                        "/api/auth/login",
+                        "/api/auth/forgot-password"
                 );
     }
 }

@@ -1,0 +1,58 @@
+.user-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.user-card {
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 15px;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.user-table th,
+.user-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.user-table th {
+  background: #f4e9d8;
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.status.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status.inactive {
+  background: #fdecea;
+  color: #b71c1c;
+}
+
+.status.locked {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.status.unlocked {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-text {
+  text-align: center;
+  color: #777;
+}

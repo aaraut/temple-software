@@ -71,29 +71,16 @@ public class AuthService {
         return response;
     }
 
-    public void changePassword(String username, ChangePasswordRequest request) {
+    public void changePassword(User user, ChangePasswordRequest request) {
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!user.isActive()) {
-            throw new RuntimeException("User is inactive");
+        if (user == null) {
+            throw new RuntimeException("Unauthorized");
         }
 
-        if (user.isAccountLocked()) {
-            throw new RuntimeException("Account is locked");
-        }
-
-        boolean matches;
-
-        if (user.getPassword().startsWith("$2a$")) {
-            matches = passwordEncoder.matches(
-                    request.getOldPassword(),
-                    user.getPassword()
-            );
-        } else {
-            matches = user.getPassword().equals(request.getOldPassword());
-        }
+        boolean matches = passwordEncoder.matches(
+                request.getOldPassword(),
+                user.getPassword()
+        );
 
         if (!matches) {
             throw new RuntimeException("Old password is incorrect");
@@ -104,6 +91,13 @@ public class AuthService {
         user.setFailedLoginAttempts(0);
 
         userRepository.save(user);
+
+        auditService.log(
+                "CHANGE_PASSWORD",
+                user.getUsername(),
+                user.getUsername(),
+                "Password changed by user"
+        );
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {

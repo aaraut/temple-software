@@ -1,30 +1,32 @@
-// src/api/gotraApi.js
-import axios from "axios";
+import axiosClient from "./axiosClient";
 
-const base = "http://192.168.1.102:8080/api/gotras";
-
+// GET /api/gotras
 export async function listGotras() {
-  const resp = await axios.get(base);
+  const resp = await axiosClient.get("/gotras");
   return resp.data;
 }
 
+// GET /api/gotras/{id}
 export async function getGotra(id) {
-  const resp = await axios.get(`${base}/${id}`);
+  const resp = await axiosClient.get(`/gotras/${id}`);
   return resp.data;
 }
 
-export async function createGotra(payload, operatorId = "system") {
-  const headers = { "X-Operator-Id": operatorId };
-  const resp = await axios.post(base, payload, { headers });
+// POST /api/gotras
+// payload = { gotraNameHi, gotraNameEn }
+export async function createGotra(payload) {
+  const resp = await axiosClient.post("/gotras", payload);
   return resp.data;
 }
 
+// PUT /api/gotras/{id}
 export async function updateGotra(id, payload) {
-  const resp = await axios.put(`${base}/${id}`, payload);
+  const resp = await axiosClient.put(`/gotras/${id}`, payload);
   return resp.data;
 }
 
+// DELETE /api/gotras/{id}
 export async function deleteGotra(id) {
-  const resp = await axios.delete(`${base}/${id}`);
+  const resp = await axiosClient.delete(`/gotras/${id}`);
   return resp.data;
 }
