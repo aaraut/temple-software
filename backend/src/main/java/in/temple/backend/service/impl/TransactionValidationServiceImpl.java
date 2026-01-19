@@ -23,7 +23,7 @@ public class TransactionValidationServiceImpl
             OccurrenceType occurrenceType,
             LocalTime fromTime,
             LocalTime toTime,
-            Long gotraId,
+            String gotraId,
             boolean isAdmin) {
 
         if (transactionType == null) {
@@ -112,7 +112,7 @@ public class TransactionValidationServiceImpl
 
     private void validateGotraRules(
             TransactionType transactionType,
-            Long gotraId) {
+            String gotraId) {
 
         if (transactionType == TransactionType.ABHISHEK) {
             if (gotraId == null) {

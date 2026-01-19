@@ -18,7 +18,7 @@ public interface TransactionValidationService {
             OccurrenceType occurrenceType,
             LocalTime fromTime,
             LocalTime toTime,
-            Long gotraId,
+            String gotraId,
             boolean isAdmin
     );
 }
