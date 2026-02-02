@@ -8,6 +8,8 @@ import ProtectedLayout from "./layouts/ProtectedLayout";
 import ChangePassword from "./pages/ChangePassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import UserList from "./pages/UserList";
+import Abhishek from "./pages/donation/Abhishek";
+import Daan from "./pages/donation/Daan";
 
 
 function App() {
@@ -63,6 +65,28 @@ function App() {
             <ProtectedRoute roles={["ADMIN", "SUPER_ADMIN"]}>
               <ProtectedLayout>
                 <UserList />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/donation/abhishek"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <Abhishek />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/donation/daan"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <Daan />
               </ProtectedLayout>
             </ProtectedRoute>
           }

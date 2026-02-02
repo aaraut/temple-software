@@ -1,46 +1,144 @@
-import { Link, useNavigate } from "react-router-dom";
+import { AppBar, Toolbar, Typography, Box, Button, Menu, MenuItem, IconButton } from "@mui/material";
+import AccountCircle from "@mui/icons-material/AccountCircle";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
-import "./Header.css";
 
 export default function Header() {
   const { auth, logout } = useAuth();
-  const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+
+  const [donationAnchor, setDonationAnchor] = useState(null);
+  const [profileAnchor, setProfileAnchor] = useState(null);
 
   if (!auth) return null;
 
   const isAdmin =
     auth.role === "ADMIN" || auth.role === "SUPER_ADMIN";
 
+  /* ---------- Donation Menu ---------- */
+  const openDonation = Boolean(donationAnchor);
+  const handleDonationOpen = (event) => {
+    setDonationAnchor(event.currentTarget);
+  };
+  const handleDonationClose = () => {
+    setDonationAnchor(null);
+  };
+
+  /* ---------- Profile Menu ---------- */
+  const openProfile = Boolean(profileAnchor);
+  const handleProfileOpen = (event) => {
+    setProfileAnchor(event.currentTarget);
+  };
+  const handleProfileClose = () => {
+    setProfileAnchor(null);
+  };
+
   return (
-    <header className="app-header">
-      <div className="logo" onClick={() => navigate("/")}>
-        🛕 Temple App
-      </div>
+    <AppBar position="static" sx={{ backgroundColor: "#7a1f1f" }}>
+      <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+        
+        {/* Logo */}
+        <Typography
+          variant="h6"
+          sx={{ cursor: "pointer", fontWeight: 600 }}
+          onClick={() => navigate("/")}
+        >
+          🛕 Chamatkarik Shree Hanuman Mandir Jamsawli
+        </Typography>
 
-      <nav className="menu">
-        <Link to="/">Home</Link>
-        <Link to="/gotra">Gotra</Link>
-        {isAdmin && <Link to="/users">Users</Link>}
-      </nav>
+        {/* Main Menu */}
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button color="inherit" onClick={() => navigate("/")}>
+            Home
+          </Button>
 
-      <div className="profile">
-        <span onClick={() => setOpen(!open)}>
-          👤 {auth.username} ▾
-        </span>
+          <Button color="inherit" onClick={() => navigate("/gotra")}>
+            Gotra
+          </Button>
 
-        {open && (
-          <div className="dropdown">
-            <div onClick={() => navigate("/change-password")}>
+          {/* Donation Dropdown */}
+          <Button
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleDonationOpen}
+          >
+            Donation
+          </Button>
+
+          <Menu
+            anchorEl={donationAnchor}
+            open={openDonation}
+            onClose={handleDonationClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleDonationClose();
+                navigate("/donation/abhishek");
+              }}
+            >
+              Abhishek
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleDonationClose();
+                navigate("/donation/daan");
+              }}
+            >
+              Daan
+            </MenuItem>
+          </Menu>
+
+          {isAdmin && (
+            <Button color="inherit" onClick={() => navigate("/users")}>
+              Users
+            </Button>
+          )}
+        </Box>
+
+        {/* Profile Menu */}
+        <Box>
+          <IconButton color="inherit" onClick={handleProfileOpen}>
+            <AccountCircle />
+            <Typography sx={{ ml: 1 }}>
+              {auth.username}
+            </Typography>
+            <ArrowDropDownIcon />
+          </IconButton>
+
+          <Menu
+            anchorEl={profileAnchor}
+            open={openProfile}
+            onClose={handleProfileClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleProfileClose();
+                navigate("/change-password");
+              }}
+            >
               Change Password
-            </div>
-            <div onClick={logout} className="logout">
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleProfileClose();
+                logout();
+              }}
+              sx={{ color: "#7a1f1f", fontWeight: 500 }}
+            >
               Logout
-            </div>
-          </div>
-        )}
-      </div>
-    </header>
+            </MenuItem>
+          </Menu>
+        </Box>
+
+      </Toolbar>
+    </AppBar>
   );
 }
