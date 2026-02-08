@@ -8,5 +8,5 @@ public interface ReceiptService {
 
     Map<TransactionType, String> generateReceiptPreview(String username);
 
-    String consumeReceiptNumber(TransactionType transactionType, String username);
+    String consumeReceiptNumber(String prefix, String username);
 }

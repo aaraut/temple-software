@@ -17,4 +17,9 @@ public class ReceiptSequence {
 
     @Column(name = "last_sequence", nullable = false)
     private Long lastSequence;
+
+    @Version
+    @Column(nullable = false)
+    private Long version = 0L;
 }
+

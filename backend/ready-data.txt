@@ -1,0 +1,43 @@
+INSERT INTO donation_purpose
+(name_en, name_hi, fixed_amount, active)
+VALUES
+('Sankalp Abhishek', 'संकल्प अभिषेक', 301, true),
+('Daan', 'दान', NULL, true),
+('Annadan', 'अन्नदान', 1500, true),
+('Prasadam', 'प्रसादम', 15000, true),
+('Mandir Nirman', 'मंदिर निर्माण', NULL, true);
+
+
+if reqd
+UPDATE donation_purpose
+SET version = 0
+WHERE version IS NULL;
+
+
+ALTER TABLE donation_purpose
+ALTER COLUMN version SET NOT NULL;
+
+ALTER TABLE donation_purpose
+ADD COLUMN requires_gotra BOOLEAN NOT NULL DEFAULT FALSE;
+
+UPDATE receipt_sequence
+SET version = 0
+WHERE version IS NULL;
+
+ALTER TABLE receipt_sequence
+ALTER COLUMN version SET NOT NULL;
+
+SELECT * FROM receipt_sequence;
+
+
+ALTER TABLE donation_purpose
+ADD COLUMN receipt_prefix VARCHAR(5);
+
+UPDATE donation_purpose SET receipt_prefix = 'AB' WHERE name_en = 'Sankalp Abhishek';
+UPDATE donation_purpose SET receipt_prefix = 'DN' WHERE name_en = 'Daan';
+UPDATE donation_purpose SET receipt_prefix = 'AN' WHERE name_en = 'Annadan';
+UPDATE donation_purpose SET receipt_prefix = 'PR' WHERE name_en = 'Prasadam';
+UPDATE donation_purpose SET receipt_prefix = 'NM' WHERE name_en = 'Mandir Nirman';
+
+ALTER TABLE donation_purpose
+ALTER COLUMN receipt_prefix SET NOT NULL;

@@ -1,0 +1,17 @@
+package in.temple.backend.service;
+
+import in.temple.backend.dto.*;
+
+public interface DonationService {
+
+    DonationFormMetadataDto getFormMetadata();
+
+    DonationResponseDto createDonation(
+            DonationRequestDto request,
+            String username);
+
+    DonationResponseDto updateDonation(
+            Long donationId,
+            DonationUpdateRequestDto request,
+            String username);
+}

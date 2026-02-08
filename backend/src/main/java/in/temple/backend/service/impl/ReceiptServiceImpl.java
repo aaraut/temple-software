@@ -23,14 +23,20 @@ public class ReceiptServiceImpl implements ReceiptService {
     private final ReceiptSequenceRepository receiptSequenceRepository;
     private final UserContextService userContextService;
 
+    /**
+     * PREVIEW ONLY
+     * Does NOT lock or consume the sequence.
+     * Preview number is NOT guaranteed to be final.
+     */
     @Override
+    @Transactional(readOnly = true)
     public Map<TransactionType, String> generateReceiptPreview(String username) {
 
         ReceiptSequence sequence = receiptSequenceRepository.findById(1)
                 .orElseThrow(() ->
                         new IllegalStateException("Receipt sequence not initialized"));
 
-        long nextSequence = sequence.getLastSequence() + 1;
+        long previewSequence = sequence.getLastSequence() + 1;
 
         char firstInitial = userContextService.getUserFirstInitial(username);
         char lastInitial  = userContextService.getUserLastInitial(username);
@@ -38,19 +44,29 @@ public class ReceiptServiceImpl implements ReceiptService {
         Map<TransactionType, String> preview = new EnumMap<>(TransactionType.class);
 
         for (TransactionType type : TransactionType.values()) {
-            preview.put(type, buildReceipt(type, firstInitial, lastInitial, nextSequence));
+            preview.put(type, buildReceipt(type, firstInitial, lastInitial, previewSequence));
         }
 
+        log.debug("Preview receipt number {} for user {}", previewSequence, username);
         return preview;
     }
 
+    /**
+     * CONSUMES the receipt number
+     * This is the ONLY place where sequence is incremented.
+     */
     @Override
     @Transactional
-    public String consumeReceiptNumber(TransactionType transactionType, String username) {
+    public String consumeReceiptNumber(String prefix, String username) {
 
-        ReceiptSequence sequence = receiptSequenceRepository.findForUpdate(1)
-                .orElseThrow(() ->
-                        new IllegalStateException("Receipt sequence not initialized"));
+        if (prefix == null || prefix.isBlank()) {
+            throw new IllegalStateException("Receipt prefix is required");
+        }
+
+        ReceiptSequence sequence =
+                receiptSequenceRepository.findForUpdate(1)
+                        .orElseThrow(() ->
+                                new IllegalStateException("Receipt sequence not initialized"));
 
         long nextSequence = sequence.getLastSequence() + 1;
         sequence.setLastSequence(nextSequence);
@@ -59,11 +75,9 @@ public class ReceiptServiceImpl implements ReceiptService {
         char firstInitial = userContextService.getUserFirstInitial(username);
         char lastInitial  = userContextService.getUserLastInitial(username);
 
-        String receipt = buildReceipt(transactionType, firstInitial, lastInitial, nextSequence);
-
-        log.info("Receipt generated {}", receipt);
-        return receipt;
+        return prefix + firstInitial + lastInitial + nextSequence;
     }
+
 
     private String buildReceipt(
             TransactionType type,
