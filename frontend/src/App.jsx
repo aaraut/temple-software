@@ -8,7 +8,7 @@ import ProtectedLayout from "./layouts/ProtectedLayout";
 import ChangePassword from "./pages/ChangePassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import UserList from "./pages/UserList";
-import Abhishek from "./pages/donation/Abhishek";
+import DonationCreatePage from "./pages/donation/DonationCreatePage";
 import Daan from "./pages/donation/Daan";
 
 
@@ -71,17 +71,17 @@ function App() {
         />
 
         <Route
-          path="/donation/abhishek"
+          path="/donation"
           element={
             <ProtectedRoute>
               <ProtectedLayout>
-                <Abhishek />
+                <DonationCreatePage />
               </ProtectedLayout>
             </ProtectedRoute>
           }
         />
 
-        <Route
+        {/* <Route
           path="/donation/daan"
           element={
             <ProtectedRoute>
@@ -90,7 +90,7 @@ function App() {
               </ProtectedLayout>
             </ProtectedRoute>
           }
-        />
+        /> */}
 
 
       </Routes>

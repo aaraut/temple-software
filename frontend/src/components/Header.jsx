@@ -57,9 +57,12 @@ export default function Header() {
           <Button color="inherit" onClick={() => navigate("/gotra")}>
             Gotra
           </Button>
+          <Button color="inherit" onClick={() => navigate("/donation")}>
+            Donation
+          </Button>
 
           {/* Donation Dropdown */}
-          <Button
+          {/* <Button
             color="inherit"
             endIcon={<ArrowDropDownIcon />}
             onClick={handleDonationOpen}
@@ -91,7 +94,7 @@ export default function Header() {
             >
               Daan
             </MenuItem>
-          </Menu>
+          </Menu> */}
 
           {isAdmin && (
             <Button color="inherit" onClick={() => navigate("/users")}>
