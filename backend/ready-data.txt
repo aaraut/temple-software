@@ -1,3 +1,7 @@
+Things pending
+add @PreAuthorize("hasRole('ADMIN')") to changestatus api
+
+
 INSERT INTO donation_purpose
 (name_en, name_hi, fixed_amount, active)
 VALUES
@@ -41,3 +45,22 @@ UPDATE donation_purpose SET receipt_prefix = 'NM' WHERE name_en = 'Mandir Nirman
 
 ALTER TABLE donation_purpose
 ALTER COLUMN receipt_prefix SET NOT NULL;
+
+
+CREATE TABLE donation_audit (
+    id BIGSERIAL PRIMARY KEY,
+
+    donation_id BIGINT NOT NULL,
+
+    action VARCHAR(20) NOT NULL, -- CREATE / UPDATE
+
+    old_data TEXT,  -- JSON string
+    new_data TEXT,  -- JSON string
+
+    performed_by VARCHAR(100) NOT NULL,
+    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE donation
+ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;

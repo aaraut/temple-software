@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/donation")
 @RequiredArgsConstructor
@@ -39,4 +41,34 @@ public class DonationController {
                 donationService.updateDonation(donationId, request, username)
         );
     }
+
+    @PostMapping("/search")
+    public List<DonationListItemDto> search(
+            @RequestBody DonationSearchRequestDto req) {
+        return donationService.searchActiveDonations(req);
+    }
+
+    @PostMapping("/search-inactive")
+    public List<DonationListItemDto> searchInactive(
+            @RequestBody DonationSearchRequestDto req) {
+        return donationService.searchInactiveDonations(req);
+    }
+
+    @PutMapping("/{donationId}/status")
+    public ResponseEntity<Void> changeStatus(
+            @PathVariable Long donationId,
+            @RequestParam boolean active,
+            @RequestParam String username) {
+
+        donationService.changeDonationStatus(
+                donationId,
+                active,
+                username
+        );
+
+        return ResponseEntity.ok().build();
+    }
+
+
+
 }

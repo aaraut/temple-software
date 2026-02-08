@@ -27,6 +27,9 @@ public class DonationServiceImpl implements DonationService {
     private final ReceiptService receiptService;
     private final GotraRepository gotraRepository;
 
+    private final DonationAuditRepository donationAuditRepo;
+
+
     // =================================================
     // FORM METADATA
     // =================================================
@@ -110,6 +113,7 @@ public class DonationServiceImpl implements DonationService {
                 .paymentType("CASH")
                 .createdAt(LocalDateTime.now())
                 .createdBy(username)
+                .active(true)
                 .build();
 
         if (purpose.isRequiresGotra()) {
@@ -124,10 +128,19 @@ public class DonationServiceImpl implements DonationService {
 
         Donation saved = donationRepo.save(donation);
 
+        saveAudit(
+                saved.getId(),
+                "CREATE",
+                null,
+                saved.toString(), // simple version for now
+                username
+        );
+
         return new DonationResponseDto(
                 saved.getId(),
                 saved.getReceiptNumber(),
                 "SUCCESS");
+
     }
 
     // =================================================
@@ -156,6 +169,9 @@ public class DonationServiceImpl implements DonationService {
         }
 
         validateGotra(newPurpose, req.getGotraId());
+
+        String oldData = donation.toString();
+
 
         // ✅ FIX: validate, do NOT override
         validateAmount(newPurpose, req.getAmount());
@@ -186,10 +202,19 @@ public class DonationServiceImpl implements DonationService {
 
         Donation saved = donationRepo.save(donation);
 
+        saveAudit(
+                saved.getId(),
+                "UPDATE",
+                oldData,
+                saved.toString(),
+                username
+        );
+
         return new DonationResponseDto(
                 saved.getId(),
                 saved.getReceiptNumber(),
                 "UPDATED");
+
     }
 
     // =================================================
@@ -232,4 +257,191 @@ public class DonationServiceImpl implements DonationService {
             throw new IllegalStateException("Invalid mobile number");
         }
     }
+
+    private void saveAudit(
+            Long donationId,
+            String action,
+            String oldData,
+            String newData,
+            String username) {
+
+        DonationAudit audit = DonationAudit.builder()
+                .donationId(donationId)
+                .action(action)
+                .oldData(oldData)
+                .newData(newData)
+                .performedBy(username)
+                .performedAt(LocalDateTime.now())
+                .build();
+
+        donationAuditRepo.save(audit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationListItemDto> searchActiveDonations(
+            DonationSearchRequestDto req) {
+
+        var from =
+                req.getFromDate() != null
+                        ? req.getFromDate().atStartOfDay()
+                        : null;
+
+        var to =
+                req.getToDate() != null
+                        ? req.getToDate().atTime(23, 59, 59)
+                        : null;
+
+        List<Donation> donations;
+
+        if (req.getReceiptNumber() != null
+                && req.getMobile() != null
+                && from != null
+                && to != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveTrueAndReceiptNumberAndMobileAndCreatedAtBetweenOrderByCreatedAtDesc(
+                                    req.getReceiptNumber(),
+                                    req.getMobile(),
+                                    from,
+                                    to
+                            );
+
+        } else if (req.getReceiptNumber() != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveTrueAndReceiptNumberOrderByCreatedAtDesc(
+                                    req.getReceiptNumber()
+                            );
+
+        } else if (req.getMobile() != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveTrueAndMobileOrderByCreatedAtDesc(
+                                    req.getMobile()
+                            );
+
+        } else if (from != null && to != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveTrueAndCreatedAtBetweenOrderByCreatedAtDesc(
+                                    from,
+                                    to
+                            );
+
+        } else {
+
+            donations =
+                    donationRepo.findByActiveTrueOrderByCreatedAtDesc();
+        }
+
+        return donations.stream()
+                .map(this::mapToListDto)
+                .toList();
+    }
+
+
+    private DonationListItemDto mapToListDto(Donation d) {
+        DonationListItemDto dto = new DonationListItemDto();
+        dto.setId(d.getId());
+        dto.setReceiptNumber(d.getReceiptNumber());
+        dto.setDonorName(d.getDonorName());
+        dto.setMobile(d.getMobile());
+        dto.setPurposeNameEn(d.getPurposeNameEn());
+        dto.setPurposeNameHi(d.getPurposeNameHi());
+        dto.setAmount(d.getAmount());
+        dto.setCreatedAt(d.getCreatedAt());
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DonationListItemDto> searchInactiveDonations(
+            DonationSearchRequestDto req) {
+
+        var from =
+                req.getFromDate() != null
+                        ? req.getFromDate().atStartOfDay()
+                        : null;
+
+        var to =
+                req.getToDate() != null
+                        ? req.getToDate().atTime(23, 59, 59)
+                        : null;
+
+        List<Donation> donations;
+
+        if (req.getReceiptNumber() != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveFalseAndReceiptNumberOrderByCreatedAtDesc(
+                                    req.getReceiptNumber()
+                            );
+
+        } else if (req.getMobile() != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveFalseAndMobileOrderByCreatedAtDesc(
+                                    req.getMobile()
+                            );
+
+        } else if (from != null && to != null) {
+
+            donations =
+                    donationRepo
+                            .findByActiveFalseAndCreatedAtBetweenOrderByCreatedAtDesc(
+                                    from,
+                                    to
+                            );
+
+        } else {
+
+            donations =
+                    donationRepo.findByActiveFalseOrderByCreatedAtDesc();
+        }
+
+        return donations.stream()
+                .map(this::mapToListDto)
+                .toList();
+    }
+    @Override
+    @Transactional
+    public void changeDonationStatus(
+            Long donationId,
+            boolean active,
+            String username) {
+
+        Donation donation = donationRepo.findById(donationId)
+                .orElseThrow(() ->
+                        new IllegalStateException("Donation not found"));
+
+        // No-op if status is same
+        if (Boolean.TRUE.equals(donation.getActive()) == active) {
+            return;
+        }
+
+        String oldData = donation.toString();
+
+        donation.setActive(active);
+        Donation saved = donationRepo.save(donation);
+
+        saveAudit(
+                saved.getId(),
+                active ? "ENABLE" : "DISABLE",
+                oldData,
+                saved.toString(),
+                username
+        );
+    }
+
+
+
+
+
 }

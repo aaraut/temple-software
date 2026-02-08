@@ -72,4 +72,30 @@ public class Donation {
 
     @Column(nullable = false)
     private String createdBy;
+
+    @Column(nullable = false)
+    private Boolean active = true;
+
+
+    @Override
+    public String toString() {
+        return "Donation{" +
+                "id=" + id +
+                ", receiptNumber='" + receiptNumber + '\'' +
+                ", donorName='" + donorName + '\'' +
+                ", mobile='" + mobile + '\'' +
+                ", amount=" + amount +
+                ", purposeId=" + purposeId +
+                ", purposeNameEn='" + purposeNameEn + '\'' +
+                ", purposeNameHi='" + purposeNameHi + '\'' +
+                ", gotraId='" + gotraId + '\'' +
+                ", gotraNameEn='" + gotraNameEn + '\'' +
+                ", gotraNameHi='" + gotraNameHi + '\'' +
+                ", paymentType='" + paymentType + '\'' +
+                ", createdBy='" + createdBy + '\'' +
+                ", createdAt=" + createdAt +'\'' +
+                ", active=" + active +
+                '}';
+    }
+
 }
