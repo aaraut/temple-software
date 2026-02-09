@@ -11,6 +11,8 @@ export default function Header() {
 
   const [donationAnchor, setDonationAnchor] = useState(null);
   const [profileAnchor, setProfileAnchor] = useState(null);
+  const [inventoryAnchor, setInventoryAnchor] = useState(null);
+
 
   if (!auth) return null;
 
@@ -24,6 +26,15 @@ export default function Header() {
   };
   const handleDonationClose = () => {
     setDonationAnchor(null);
+  };
+
+  /* ---------- Inventory Menu ---------- */
+  const openInventory = Boolean(inventoryAnchor);
+  const handleInventoryOpen = (event) => {
+    setInventoryAnchor(event.currentTarget);
+  };
+  const handleInventoryClose = () => {
+    setInventoryAnchor(null);
   };
 
   /* ---------- Profile Menu ---------- */
@@ -60,6 +71,41 @@ export default function Header() {
           <Button color="inherit" onClick={() => navigate("/donation")}>
             Donation
           </Button>
+
+          {/* 🔹 Inventory Dropdown */}
+          <Button
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleInventoryOpen}
+          >
+            Inventory
+          </Button>
+
+          <Menu
+            anchorEl={inventoryAnchor}
+            open={openInventory}
+            onClose={handleInventoryClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleInventoryClose();
+                navigate("/inventory/bartan");
+              }}
+            >
+              Bartan
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleInventoryClose();
+                navigate("/inventory/bichayat");
+              }}
+            >
+              Bichayat
+            </MenuItem>
+          </Menu>
 
           {/* Donation Dropdown */}
           {/* <Button

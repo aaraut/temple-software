@@ -1,5 +1,8 @@
 Things pending
 add @PreAuthorize("hasRole('ADMIN')") to changestatus api
+Donation report UI api are also pending
+inventory update audit does not show username in json
+Auto-scroll to form on Edit UI for bartan entry
 
 
 INSERT INTO donation_purpose
@@ -64,3 +67,31 @@ CREATE TABLE donation_audit (
 
 ALTER TABLE donation
 ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;
+
+CREATE TABLE inventory_item (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    category VARCHAR(20) NOT NULL,
+    material_name_hi TEXT NOT NULL,
+    unit VARCHAR(20) NOT NULL,
+    rate NUMERIC(10,2) NOT NULL,
+    total_stock INT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE inventory_item_audit (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    inventory_item_id BIGINT NOT NULL,
+    action VARCHAR(20) NOT NULL,           -- CREATE / UPDATE / STOCK_CHANGE
+    changed_by VARCHAR(50) NOT NULL,
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    old_value JSONB,
+    new_value JSONB
+);
+
+ALTER TABLE inventory_item_audit
+ALTER COLUMN old_value TYPE TEXT;
+
+ALTER TABLE inventory_item_audit
+ALTER COLUMN new_value TYPE TEXT;
+

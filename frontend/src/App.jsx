@@ -10,6 +10,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import UserList from "./pages/UserList";
 import DonationCreatePage from "./pages/donation/DonationCreatePage";
 import Daan from "./pages/donation/Daan";
+import InventoryPage from "./pages/inventory/InventoryPage";
 
 
 function App() {
@@ -80,6 +81,28 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/inventory/bartan"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <InventoryPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inventory/bichayat"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <InventoryPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* <Route
           path="/donation/daan"
