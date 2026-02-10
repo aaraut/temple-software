@@ -3,6 +3,7 @@ add @PreAuthorize("hasRole('ADMIN')") to changestatus api
 Donation report UI api are also pending
 inventory update audit does not show username in json
 Auto-scroll to form on Edit UI for bartan entry
+language toggle not working on rental return UI
 
 
 INSERT INTO donation_purpose

@@ -1,50 +1,26 @@
-import { Paper, Grid, Typography } from "@mui/material";
+import { Paper, Typography } from "@mui/material";
 
 export default function RentalSummaryCard({ rental }) {
   return (
-    <Paper sx={{ p: 2, mt: 2, backgroundColor: "#fafafa" }}>
-      <Typography variant="h6" sx={{ mb: 1 }}>
-        किराया विवरण
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 1.5,
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 3,
+        alignItems: "center",
+        borderRadius: 2
+      }}
+    >
+      <Typography><b>नाम:</b> {rental.customerName}</Typography>
+      <Typography><b>मोबाइल:</b> {rental.mobile}</Typography>
+      <Typography><b>पता:</b> {rental.address}</Typography>
+      <Typography>
+        <b>श्रेणी:</b> {rental.category === "BARTAN" ? "बर्तन" : "बिछायत"}
       </Typography>
-
-      <Grid container spacing={2}>
-        <Grid item xs={6}>
-          <Typography><b>नाम:</b> {rental.customerName}</Typography>
-        </Grid>
-
-        <Grid item xs={6}>
-          <Typography><b>मोबाइल:</b> {rental.mobile}</Typography>
-        </Grid>
-
-        <Grid item xs={6}>
-          <Typography><b>पता:</b> {rental.address}</Typography>
-        </Grid>
-
-        <Grid item xs={6}>
-          <Typography>
-            <b>श्रेणी:</b>{" "}
-            {rental.category === "BARTAN" ? "बर्तन" : "बिछायत"}
-          </Typography>
-        </Grid>
-
-        <Grid item xs={4}>
-          <Typography>
-            <b>जमा राशि:</b> ₹{rental.depositAmount}
-          </Typography>
-        </Grid>
-
-        <Grid item xs={4}>
-          <Typography>
-            <b>अब तक का जुर्माना:</b> ₹{rental.totalFineAmount}
-          </Typography>
-        </Grid>
-
-        <Grid item xs={4}>
-          <Typography>
-            <b>स्थिति:</b> {rental.status}
-          </Typography>
-        </Grid>
-      </Grid>
+      <Typography><b>जमा:</b> ₹{rental.depositAmount}</Typography>
+      <Typography><b>जुर्माना:</b> ₹{rental.totalFineAmount}</Typography>
     </Paper>
   );
 }

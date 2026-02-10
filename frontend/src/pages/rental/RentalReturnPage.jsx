@@ -4,40 +4,45 @@ import {
   TextField,
   Button,
   Snackbar,
-  Alert
+  Alert,
+  Paper,
+  Typography,
+  Divider
 } from "@mui/material";
-import { getRentalByReceipt, issueRental } from "../../api/rentalApi";
-import { returnRental } from "../../api/rentalApi";
+import { getRentalByReceipt, returnRental } from "../../api/rentalApi";
 import { useAuth } from "../../context/AuthContext";
 import LanguageToggle from "../../components/LanguageToggle";
 import RentalReturnTable from "../../components/rental/RentalReturnTable";
 import RentalSummaryCard from "../../components/rental/RentalSummaryCard";
-
 const labels = {
   hi: {
     title: "किराया वापसी",
     receipt: "रसीद नंबर",
     search: "खोजें",
-    fine: "जुर्माना / नुकसान राशि",
+    fine: "जुर्माना / नुकसान",
     remarks: "टिप्पणी",
     submit: "वापसी दर्ज करें",
-    notFound: "रसीद नहीं मिली"
+    notFound: "रसीद नहीं मिली",
+    successReturn: "वापसी सफलतापूर्वक दर्ज हुई",
+    errorReturn: "वापसी में त्रुटि"
   },
   en: {
     title: "Rental Return",
     receipt: "Receipt Number",
     search: "Search",
-    fine: "Fine / Loss Amount",
+    fine: "Fine / Loss",
     remarks: "Remarks",
     submit: "Submit Return",
-    notFound: "Receipt not found"
+    notFound: "Receipt not found",
+    successReturn: "Return submitted successfully",
+    errorReturn: "Error in return submission"
   }
 };
+
 
 export default function RentalReturnPage() {
   const { auth } = useAuth();
   const [language, setLanguage] = useState("hi");
-  const t = labels[language];
 
   const [receiptNumber, setReceiptNumber] = useState("");
   const [rental, setRental] = useState(null);
@@ -49,94 +54,118 @@ export default function RentalReturnPage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  const t = labels[language];
+
   const searchRental = async () => {
     setError("");
     try {
-      const resp = await getRentalByReceipt(receiptNumber);
+      const resp = await getRentalByReceipt(receiptNumber.trim());
       setRental(resp.data);
       setReturnItems({});
     } catch {
+      setRental(null);
       setError(t.notFound);
     }
   };
 
   const handleSubmit = async () => {
     try {
-      const payload = {
+      await returnRental({
         receiptNumber,
         fineAmount: fineAmount || 0,
         remarks,
         handledBy: auth.username,
         items: Object.values(returnItems)
-      };
-
-      await returnRental(payload);
-      setSuccess("वापसी सफलतापूर्वक दर्ज हुई");
+      });
+      setSuccess(t.successReturn);
       setRental(null);
+      setReceiptNumber("");
     } catch (e) {
-      setError(e.response?.data?.message || "वापसी में त्रुटि");
+      setError(e.response?.data?.message || t.errorReturn);
     }
   };
 
   return (
-    <Box sx={{ maxWidth: 1000, margin: "auto" }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+    <Box sx={{ maxWidth: 1100, mx: "auto", p: 2 }}>
+      {/* Top bar */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          {t.title}
+        </Typography>
         <LanguageToggle value={language} onChange={setLanguage} />
       </Box>
 
-      <h2>{t.title}</h2>
-
-      <Box sx={{ display: "flex", gap: 2 }}>
+      {/* Search */}
+      <Paper
+        sx={{
+          p: 1.5,
+          display: "flex",
+          gap: 2,
+          alignItems: "center",
+          borderRadius: 2
+        }}
+        variant="outlined"
+      >
         <TextField
+          size="small"
           label={t.receipt}
           value={receiptNumber}
           onChange={(e) => setReceiptNumber(e.target.value)}
         />
-        <Button variant="contained" onClick={searchRental}>
+        <Button size="small" variant="contained" onClick={searchRental}>
           {t.search}
         </Button>
-      </Box>
+      </Paper>
 
       {rental && (
         <>
-          {/* <h3>
-            {rental.category === "BARTAN" ? "बर्तन" : "बिछायत"}
-          </h3> */}
+          <Divider sx={{ my: 2 }} />
+
+          {/* Compact summary */}
           <RentalSummaryCard rental={rental} />
 
-          <RentalReturnTable
-            rental={rental}
-            onChange={setReturnItems}
-          />
+          {/* Table */}
+          <Box sx={{ mt: 2 }}>
+            <RentalReturnTable rental={rental} onChange={setReturnItems} language={language} />
+          </Box>
 
-          <TextField
-            fullWidth
-            label={t.fine}
-            value={fineAmount}
-            onChange={(e) => setFineAmount(e.target.value)}
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            label={t.remarks}
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            margin="normal"
-          />
-
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={handleSubmit}
+          {/* Fine & submit */}
+          <Paper
+            sx={{
+              mt: 2,
+              p: 2,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 2,
+              alignItems: "center"
+            }}
+            variant="outlined"
           >
-            {t.submit}
-          </Button>
+            <TextField
+              size="small"
+              label={t.fine}
+              type="number"
+              value={fineAmount}
+              onChange={(e) => setFineAmount(e.target.value)}
+            />
+
+            <TextField
+              size="small"
+              label={t.remarks}
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+            />
+
+            <Box sx={{ gridColumn: "1 / -1", textAlign: "right" }}>
+              <Button size="small" variant="contained" onClick={handleSubmit}>
+                {t.submit}
+              </Button>
+            </Box>
+          </Paper>
         </>
       )}
 
-      <Snackbar open={!!success} autoHideDuration={12000} onClose={() => setSuccess("")}>
+      <Snackbar open={!!success} autoHideDuration={8000} onClose={() => setSuccess("")}>
         <Alert severity="success">{success}</Alert>
       </Snackbar>
 
