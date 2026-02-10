@@ -95,3 +95,78 @@ ALTER COLUMN old_value TYPE TEXT;
 ALTER TABLE inventory_item_audit
 ALTER COLUMN new_value TYPE TEXT;
 
+// rental
+CREATE SEQUENCE rental_receipt_seq
+START WITH 1
+INCREMENT BY 1
+NO CYCLE;
+
+CREATE TABLE rental (
+    id BIGSERIAL PRIMARY KEY,
+
+    receipt_number VARCHAR(50) NOT NULL UNIQUE,
+    category VARCHAR(20) NOT NULL, -- BARTAN / BICHAYAT
+
+    customer_name VARCHAR(100) NOT NULL,
+    mobile VARCHAR(20),
+    address TEXT,
+    aadhaar VARCHAR(20) DEFAULT '000',
+
+    calculated_total_amount NUMERIC(10,2) NOT NULL,
+    charged_amount NUMERIC(10,2) NOT NULL,
+    deposit_amount NUMERIC(10,2) DEFAULT 0,
+
+    total_fine_amount NUMERIC(10,2) DEFAULT 0,
+    total_refund_amount NUMERIC(10,2) DEFAULT 0,
+
+    status VARCHAR(30) NOT NULL, -- ISSUED / PARTIALLY_RETURNED / RETURNED / CLOSED
+
+    created_by VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+
+CREATE TABLE rental_item (
+    id BIGSERIAL PRIMARY KEY,
+
+    rental_id BIGINT NOT NULL REFERENCES rental(id),
+
+    inventory_item_id BIGINT NOT NULL,
+    item_name_snapshot VARCHAR(200) NOT NULL,
+    rate_at_issue NUMERIC(10,2) NOT NULL,
+
+    issued_qty INTEGER NOT NULL,
+
+    returned_qty INTEGER DEFAULT 0,
+    damaged_qty INTEGER DEFAULT 0,
+    missing_qty INTEGER DEFAULT 0
+);
+
+CREATE TABLE rental_return (
+    id BIGSERIAL PRIMARY KEY,
+
+    rental_id BIGINT NOT NULL REFERENCES rental(id),
+
+    return_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fine_amount NUMERIC(10,2) DEFAULT 0,
+    remarks TEXT,
+
+    created_by VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE damaged_inventory (
+    inventory_item_id BIGINT PRIMARY KEY,
+    total_damaged_qty INTEGER NOT NULL DEFAULT 0,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE INDEX idx_rental_receipt ON rental(receipt_number);
+CREATE INDEX idx_rental_status ON rental(status);
+CREATE INDEX idx_rental_item_rental_id ON rental_item(rental_id);
+CREATE INDEX idx_rental_return_rental_id ON rental_return(rental_id);
+
+
+

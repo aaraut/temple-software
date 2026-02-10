@@ -11,6 +11,8 @@ import UserList from "./pages/UserList";
 import DonationCreatePage from "./pages/donation/DonationCreatePage";
 import Daan from "./pages/donation/Daan";
 import InventoryPage from "./pages/inventory/InventoryPage";
+import RentalIssuePage from "./pages/rental/RentalIssuePage";
+import RentalReturnPage from "./pages/rental/RentalReturnPage";
 
 
 function App() {
@@ -82,6 +84,28 @@ function App() {
           }
         />
         <Route
+          path="/rentals/bartan"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RentalIssuePage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/rentals/bichayat"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RentalIssuePage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/inventory/bartan"
           element={
             <ProtectedRoute>
@@ -102,6 +126,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/rentals/return"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RentalReturnPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
 
 
         {/* <Route

@@ -1,4 +1,13 @@
-import { AppBar, Toolbar, Typography, Box, Button, Menu, MenuItem, IconButton } from "@mui/material";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Box,
+  Button,
+  Menu,
+  MenuItem,
+  IconButton
+} from "@mui/material";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import { useNavigate } from "react-router-dom";
@@ -10,9 +19,9 @@ export default function Header() {
   const navigate = useNavigate();
 
   const [donationAnchor, setDonationAnchor] = useState(null);
-  const [profileAnchor, setProfileAnchor] = useState(null);
   const [inventoryAnchor, setInventoryAnchor] = useState(null);
-
+  const [rentalAnchor, setRentalAnchor] = useState(null);
+  const [profileAnchor, setProfileAnchor] = useState(null);
 
   if (!auth) return null;
 
@@ -37,6 +46,15 @@ export default function Header() {
     setInventoryAnchor(null);
   };
 
+  /* ---------- Rental Menu ---------- */
+  const openRental = Boolean(rentalAnchor);
+  const handleRentalOpen = (event) => {
+    setRentalAnchor(event.currentTarget);
+  };
+  const handleRentalClose = () => {
+    setRentalAnchor(null);
+  };
+
   /* ---------- Profile Menu ---------- */
   const openProfile = Boolean(profileAnchor);
   const handleProfileOpen = (event) => {
@@ -49,7 +67,7 @@ export default function Header() {
   return (
     <AppBar position="static" sx={{ backgroundColor: "#7a1f1f" }}>
       <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-        
+
         {/* Logo */}
         <Typography
           variant="h6"
@@ -61,6 +79,7 @@ export default function Header() {
 
         {/* Main Menu */}
         <Box sx={{ display: "flex", gap: 2 }}>
+
           <Button color="inherit" onClick={() => navigate("/")}>
             Home
           </Button>
@@ -68,6 +87,7 @@ export default function Header() {
           <Button color="inherit" onClick={() => navigate("/gotra")}>
             Gotra
           </Button>
+
           <Button color="inherit" onClick={() => navigate("/donation")}>
             Donation
           </Button>
@@ -107,8 +127,47 @@ export default function Header() {
             </MenuItem>
           </Menu>
 
-          {/* Donation Dropdown */}
-          {/* <Button
+          {/* 🔹 Rental Dropdown (NEW) */}
+          <Button
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleRentalOpen}
+          >
+            Rental
+          </Button>
+
+          <Menu
+            anchorEl={rentalAnchor}
+            open={openRental}
+            onClose={handleRentalClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleRentalClose();
+                navigate("/rentals/bartan");
+              }}
+            >
+              Bartan
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleRentalClose();
+                navigate("/rentals/bichayat");
+              }}
+            >
+              Bichayat
+            </MenuItem>
+          </Menu>
+          <MenuItem onClick={() => navigate("/rentals/return")}>
+            Return Rental
+          </MenuItem>
+
+          {/* Donation Dropdown (REFERENCE – COMMENTED) */}
+          {/*
+          <Button
             color="inherit"
             endIcon={<ArrowDropDownIcon />}
             onClick={handleDonationOpen}
@@ -120,8 +179,6 @@ export default function Header() {
             anchorEl={donationAnchor}
             open={openDonation}
             onClose={handleDonationClose}
-            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-            transformOrigin={{ vertical: "top", horizontal: "left" }}
           >
             <MenuItem
               onClick={() => {
@@ -131,7 +188,6 @@ export default function Header() {
             >
               Abhishek
             </MenuItem>
-
             <MenuItem
               onClick={() => {
                 handleDonationClose();
@@ -140,7 +196,8 @@ export default function Header() {
             >
               Daan
             </MenuItem>
-          </Menu> */}
+          </Menu>
+          */}
 
           {isAdmin && (
             <Button color="inherit" onClick={() => navigate("/users")}>
