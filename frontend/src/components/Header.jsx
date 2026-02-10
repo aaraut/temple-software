@@ -22,6 +22,9 @@ export default function Header() {
   const [inventoryAnchor, setInventoryAnchor] = useState(null);
   const [rentalAnchor, setRentalAnchor] = useState(null);
   const [profileAnchor, setProfileAnchor] = useState(null);
+  const [reportAnchor, setReportAnchor] = useState(null);
+  const openReport = Boolean(reportAnchor);
+
 
   if (!auth) return null;
 
@@ -63,6 +66,15 @@ export default function Header() {
   const handleProfileClose = () => {
     setProfileAnchor(null);
   };
+
+  /****************Reports */
+  const handleReportOpen = (event) => {
+  setReportAnchor(event.currentTarget);
+  };
+  const handleReportClose = () => {
+    setReportAnchor(null);
+  };
+
 
   return (
     <AppBar position="static" sx={{ backgroundColor: "#7a1f1f" }}>
@@ -164,6 +176,59 @@ export default function Header() {
           <MenuItem onClick={() => navigate("/rentals/return")}>
             Return Rental
           </MenuItem>
+          
+          <Button
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleReportOpen}
+          >
+            Reports
+          </Button>
+
+          <Menu
+            anchorEl={reportAnchor}
+            open={openReport}
+            onClose={handleReportClose}
+          >
+            <MenuItem
+              onClick={() => {
+                handleReportClose();
+                navigate("/reports/rentals/my-entries");
+              }}
+            >
+              My Rental Entries
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleReportClose();
+                navigate("/reports/rentals/my");
+              }}
+            >
+              My Rental Summary
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleReportClose();
+                navigate("/reports/rentals/pending");
+              }}
+            >
+              Pending Rentals
+            </MenuItem>
+
+            {isAdmin && (
+              <MenuItem
+                onClick={() => {
+                  handleReportClose();
+                  navigate("/reports/rentals/admin");
+                }}
+              >
+                Rental Admin Summary
+              </MenuItem>
+            )}
+          </Menu>
+
 
           {/* Donation Dropdown (REFERENCE – COMMENTED) */}
           {/*

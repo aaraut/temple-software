@@ -13,6 +13,13 @@ import Daan from "./pages/donation/Daan";
 import InventoryPage from "./pages/inventory/InventoryPage";
 import RentalIssuePage from "./pages/rental/RentalIssuePage";
 import RentalReturnPage from "./pages/rental/RentalReturnPage";
+import MyRentalSummaryPage from "./pages/reports/MyRentalSummaryPage";
+import PendingRentalReportPage from "./pages/reports/PendingRentalReportPage";
+import AdminRentalSummaryPage from "./pages/reports/AdminRentalSummaryPage";
+import MyRentalEntriesPage from "./pages/reports/MyRentalEntriesPage";
+import RentalDetailPage from "./pages/rental/RentalDetailPage";
+import "./styles/print.css";
+
 
 
 function App() {
@@ -137,6 +144,61 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/reports/rentals/my"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <MyRentalSummaryPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/rentals/pending"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <PendingRentalReportPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/rentals/admin"
+          element={
+            <ProtectedRoute roles={["ADMIN", "SUPER_ADMIN"]}>
+              <ProtectedLayout>
+                <AdminRentalSummaryPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports/rentals/my-entries"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <MyRentalEntriesPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentals/view/:receiptNumber"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RentalDetailPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+
+
 
 
 
