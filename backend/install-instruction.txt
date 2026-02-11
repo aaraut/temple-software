@@ -6,3 +6,53 @@ Look for:
 DHCP Enabled . . . . . . . . : Yes
 If Yes → Dynamic IP
 If No → Static IP
+
+
+for local https issue in future
+run for windows inside nginx for linux use this as preferred way of docker
+docker run --rm -v ${PWD}:/certs alpine sh -c "apk add --no-cache openssl && openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /certs/server.key -out /certs/server.crt -subj '/CN=192.168.1.50'"
+
+Replace:
+
+192.168.1.50
+with your actual server IP.
+
+option B for linux
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+-keyout server.key -out server.crt
+
+When asked:
+
+Common Name (CN) → Enter your server IP
+Example:
+
+192.168.1.50
+When you generated the cert, you used:
+
+/CN=192.168.1.6
+
+
+That means:
+
+The certificate is valid ONLY for:
+
+https://192.168.1.6
+
+
+If your IP changes to:
+
+192.168.1.20
+
+
+Browser will show:
+
+Certificate does not match host
+
+
+Because CN mismatch.
+
+So yes — if IP changes → recreate certificate.
+also this is valid for 365 days we need to update this as well after 365 days
+
+
+Reserve ip on router for server so ip will be static and no need to create multiple time
