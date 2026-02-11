@@ -1,0 +1,51 @@
+Add HTTPS locally
+Prevent public internet exposure
+ harden security for VPN access
+
+Prevent Public Internet Exposure
+
+Right now your server:
+
+Has internet
+
+Runs Docker
+
+Exposes port 8081
+
+If router has:
+
+Port forwarding enabled
+
+UPnP enabled
+
+Then your server could be accidentally reachable from public internet.
+
+That is dangerous.
+
+What I Mean By Prevent Exposure
+
+Make sure:
+
+Router has NO port forwarding to 8081
+
+UPnP disabled
+
+Windows firewall only allows:
+
+LAN subnet
+
+WireGuard subnet
+
+Block everything else.
+
+Example firewall rule:
+
+Allow:
+
+192.168.0.0/16
+10.0.0.0/8
+
+
+Block:
+
+Any public IP
