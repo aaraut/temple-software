@@ -31,6 +31,13 @@ public interface DonationService {
             String username
     );
 
+    byte[] createDonationAndReturnReceiptPdf(
+            DonationRequestDto req,
+            String username);
+
+
+
+
 
 
 }

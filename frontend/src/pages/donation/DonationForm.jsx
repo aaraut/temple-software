@@ -10,7 +10,7 @@ import {
   Alert,
 } from "@mui/material";
 
-import { getDonationFormMetadata, createDonation } from "../../api/donationApi";
+import { getDonationFormMetadata, createDonation, createDonationAndPrint  } from "../../api/donationApi";
 import { useAuth } from "../../context/AuthContext";
 import LanguageToggle from "../../components/LanguageToggle";
 
@@ -153,6 +153,63 @@ export default function DonationForm() {
 };
 const t = labels[language];
 
+  const handleSaveAndPrint = async () => {
+  setError("");
+  setSuccess("");
+
+  try {
+    setLoading(true);
+
+    const payload = {
+      donorName: form.donorName,
+      address: form.address,
+      mobile: form.mobile,
+      purposeId: form.purposeId,
+      amount:
+        selectedPurpose?.fixedAmount != null
+          ? selectedPurpose.fixedAmount
+          : form.amount,
+      gotraId: requiresGotra ? form.gotraId : null,
+    };
+
+    const blob = await createDonationAndPrint(
+      payload,
+      auth.username
+    );
+
+    const url = window.URL.createObjectURL(blob);
+    const printWindow = window.open(url);
+
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+
+    setSuccess("Donation saved successfully!");
+
+    // reset form
+    setForm({
+      donorName: "",
+      address: "",
+      mobile: "",
+      purposeId: "",
+      amount: "",
+      gotraId: "",
+    });
+
+  } catch (e) {
+    console.error("Save & Print failed:", e);
+    setError(
+      e.response?.data?.message || "Failed to save and print donation"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+
   return (
     <div style={{ maxWidth: 600, margin: "auto" }}>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -246,6 +303,15 @@ const t = labels[language];
       >
         Save Donation
       </Button>
+
+      <Button
+        variant="contained"
+        color="secondary"
+        onClick={handleSaveAndPrint}
+      >
+        {loading ? "Processing..." : "Save & Print"}
+      </Button>
+
 
       {/* Success */}
       <Snackbar

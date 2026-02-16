@@ -4,6 +4,8 @@ import in.temple.backend.dto.*;
 import in.temple.backend.service.DonationService;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -68,6 +70,27 @@ public class DonationController {
 
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping(
+            value = "/create-and-print",
+            produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> createAndPrint(
+            @RequestBody DonationRequestDto request,
+            @RequestParam String username) {
+
+        byte[] pdf =
+                donationService.createDonationAndReturnReceiptPdf(
+                        request,
+                        username
+                );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=receipt.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
 
 
 

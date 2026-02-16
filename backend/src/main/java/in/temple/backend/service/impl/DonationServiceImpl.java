@@ -1,5 +1,7 @@
 package in.temple.backend.service.impl;
 
+import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.layout.properties.UnitValue;
 import in.temple.backend.dto.*;
 import in.temple.backend.model.*;
 import in.temple.backend.repository.*;
@@ -14,6 +16,33 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
+
+// iText PDF
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.io.font.PdfEncodings;
+
+import com.itextpdf.layout.element.Image;
+import com.itextpdf.io.image.ImageDataFactory;
+
+//import com.itextpdf.layout.property.TextAlignment;
+//import com.itextpdf.layout.property.UnitValue;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Paragraph;
+
+
+
+import java.io.InputStream;
+import java.time.format.DateTimeFormatter;
+
+
+// Java IO
+import java.io.ByteArrayOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -439,6 +468,136 @@ public class DonationServiceImpl implements DonationService {
                 username
         );
     }
+
+    @Override
+    @Transactional
+    public byte[] createDonationAndReturnReceiptPdf(
+            DonationRequestDto req,
+            String username) {
+
+        // Step 1: Save donation (sequence consumed here)
+        DonationResponseDto response =
+                createDonation(req, username);
+
+        // Step 2: Fetch saved donation
+        Donation donation = donationRepo.findById(response.getDonationId())
+                .orElseThrow(() ->
+                        new IllegalStateException("Donation not found"));
+
+        // Step 3: Generate printable receipt
+        return generateReceiptPdf(donation);
+    }
+
+    private byte[] generateReceiptPdf(Donation donation) {
+
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfWriter writer = new PdfWriter(out);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            // ---------------- Load Hindi Font ----------------
+            InputStream fontStream =
+                    getClass().getResourceAsStream("/fonts/NotoSansDevanagari-Regular.ttf");
+
+            PdfFont hindiFont = PdfFontFactory.createFont(
+            );
+
+
+            PdfFont englishFont = PdfFontFactory.createFont(
+                    com.itextpdf.io.font.constants.StandardFonts.HELVETICA
+            );
+
+            // ---------------- Logo ----------------
+            InputStream logoStream =
+                    getClass().getResourceAsStream("/static/logo.png");
+
+            if (logoStream != null) {
+                byte[] logoBytes = logoStream.readAllBytes();
+                Image logo = new Image(ImageDataFactory.create(logoBytes));
+                logo.setWidth(80);
+                logo.setAutoScale(true);
+//                logo.setHorizontalAlignment(
+//                        com.itextpdf.layout.property.HorizontalAlignment.CENTER
+//                );
+                document.add(logo);
+            }
+
+            // ---------------- Title ----------------
+            document.add(
+                    new Paragraph("श्री मंदिर दान रसीद")
+                            .setFont(hindiFont)
+                            .setFontSize(18)
+                            .setBold()
+                            .setTextAlignment(TextAlignment.CENTER)
+            );
+
+            document.add(
+                    new Paragraph("Temple Donation Receipt")
+                            .setFont(englishFont)
+                            .setFontSize(14)
+                            .setTextAlignment(TextAlignment.CENTER)
+            );
+
+            document.add(new Paragraph("\n"));
+
+            // ---------------- Table Layout ----------------
+            Table table = new Table(UnitValue.createPercentArray(new float[]{40, 60}))
+                    .useAllAvailableWidth();
+
+            DateTimeFormatter formatter =
+                    DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+
+            addRow(table, "रसीद संख्या", donation.getReceiptNumber(), hindiFont, englishFont);
+            addRow(table, "दिनांक", donation.getCreatedAt().format(formatter), hindiFont, englishFont);
+            addRow(table, "नाम", donation.getDonorName(), hindiFont, englishFont);
+            addRow(table, "मोबाइल", donation.getMobile(), hindiFont, englishFont);
+            addRow(table, "दान उद्देश्य", donation.getPurposeNameHi(), hindiFont, englishFont);
+            addRow(table, "राशि", "₹ " + donation.getAmount(), hindiFont, englishFont);
+
+            if (donation.getGotraNameHi() != null) {
+                addRow(table, "गोत्र", donation.getGotraNameHi(), hindiFont, englishFont);
+            }
+
+            document.add(table);
+
+            document.add(new Paragraph("\n"));
+
+            document.add(
+                    new Paragraph("आपके सहयोग के लिए धन्यवाद 🙏")
+                            .setFont(hindiFont)
+                            .setFontSize(12)
+                            .setTextAlignment(TextAlignment.CENTER)
+            );
+
+            document.close();
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate receipt PDF", e);
+        }
+    }
+
+    private void addRow(Table table,
+                        String label,
+                        String value,
+                        PdfFont hindiFont,
+                        PdfFont englishFont) {
+
+        table.addCell(
+                new Cell().add(new Paragraph(label)
+                        .setFont(hindiFont)
+                        .setBold())
+        );
+
+        table.addCell(
+                new Cell().add(new Paragraph(value != null ? value : "")
+                        .setFont(englishFont))
+        );
+    }
+
+
+
 
 
 

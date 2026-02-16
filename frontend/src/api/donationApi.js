@@ -14,3 +14,16 @@ export async function createDonation(payload, username) {
   );
   return resp.data;
 }
+
+// ✅ NEW: Save & Print donation
+export async function createDonationAndPrint(payload, username) {
+  const resp = await axiosClient.post(
+    `/donation/create-and-print?username=${encodeURIComponent(username)}`,
+    payload,
+    {
+      responseType: "blob"   // 🔥 VERY IMPORTANT
+    }
+  );
+
+  return resp.data; // this will be Blob
+}
