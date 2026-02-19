@@ -137,7 +137,16 @@ export default function Header() {
             >
               Bichayat
             </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleInventoryClose();
+                navigate("/inventory/rooms");
+              }}
+            >
+              Bhakt Niwas (Rooms)
+            </MenuItem>
           </Menu>
+          
 
           {/* 🔹 Rental Dropdown (NEW) */}
           <Button

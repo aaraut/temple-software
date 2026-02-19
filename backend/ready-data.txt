@@ -4,6 +4,8 @@ Donation report UI api are also pending
 inventory update audit does not show username in json
 Auto-scroll to form on Edit UI for bartan entry
 language toggle not working on rental return UI
+Delete room
+add room inventory currently in english
 
 
 INSERT INTO donation_purpose
@@ -168,6 +170,10 @@ CREATE INDEX idx_rental_receipt ON rental(receipt_number);
 CREATE INDEX idx_rental_status ON rental(status);
 CREATE INDEX idx_rental_item_rental_id ON rental_item(rental_id);
 CREATE INDEX idx_rental_return_rental_id ON rental_return(rental_id);
+
+if reqd
+UPDATE room SET is_active = true WHERE is_active IS NULL;
+
 
 
 

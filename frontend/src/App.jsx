@@ -19,6 +19,8 @@ import AdminRentalSummaryPage from "./pages/reports/AdminRentalSummaryPage";
 import MyRentalEntriesPage from "./pages/reports/MyRentalEntriesPage";
 import RentalDetailPage from "./pages/rental/RentalDetailPage";
 import "./styles/print.css";
+import RoomPage from "./pages/room/RoomInventoryPage";
+// import RoomPage from "./components/room/RoomPage";
 
 
 
@@ -111,6 +113,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/inventory/rooms" element={
+          <ProtectedRoute>
+              <ProtectedLayout>
+                <RoomPage />
+              </ProtectedLayout>
+            </ProtectedRoute>} />
+            
+
 
         <Route
           path="/inventory/bartan"
