@@ -7,6 +7,15 @@ language toggle not working on rental return UI
 Delete room
 add room inventory currently in english
 
+//Infra level
+remove postgres port 5432 currently exposeddo
+
+
+//next time to update image follow this
+docker compose down
+docker pull yourdockerhubusername/temple-backend:1.1
+docker compose up -d
+
 
 INSERT INTO donation_purpose
 (name_en, name_hi, fixed_amount, active)
@@ -173,6 +182,9 @@ CREATE INDEX idx_rental_return_rental_id ON rental_return(rental_id);
 
 if reqd
 UPDATE room SET is_active = true WHERE is_active IS NULL;
+
+
+CREATE SEQUENCE room_booking_seq START 1;
 
 
 

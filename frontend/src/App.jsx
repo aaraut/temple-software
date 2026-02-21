@@ -20,6 +20,8 @@ import MyRentalEntriesPage from "./pages/reports/MyRentalEntriesPage";
 import RentalDetailPage from "./pages/rental/RentalDetailPage";
 import "./styles/print.css";
 import RoomPage from "./pages/room/RoomInventoryPage";
+import RoomBookingPage from "./pages/room/RoomBookingPage";
+import BhaktNiwasPage from "./pages/bhaktniwas/BhaktNiwasPage";
 // import RoomPage from "./components/room/RoomPage";
 
 
@@ -102,6 +104,17 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/bhakt-niwas"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <BhaktNiwasPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
 
         <Route
           path="/rentals/bichayat"
@@ -113,12 +126,28 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/inventory/rooms" element={
-          <ProtectedRoute>
+        <Route
+          path="/inventory/rooms"
+          element={
+            <ProtectedRoute>
               <ProtectedLayout>
                 <RoomPage />
               </ProtectedLayout>
-            </ProtectedRoute>} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/rooms/bookings"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RoomBookingPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
             
 
 

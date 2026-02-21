@@ -23,6 +23,8 @@ export default function Header() {
   const [rentalAnchor, setRentalAnchor] = useState(null);
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [reportAnchor, setReportAnchor] = useState(null);
+  const [roomAnchor, setRoomAnchor] = useState(null);
+  const openRoom = Boolean(roomAnchor);
   const openReport = Boolean(reportAnchor);
 
 
@@ -74,6 +76,16 @@ export default function Header() {
   const handleReportClose = () => {
     setReportAnchor(null);
   };
+
+  
+
+const handleRoomOpen = (event) => {
+  setRoomAnchor(event.currentTarget);
+};
+
+const handleRoomClose = () => {
+  setRoomAnchor(null);
+};
 
 
   return (
@@ -137,14 +149,7 @@ export default function Header() {
             >
               Bichayat
             </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleInventoryClose();
-                navigate("/inventory/rooms");
-              }}
-            >
-              Bhakt Niwas (Rooms)
-            </MenuItem>
+            
           </Menu>
           
 
@@ -237,6 +242,49 @@ export default function Header() {
               </MenuItem>
             )}
           </Menu>
+          {/* 🔹 Bhakt Niwas Dropdown */}
+          <Button
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleRoomOpen}
+          >
+            Bhakt Niwas
+          </Button>
+
+          <Menu
+            anchorEl={roomAnchor}
+            open={openRoom}
+            onClose={handleRoomClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleRoomClose();
+                navigate("/bhakt-niwas");
+              }}
+            >
+              Bhakt Niwas Dashboard
+            </MenuItem>
+            {/* <MenuItem
+              onClick={() => {
+                handleRoomClose();
+                navigate("/inventory/rooms");
+              }}
+            >
+              Room Inventory
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                handleRoomClose();
+                navigate("/rooms/bookings");
+              }}
+            >
+              Room Booking
+            </MenuItem> */}
+          </Menu>
+
 
 
           {/* Donation Dropdown (REFERENCE – COMMENTED) */}
