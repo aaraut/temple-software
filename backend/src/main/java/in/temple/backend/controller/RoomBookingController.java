@@ -62,6 +62,26 @@ public class RoomBookingController {
         bookingService.cancelBooking(request);
     }
 
+    @GetMapping("/dashboard/occupancy")
+    public OccupancyReportDto getOccupancy() {
+        return bookingService.getOccupancyReport();
+    }
+
+    @GetMapping("/reports/revenue")
+    public RevenueReportDto getRevenue(
+            @RequestParam(required = false) String username,
+
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime start,
+
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime end
+    ) {
+        return bookingService.getRevenue(username, start, end);
+    }
+
 
 
 

@@ -294,12 +294,12 @@ const t = labels[language];
         </FormControl>
       )}
 
+      
       <Button
         variant="contained"
         color="primary"
-        fullWidth
         onClick={handleSubmit}
-        style={{ marginTop: 16 }}
+        style={{ margin: 15 }}
       >
         Save Donation
       </Button>

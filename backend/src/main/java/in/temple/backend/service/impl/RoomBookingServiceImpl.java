@@ -6,6 +6,7 @@ import in.temple.backend.model.Room;
 import in.temple.backend.model.RoomBooking;
 import in.temple.backend.model.RoomBookingAudit;
 import in.temple.backend.model.enums.BookingStatus;
+import in.temple.backend.model.enums.CleaningStatus;
 import in.temple.backend.repository.RoomBookingAuditRepository;
 import in.temple.backend.repository.RoomBookingRepository;
 import in.temple.backend.repository.RoomRepository;
@@ -393,30 +394,56 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             LocalDateTime start,
             LocalDateTime end) {
 
-        return roomRepository.findAll()
-                .stream()
+        // Basic validation
+        if (start == null || end == null) {
+            throw new RuntimeException("Start and End date required");
+        }
+
+        if (!end.isAfter(start)) {
+            throw new RuntimeException("End date must be after start date");
+        }
+
+        List<Room> rooms = roomRepository.findAll();
+
+        return rooms.stream()
                 .map(room -> {
 
-                    boolean occupied = bookingRepository.isRoomOccupied(
-                            room.getId(),
-                            start,
-                            end
-                    );
+                    // 1️⃣ If room inactive → not available
+//                    if (!room.isActive()) {
+//                        return buildDto(room, false);
+//                    }
 
-                    boolean available = !occupied
-                            && room.getStatus().name().equals("AVAILABLE")
-                            && room.getIsActive();
+                    // 2️⃣ Check booking overlap
+                    boolean occupied = bookingRepository
+                            .isRoomOccupied(
+                                    room.getId(),
+                                    start,
+                                    end
+                            );
 
-                    return RoomAvailabilityDto.builder()
-                            .roomId(room.getId())
-                            .roomNumber(room.getRoomNumber())
-                            .blockName(room.getBlockName())
-                            .roomStatus(room.getStatus())
-                            .cleaningStatus(room.getCleaningStatus())
-                            .available(available)
-                            .build();
+                    // 3️⃣ Cleaning status check
+                    boolean cleaningBlocked =
+                            room.getCleaningStatus() == CleaningStatus.DIRTY
+                                    || room.getCleaningStatus() == CleaningStatus.CLEANING_IN_PROGRESS;
+
+                    boolean available = !occupied && !cleaningBlocked;
+
+                    return buildDto(room, available);
+
                 })
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    private RoomAvailabilityDto buildDto(Room room, boolean available) {
+
+        return RoomAvailabilityDto.builder()
+                .roomId(room.getId())
+                .roomNumber(room.getRoomNumber())
+                .blockName(room.getBlockName())
+                .roomStatus(room.getStatus())
+                .cleaningStatus(room.getCleaningStatus())
+                .available(available)
+                .build();
     }
 
     @Override
@@ -496,5 +523,86 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public OccupancyReportDto getOccupancyReport() {
+
+        Long total = bookingRepository.countActiveRooms();
+        Long occupied = bookingRepository.countOccupiedRooms();
+
+        double percentage = total == 0
+                ? 0
+                : (occupied * 100.0) / total;
+
+        return new OccupancyReportDto(
+                total,
+                occupied,
+                percentage
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RevenueReportDto getRevenue(
+            String username,
+            LocalDateTime start,
+            LocalDateTime end) {
+
+        List<Object[]> result =
+                bookingRepository.getRevenueRaw(username, start, end);
+
+        if (result.isEmpty()) {
+            return new RevenueReportDto(
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO
+            );
+        }
+
+        Object[] raw = result.get(0);
+
+        BigDecimal rent = toBigDecimal(raw[0]);
+        BigDecimal depositCollected = toBigDecimal(raw[1]);
+        BigDecimal depositRefunded = toBigDecimal(raw[2]);
+
+        BigDecimal cancellationCharge = BigDecimal.ZERO;
+
+        BigDecimal netCash =
+                rent
+                        .add(depositCollected)
+                        .subtract(depositRefunded);
+
+        return new RevenueReportDto(
+                rent,
+                depositCollected,
+                depositRefunded,
+                cancellationCharge,
+                netCash
+        );
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+
+        if (value == null) return BigDecimal.ZERO;
+
+        if (value instanceof BigDecimal)
+            return (BigDecimal) value;
+
+        if (value instanceof Double)
+            return BigDecimal.valueOf((Double) value);
+
+        if (value instanceof Long)
+            return BigDecimal.valueOf((Long) value);
+
+        if (value instanceof Integer)
+            return BigDecimal.valueOf((Integer) value);
+
+        if (value instanceof java.math.BigInteger)
+            return new BigDecimal((java.math.BigInteger) value);
+
+        return BigDecimal.ZERO;
+    }
 
 }

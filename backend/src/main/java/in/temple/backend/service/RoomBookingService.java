@@ -27,5 +27,9 @@ public interface RoomBookingService {
     void cancelBooking(RoomBookingCancelRequestDto request);
 
 
-
+    OccupancyReportDto getOccupancyReport();
+    RevenueReportDto getRevenue(
+            String username,
+            LocalDateTime start,
+            LocalDateTime end);
 }

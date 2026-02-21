@@ -1,27 +1,31 @@
-import axios from "axios";
+import axiosClient from "./axiosClient";
 
-const API_BASE = "http://localhost:8080/api";
-
+/* ===========================
+   LOGIN
+=========================== */
 export const loginApi = async (username, password) => {
-  const res = await axios.post(`${API_BASE}/auth/login`, {
+  const res = await axiosClient.post("/auth/login", {
     username,
     password,
   });
   return res.data;
 };
 
-export const changePasswordApi = async (oldPassword, newPassword, token) => {
-  await axios.post(
-    `${API_BASE}/auth/change-password`,
-    { oldPassword, newPassword },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+/* ===========================
+   CHANGE PASSWORD
+=========================== */
+export const changePasswordApi = async (oldPassword, newPassword) => {
+  const res = await axiosClient.post("/auth/change-password", {
+    oldPassword,
+    newPassword,
+  });
+  return res.data;
 };
 
+/* ===========================
+   FORGOT PASSWORD
+=========================== */
 export const forgotPasswordApi = async (payload) => {
-  await axios.post(`${API_BASE}/auth/forgot-password`, payload);
+  const res = await axiosClient.post("/auth/forgot-password", payload);
+  return res.data;
 };

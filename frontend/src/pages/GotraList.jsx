@@ -1,8 +1,23 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Snackbar,
+  Alert,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  CircularProgress,
+  Divider
+} from "@mui/material";
+
 import { listGotras, createGotra } from "../api/gotraApi";
 import { useAuth } from "../context/AuthContext";
 import GotraForm from "../components/GotraForm";
-import "./GotraList.css";
 
 export default function GotraList() {
   const { auth } = useAuth();
@@ -41,68 +56,91 @@ export default function GotraList() {
   };
 
   return (
-    <div className="gotra-page">
-      <div className="gotra-header">
-        <h2>Gotra Management</h2>
-        <p className="subtitle">
-          Manage gotras in Hindi and English
-        </p>
-      </div>
+    <Box sx={{ maxWidth: 900, mx: "auto", mt: 4 }}>
+      <Paper elevation={4} sx={{ p: 4, borderRadius: 4 }}>
 
-      {error && <div className="alert error">{error}</div>}
-      {success && <div className="alert success">{success}</div>}
+        {/* Header */}
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h5" fontWeight={600}>
+              Gotra Management
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Manage gotras in Hindi and English
+            </Typography>
+          </Box>
 
-      {isAdmin && (
-        <>
-          {!showForm && (
-            <button
-              className="primary-btn"
+          {isAdmin && !showForm && (
+            <Button
+              variant="contained"
               onClick={() => {
                 setShowForm(true);
                 setSuccess("");
               }}
             >
               + Add Gotra
-            </button>
+            </Button>
           )}
+        </Box>
 
-          {showForm && (
-            <div style={{ marginTop: 16 }}>
-              <GotraForm
-                onSaved={handleSave}
-                onCancel={() => setShowForm(false)}
-              />
-            </div>
-          )}
-        </>
-      )}
+        <Divider sx={{ my: 3 }} />
 
-      <div className="gotra-card">
-        {loading ? (
-          <p className="status-text">Loading gotras...</p>
-        ) : gotras.length === 0 ? (
-          <p className="status-text">No gotras found</p>
-        ) : (
-          <table className="gotra-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Gotra (हिंदी)</th>
-                <th>Gotra (English)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gotras.map((g, index) => (
-                <tr key={g.id}>
-                  <td>{index + 1}</td>
-                  <td>{g.hindiName}</td>
-                  <td>{g.englishName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Alerts */}
+        <Snackbar
+          open={!!success}
+          autoHideDuration={4000}
+          onClose={() => setSuccess("")}
+        >
+          <Alert severity="success">{success}</Alert>
+        </Snackbar>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
         )}
-      </div>
-    </div>
+
+        {/* Form */}
+        {isAdmin && showForm && (
+          <Box sx={{ mb: 4 }}>
+            <GotraForm
+              onSaved={handleSave}
+              onCancel={() => setShowForm(false)}
+            />
+          </Box>
+        )}
+
+        {/* Table */}
+        {loading ? (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : gotras.length === 0 ? (
+          <Typography align="center" color="text.secondary">
+            No gotras found
+          </Typography>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>#</TableCell>
+                <TableCell>Gotra (हिंदी)</TableCell>
+                <TableCell>Gotra (English)</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {gotras.map((g, index) => (
+                <TableRow key={g.id}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>{g.hindiName}</TableCell>
+                  <TableCell>{g.englishName}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+      </Paper>
+    </Box>
   );
 }
