@@ -108,9 +108,7 @@ const handleRoomClose = () => {
             Home
           </Button>
 
-          <Button color="inherit" onClick={() => navigate("/gotra")}>
-            Gotra
-          </Button>
+          
 
           <Button color="inherit" onClick={() => navigate("/donation")}>
             Donation
@@ -122,7 +120,7 @@ const handleRoomClose = () => {
             endIcon={<ArrowDropDownIcon />}
             onClick={handleInventoryOpen}
           >
-            Inventory
+            Master
           </Button>
 
           <Menu
@@ -149,7 +147,14 @@ const handleRoomClose = () => {
             >
               Bichayat
             </MenuItem>
-            
+            <MenuItem
+              onClick={() => {
+                handleInventoryClose();
+                navigate("/gotra");
+              }}
+            >
+              Gotra
+            </MenuItem>
           </Menu>
           
 
