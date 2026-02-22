@@ -22,6 +22,7 @@ import "./styles/print.css";
 import RoomPage from "./pages/room/RoomInventoryPage";
 import RoomBookingPage from "./pages/room/RoomBookingPage";
 import BhaktNiwasPage from "./pages/bhaktniwas/BhaktNiwasPage";
+import DonationPurposePage from "./pages/master/DonationPurposePage";
 // import RoomPage from "./components/room/RoomPage";
 
 
@@ -233,6 +234,15 @@ function App() {
                 <RentalDetailPage />
               </ProtectedLayout>
             </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/master/donation-purpose"
+          element={
+            <ProtectedLayout roles={["ADMIN", "SUPER_ADMIN"]}>
+              <DonationPurposePage />
+            </ProtectedLayout>
           }
         />
 

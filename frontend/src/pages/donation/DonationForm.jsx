@@ -90,40 +90,54 @@ export default function DonationForm() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async () => {
+  // const handleSubmit = async () => {
+  //   setError("");
+  //   setSuccess("");
+
+  //   try {
+  //     const payload = {
+  //       donorName: form.donorName,
+  //       address: form.address,
+  //       mobile: form.mobile,
+  //       purposeId: form.purposeId,
+  //       amount:
+  //         selectedPurpose?.fixedAmount != null
+  //           ? selectedPurpose.fixedAmount
+  //           : form.amount,
+  //       gotraId: requiresGotra ? form.gotraId : null,
+  //     };
+
+  //     const resp = await createDonation(payload, auth.username);
+  //     setSuccess(`Donation saved. Receipt: ${resp.receiptNumber}`);
+
+  //     // reset form
+  //     setForm({
+  //       donorName: "",
+  //       address: "",
+  //       mobile: "",
+  //       purposeId: "",
+  //       amount: "",
+  //       gotraId: "",
+  //     });
+  //   } catch (e) {
+  //     setError(
+  //       e.response?.data?.message || "Failed to save donation"
+  //     );
+  //   }
+  // };
+
+  const handleReset = () => {
     setError("");
     setSuccess("");
-
-    try {
-      const payload = {
-        donorName: form.donorName,
-        address: form.address,
-        mobile: form.mobile,
-        purposeId: form.purposeId,
-        amount:
-          selectedPurpose?.fixedAmount != null
-            ? selectedPurpose.fixedAmount
-            : form.amount,
-        gotraId: requiresGotra ? form.gotraId : null,
-      };
-
-      const resp = await createDonation(payload, auth.username);
-      setSuccess(`Donation saved. Receipt: ${resp.receiptNumber}`);
-
-      // reset form
-      setForm({
-        donorName: "",
-        address: "",
-        mobile: "",
-        purposeId: "",
-        amount: "",
-        gotraId: "",
-      });
-    } catch (e) {
-      setError(
-        e.response?.data?.message || "Failed to save donation"
-      );
-    }
+    setLoading(false);
+    setForm({
+      donorName: "",
+      address: "",
+      mobile: "",
+      purposeId: "",
+      amount: "",
+      gotraId: "",
+    });
   };
 
   if (loading) return <p>Loading...</p>;
@@ -177,17 +191,30 @@ const t = labels[language];
       auth.username
     );
 
-    const url = window.URL.createObjectURL(blob);
-    const printWindow = window.open(url);
+    const blobUrl = URL.createObjectURL(blob);
 
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    const printWindow = window.open("", "_blank");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Receipt</title>
+          <style>
+            body { margin: 0; }
+            iframe { width: 100%; height: 100vh; border: none; }
+          </style>
+        </head>
+        <body>
+          <iframe src="${blobUrl}" onload="window.print(); setTimeout(() => window.close(), 500);"></iframe>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
 
     setSuccess("Donation saved successfully!");
 
-    // reset form
+    // Reset form
     setForm({
       donorName: "",
       address: "",
@@ -205,7 +232,9 @@ const t = labels[language];
   } finally {
     setLoading(false);
   }
-};
+  };
+
+  
 
 
 
@@ -295,21 +324,29 @@ const t = labels[language];
       )}
 
       
-      <Button
+      {/* <Button
         variant="contained"
         color="primary"
         onClick={handleSubmit}
         style={{ margin: 15 }}
       >
         Save Donation
-      </Button>
+      </Button> */}
 
       <Button
         variant="contained"
-        color="secondary"
+        color="primary"
         onClick={handleSaveAndPrint}
       >
         {loading ? "Processing..." : "Save & Print"}
+      </Button>
+      <Button
+        variant="contained"
+        color="secondary"
+        onClick={handleReset}
+        style={{ marginLeft: 20 }}
+      >
+        Reset
       </Button>
 
 

@@ -12,6 +12,7 @@ public interface DonationPurposeService {
     DonationPurpose create(
             String nameEn,
             String nameHi,
+            String receiptPrefix,
             BigDecimal fixedAmount,
             String username);
 
@@ -19,6 +20,7 @@ public interface DonationPurposeService {
             Long id,
             String nameEn,
             String nameHi,
+            String receiptPrefix,
             BigDecimal fixedAmount,
             boolean active,
             String username);

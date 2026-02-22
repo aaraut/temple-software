@@ -155,6 +155,16 @@ const handleRoomClose = () => {
             >
               Gotra
             </MenuItem>
+            {isAdmin && (
+            <MenuItem
+              onClick={() => {
+                handleInventoryClose();
+                navigate("/master/donation-purpose");
+              }}
+            >
+              Donation Purpose
+            </MenuItem>
+          )}
           </Menu>
           
 

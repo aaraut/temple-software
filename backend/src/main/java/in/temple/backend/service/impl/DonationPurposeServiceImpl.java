@@ -31,7 +31,8 @@ public class DonationPurposeServiceImpl
     public DonationPurpose create(
             String nameEn,
             String nameHi,
-            BigDecimal fixedAmount,
+            String receiptPrefix,
+    BigDecimal fixedAmount,
             String username) {
 
         enforceAdmin(username);
@@ -40,6 +41,7 @@ public class DonationPurposeServiceImpl
                 DonationPurpose.builder()
                         .nameEn(nameEn)
                         .nameHi(nameHi)
+                        .receiptPrefix(receiptPrefix)
                         .fixedAmount(fixedAmount)
                         .active(true)
                         .build()
@@ -61,7 +63,8 @@ public class DonationPurposeServiceImpl
             Long id,
             String nameEn,
             String nameHi,
-            BigDecimal fixedAmount,
+            String receiptPrefix,
+    BigDecimal fixedAmount,
             boolean active,
             String username) {
 
@@ -73,6 +76,7 @@ public class DonationPurposeServiceImpl
 
         purpose.setNameEn(nameEn);
         purpose.setNameHi(nameHi);
+        purpose.setReceiptPrefix(receiptPrefix);
         purpose.setFixedAmount(fixedAmount);
         purpose.setActive(active);
 

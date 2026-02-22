@@ -28,11 +28,12 @@ public class DonationPurposeController {
     public ResponseEntity<DonationPurpose> create(
             @RequestParam String nameEn,
             @RequestParam String nameHi,
+            @RequestParam String receiptPrefix,
             @RequestParam(required = false) BigDecimal fixedAmount,
             @RequestParam String username) {
 
         return ResponseEntity.ok(
-                service.create(nameEn, nameHi, fixedAmount, username)
+                service.create(nameEn, nameHi,receiptPrefix, fixedAmount, username)
         );
     }
 
@@ -42,12 +43,13 @@ public class DonationPurposeController {
             @PathVariable Long id,
             @RequestParam String nameEn,
             @RequestParam String nameHi,
+            @RequestParam String receiptPrefix,
             @RequestParam(required = false) BigDecimal fixedAmount,
             @RequestParam boolean active,
             @RequestParam String username) {
 
         return ResponseEntity.ok(
-                service.update(id, nameEn, nameHi, fixedAmount, active, username)
+                service.update(id, nameEn, nameHi, receiptPrefix, fixedAmount, active, username)
         );
     }
 }

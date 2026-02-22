@@ -1,7 +1,6 @@
 package in.temple.backend.service.impl;
 
-import com.itextpdf.layout.properties.TextAlignment;
-import com.itextpdf.layout.properties.UnitValue;
+
 import in.temple.backend.dto.*;
 import in.temple.backend.model.*;
 import in.temple.backend.repository.*;
@@ -17,23 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
 
-// iText PDF
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.kernel.font.PdfFont;
-import com.itextpdf.kernel.font.PdfFontFactory;
-import com.itextpdf.io.font.PdfEncodings;
 
-import com.itextpdf.layout.element.Image;
-import com.itextpdf.io.image.ImageDataFactory;
-
-//import com.itextpdf.layout.property.TextAlignment;
-//import com.itextpdf.layout.property.UnitValue;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Paragraph;
 
 
 
@@ -468,6 +451,148 @@ public class DonationServiceImpl implements DonationService {
                 username
         );
     }
+// install on ubuntu sudo apt install chromium-browser
+    private byte[] generateReceiptPdf(Donation donation) {
+
+    try {
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        com.lowagie.text.Document document =
+                new com.lowagie.text.Document(
+                        com.lowagie.text.PageSize.A5,
+                        40, 40, 60, 40
+                );
+
+        com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
+        document.open();
+
+        // Fonts
+        com.lowagie.text.Font normal =
+                new com.lowagie.text.Font(
+                        com.lowagie.text.Font.HELVETICA, 12);
+
+        com.lowagie.text.Font bold =
+                new com.lowagie.text.Font(
+                        com.lowagie.text.Font.HELVETICA, 12,
+                        com.lowagie.text.Font.BOLD);
+
+        com.lowagie.text.Font titleFont =
+                new com.lowagie.text.Font(
+                        com.lowagie.text.Font.HELVETICA, 14,
+                        com.lowagie.text.Font.BOLD);
+
+        java.time.format.DateTimeFormatter formatter =
+                java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+        String formattedAmount = String.format("%,.0f", donation.getAmount());
+
+        // Top gap for pre-printed header
+        document.add(new com.lowagie.text.Paragraph("\n\n\n\n", normal));
+
+        // Title
+        com.lowagie.text.Paragraph title =
+                new com.lowagie.text.Paragraph("DONATION-RECEIPT", titleFont);
+        title.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+        document.add(title);
+
+        document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+        // Receipt No & Date table
+        com.lowagie.text.pdf.PdfPTable headerTable =
+                new com.lowagie.text.pdf.PdfPTable(2);
+        headerTable.setWidthPercentage(100);
+        headerTable.setWidths(new int[]{1, 1});
+
+        headerTable.addCell(getBorderlessCell(
+                "Receipt No: " + donation.getReceiptNumber(), normal));
+
+        headerTable.addCell(getRightAlignedCell(
+                "Date: " + donation.getCreatedAt().format(formatter), normal));
+
+        document.add(headerTable);
+
+        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+
+        // Body
+        document.add(new com.lowagie.text.Paragraph(
+                "Received with sincere thanks from:", normal));
+
+//        document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                donation.getDonorName(), bold));
+
+        document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+//        document.add(new com.lowagie.text.Paragraph("Address:", normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                donation.getAddress() != null ? "Address: " + donation.getAddress() : "",
+                normal));
+
+//        document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                "Mobile: " + donation.getMobile(), normal));
+
+        // document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                "A donation of Rs. " + formattedAmount + "/- has been received towards:" ,
+                normal));
+
+//        document.add(new com.lowagie.text.Paragraph(
+//                "has been received towards:",
+//                normal));
+//
+//        document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                donation.getPurposeNameEn().toUpperCase(),
+                bold));
+
+//        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+
+
+
+
+//        document.add(new com.lowagie.text.Paragraph(
+//                "development of the temple.",
+//                normal));
+
+        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+        document.add(new com.lowagie.text.Paragraph(
+                "Authorized Signatory",
+                normal));
+        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                "For Chamatkarik Shree Hanuman Mandir Sansthan",
+                normal));
+
+        document.add(new com.lowagie.text.Paragraph(
+                "(Hanuman Lok), Jamsawli",
+                normal));
+
+//        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+//
+//
+//
+//        document.add(new com.lowagie.text.Paragraph(
+//                "Your support plays a vital role in the continued service and development of the temple.",
+//                normal));
+
+        document.close();
+
+        return out.toByteArray();
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        throw new RuntimeException("Failed to generate receipt PDF", e);
+    }
+}
+
 
     @Override
     @Transactional
@@ -488,119 +613,25 @@ public class DonationServiceImpl implements DonationService {
         return generateReceiptPdf(donation);
     }
 
-    private byte[] generateReceiptPdf(Donation donation) {
 
-        try {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PdfWriter writer = new PdfWriter(out);
-            PdfDocument pdf = new PdfDocument(writer);
-            Document document = new Document(pdf);
-
-            // ---------------- Load Hindi Font ----------------
-            InputStream fontStream =
-                    getClass().getResourceAsStream("/fonts/NotoSansDevanagari-Regular.ttf");
-
-            PdfFont hindiFont = PdfFontFactory.createFont(
-            );
-
-
-            PdfFont englishFont = PdfFontFactory.createFont(
-                    com.itextpdf.io.font.constants.StandardFonts.HELVETICA
-            );
-
-            // ---------------- Logo ----------------
-            InputStream logoStream =
-                    getClass().getResourceAsStream("/static/logo.png");
-
-            if (logoStream != null) {
-                byte[] logoBytes = logoStream.readAllBytes();
-                Image logo = new Image(ImageDataFactory.create(logoBytes));
-                logo.setWidth(80);
-                logo.setAutoScale(true);
-//                logo.setHorizontalAlignment(
-//                        com.itextpdf.layout.property.HorizontalAlignment.CENTER
-//                );
-                document.add(logo);
-            }
-
-            // ---------------- Title ----------------
-            document.add(
-                    new Paragraph("श्री मंदिर दान रसीद")
-                            .setFont(hindiFont)
-                            .setFontSize(18)
-                            .setBold()
-                            .setTextAlignment(TextAlignment.CENTER)
-            );
-
-            document.add(
-                    new Paragraph("Temple Donation Receipt")
-                            .setFont(englishFont)
-                            .setFontSize(14)
-                            .setTextAlignment(TextAlignment.CENTER)
-            );
-
-            document.add(new Paragraph("\n"));
-
-            // ---------------- Table Layout ----------------
-            Table table = new Table(UnitValue.createPercentArray(new float[]{40, 60}))
-                    .useAllAvailableWidth();
-
-            DateTimeFormatter formatter =
-                    DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
-
-            addRow(table, "रसीद संख्या", donation.getReceiptNumber(), hindiFont, englishFont);
-            addRow(table, "दिनांक", donation.getCreatedAt().format(formatter), hindiFont, englishFont);
-            addRow(table, "नाम", donation.getDonorName(), hindiFont, englishFont);
-            addRow(table, "मोबाइल", donation.getMobile(), hindiFont, englishFont);
-            addRow(table, "दान उद्देश्य", donation.getPurposeNameHi(), hindiFont, englishFont);
-            addRow(table, "राशि", "₹ " + donation.getAmount(), hindiFont, englishFont);
-
-            if (donation.getGotraNameHi() != null) {
-                addRow(table, "गोत्र", donation.getGotraNameHi(), hindiFont, englishFont);
-            }
-
-            document.add(table);
-
-            document.add(new Paragraph("\n"));
-
-            document.add(
-                    new Paragraph("आपके सहयोग के लिए धन्यवाद 🙏")
-                            .setFont(hindiFont)
-                            .setFontSize(12)
-                            .setTextAlignment(TextAlignment.CENTER)
-            );
-
-            document.close();
-            return out.toByteArray();
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to generate receipt PDF", e);
-        }
+    private com.lowagie.text.pdf.PdfPCell getBorderlessCell(String text,
+                                                            com.lowagie.text.Font font) {
+        com.lowagie.text.pdf.PdfPCell cell =
+                new com.lowagie.text.pdf.PdfPCell(
+                        new com.lowagie.text.Phrase(text, font));
+        cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+        return cell;
     }
 
-    private void addRow(Table table,
-                        String label,
-                        String value,
-                        PdfFont hindiFont,
-                        PdfFont englishFont) {
-
-        table.addCell(
-                new Cell().add(new Paragraph(label)
-                        .setFont(hindiFont)
-                        .setBold())
-        );
-
-        table.addCell(
-                new Cell().add(new Paragraph(value != null ? value : "")
-                        .setFont(englishFont))
-        );
+    private com.lowagie.text.pdf.PdfPCell getRightAlignedCell(String text,
+                                                              com.lowagie.text.Font font) {
+        com.lowagie.text.pdf.PdfPCell cell =
+                new com.lowagie.text.pdf.PdfPCell(
+                        new com.lowagie.text.Phrase(text, font));
+        cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+        cell.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_RIGHT);
+        return cell;
     }
-
-
-
-
-
-
 
 
 }
