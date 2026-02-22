@@ -8,5 +8,9 @@ public interface RentalService {
     String issueRental(RentalIssueRequestDto request);
     void returnRental(RentalReturnRequestDto request);
     RentalDetailsResponseDto getRentalByReceipt(String receiptNumber);
+    byte[] createRentalAndReturnReceiptPdf(
+            RentalIssueRequestDto request,
+            String username
+    );
 
 }

@@ -80,6 +80,10 @@ export default function RentalIssueForm({
     });
   }, [category]);
 
+  useEffect(() => {
+    setChargedAmount(calculatedTotal);
+  }, [calculatedTotal]);
+
   const addItem = () => {
     setItems([...items, { inventoryItemId: "", quantity: 1, rate: 0 }]);
   };
@@ -112,6 +116,18 @@ export default function RentalIssueForm({
       depositAmount
     });
   };
+
+  const handleReset = () => {
+    setItems([{ inventoryItemId: "", quantity: 1, rate: 0 }]);
+    setDepositAmount("");
+    setChargedAmount("");
+    setCustomer({
+      customerName: "",
+      mobile: "",
+      address: "",
+      aadhaar: "000"
+    });
+  }; 
 
   return (
     <Paper elevation={3} sx={{ p: 3, mt: 2 }}>
@@ -255,7 +271,7 @@ export default function RentalIssueForm({
               value={chargedAmount}
               size="small"
               fullWidth
-              onChange={(e) => setChargedAmount(e.target.value)}
+              disabled
             />
           </Grid>
 
@@ -276,11 +292,17 @@ export default function RentalIssueForm({
         <Button
           variant="contained"
           color="primary"
-          fullWidth
-          size="large"
           onClick={handleSubmit}
         >
-          {t.submit}
+           Save & Print
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleReset}
+          style={{ marginLeft: 20 }}
+        >
+          Reset
         </Button>
       </Box>
     </Paper>

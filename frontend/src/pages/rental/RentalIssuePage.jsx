@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Snackbar, Alert, Box } from "@mui/material";
 import { useLocation } from "react-router-dom";
-import { issueRental } from "../../api/rentalApi";
+import { createRentalAndPrint  } from "../../api/rentalApi";
 import { getInventoryItems } from "../../api/inventoryApi";
 import { useAuth } from "../../context/AuthContext";
 import LanguageToggle from "../../components/LanguageToggle";
@@ -52,23 +52,42 @@ export default function RentalIssuePage() {
 
 
   const handleSubmit = async (form) => {
-    setError("");
-    setSuccess("");
+  setError("");
+  setSuccess("");
 
-    try {
-      const payload = {
-        ...form,
-        category,
-        createdBy: auth.username
-      };
+  try {
+    const payload = {
+      ...form,
+      category
+    };
 
-      const resp = await issueRental(payload);
-      setSuccess(`किराया सफलतापूर्वक दर्ज हुआ। रसीद: ${resp.data.receiptNumber}`);
-      setResetKey(prev => prev + 1);
-    } catch (e) {
-      setError(e.response?.data?.message || "किराया दर्ज करने में त्रुटि");
-    }
-  };
+    // 🔥 Call create-and-print API
+    const pdfBlob = await createRentalAndPrint(
+      payload,
+      auth.username
+    );
+
+    // Open PDF
+    const file = new Blob([pdfBlob], {
+      type: "application/pdf"
+    });
+
+    const fileURL = window.URL.createObjectURL(file);
+    window.open(fileURL);
+
+    // Success message
+    setSuccess("किराया सफलतापूर्वक दर्ज हुआ और रसीद प्रिंट हो रही है।");
+
+    // Reset form
+    setResetKey(prev => prev + 1);
+
+  } catch (e) {
+    setError(
+      e.response?.data?.message ||
+      "किराया दर्ज करने में त्रुटि"
+    );
+  }
+};
 
   return (
     <Box sx={{ maxWidth: 1000, margin: "auto" }}>

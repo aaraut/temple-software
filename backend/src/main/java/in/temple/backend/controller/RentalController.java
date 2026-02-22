@@ -4,6 +4,8 @@ import in.temple.backend.dto.RentalIssueRequestDto;
 import in.temple.backend.dto.RentalReturnRequestDto;
 import in.temple.backend.service.RentalService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,6 +58,28 @@ public class RentalController {
         return ResponseEntity.ok(
                 rentalService.getRentalByReceipt(receiptNumber)
         );
+    }
+
+    @PostMapping(
+            value = "/create-and-print",
+            produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> createAndPrint(
+            @RequestBody RentalIssueRequestDto request,
+            @RequestParam String username
+    ) {
+
+        byte[] pdf =
+                rentalService.createRentalAndReturnReceiptPdf(
+                        request,
+                        username
+                );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=rental-receipt.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
 }

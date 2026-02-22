@@ -1,5 +1,9 @@
 package in.temple.backend.service.impl;
 
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.PdfPCell;
 import in.temple.backend.dto.RentalDetailsResponseDto;
 import in.temple.backend.dto.RentalIssueRequestDto;
 import in.temple.backend.dto.RentalReturnRequestDto;
@@ -13,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.Year;
 import java.util.List;
@@ -217,6 +222,198 @@ public class RentalServiceImpl implements RentalService {
         );
 
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public byte[] createRentalAndReturnReceiptPdf(
+            RentalIssueRequestDto request,
+            String username
+    ) {
+
+        request.setCreatedBy(username);
+
+        // 1️⃣ Save rental
+        String receiptNumber = issueRental(request);
+
+        // 2️⃣ Fetch saved rental
+        Rental rental = rentalRepository
+                .findByReceiptNumber(receiptNumber)
+                .orElseThrow(() ->
+                        new IllegalStateException("Rental not found"));
+
+        List<RentalItem> items =
+                rentalItemRepository.findByRentalId(rental.getId());
+
+        // 3️⃣ Generate PDF
+        return generateRentalReceiptPdf(rental, items);
+    }
+
+    private byte[] generateRentalReceiptPdf(
+            Rental rental,
+            List<RentalItem> items
+    ) {
+
+        try {
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+            com.lowagie.text.Document document =
+                    new com.lowagie.text.Document(
+                            com.lowagie.text.PageSize.A5,
+                            40, 40, 60, 40
+                    );
+
+            com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
+            document.open();
+
+            // 🔥 Unicode Font (Hindi Support)
+            com.lowagie.text.pdf.BaseFont baseFont =
+                    com.lowagie.text.pdf.BaseFont.createFont(
+                            "fonts/NotoSansDevanagari-Regular.ttf",
+                            com.lowagie.text.pdf.BaseFont.IDENTITY_H,
+                            com.lowagie.text.pdf.BaseFont.EMBEDDED
+                    );
+
+            Font normal = new Font(baseFont, 11);
+            Font bold = new Font(baseFont, 12, Font.BOLD);
+
+            java.time.format.DateTimeFormatter formatter =
+                    java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+            document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+
+            // ===== Title =====
+            com.lowagie.text.Paragraph title =
+                    new com.lowagie.text.Paragraph("RENTAL RECEIPT", bold);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+
+            document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+            // ===== Receipt No + Date (Same Line) =====
+            com.lowagie.text.pdf.PdfPTable headerTable =
+                    new com.lowagie.text.pdf.PdfPTable(2);
+            headerTable.setWidthPercentage(100);
+            headerTable.setWidths(new float[]{1f, 1f});
+
+            headerTable.addCell(getBorderlessCell(
+                    "Receipt No: " + rental.getReceiptNumber(),
+                    normal));
+
+            headerTable.addCell(getRightBorderlessCell(
+                    "Date: " + rental.getCreatedAt().format(formatter),
+                    normal));
+
+            document.add(headerTable);
+
+            document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+            // ===== Name + Mobile (Same Line) =====
+            com.lowagie.text.pdf.PdfPTable customerTable =
+                    new com.lowagie.text.pdf.PdfPTable(2);
+            customerTable.setWidthPercentage(100);
+            customerTable.setWidths(new float[]{1f, 1f});
+
+            customerTable.addCell(getBorderlessCell(
+                    "Customer: " + rental.getCustomerName(),
+                    normal));
+
+            customerTable.addCell(getRightBorderlessCell(
+                    "Mobile: " + rental.getMobile(),
+                    normal));
+
+            document.add(customerTable);
+
+            document.add(new com.lowagie.text.Paragraph(
+                    "Address: " + rental.getAddress(),
+                    normal));
+
+            document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+            // ===== Items Table =====
+            com.lowagie.text.pdf.PdfPTable table =
+                    new com.lowagie.text.pdf.PdfPTable(3);
+
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{4f, 1f, 1f});
+
+            table.addCell(getBoldCell("Item", bold));
+            table.addCell(getBoldCell("Qty", bold));
+            table.addCell(getBoldCell("Rate", bold));
+
+            for (RentalItem item : items) {
+                table.addCell(getNormalCell(
+                        item.getItemNameSnapshot(), normal));
+                table.addCell(getCenterCell(
+                        String.valueOf(item.getIssuedQty()), normal));
+                table.addCell(getRightCell(
+                        "₹ " + item.getRateAtIssue(), normal));
+            }
+
+            document.add(table);
+
+            document.add(new com.lowagie.text.Paragraph("\n", normal));
+
+            document.add(new com.lowagie.text.Paragraph(
+                    "Deposit: ₹ " + rental.getDepositAmount(),
+                    normal));
+
+            document.add(new com.lowagie.text.Paragraph(
+                    "Charged Amount: ₹ " + rental.getChargedAmount(),
+                    normal));
+
+            document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+
+            document.add(new com.lowagie.text.Paragraph(
+                    "Authorized Signatory",
+                    normal));
+
+            document.add(new com.lowagie.text.Paragraph(
+                    "For Chamatkarik Shree Hanuman Mandir Sansthan",
+                    normal));
+
+            document.close();
+
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate rental receipt", e);
+        }
+    }
+
+    private PdfPCell getBoldCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        return cell;
+    }
+
+    private PdfPCell getNormalCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        return cell;
+    }
+
+    private PdfPCell getCenterCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        return cell;
+    }
+
+    private PdfPCell getRightCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        return cell;
+    }
+    private PdfPCell getBorderlessCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+        return cell;
+    }
+
+    private PdfPCell getRightBorderlessCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+        cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        return cell;
     }
 
 }
