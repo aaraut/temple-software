@@ -50,6 +50,7 @@ export default function RentalReturnTable({ rental, onChange, language  }) {
         <TableHead sx={{ backgroundColor: "#7a1f1f" }}>
           <TableRow>
             <TableCell sx={{ color: "white" }}>{t.item}</TableCell>
+            <TableCell sx={{ color: "white" }} align="center">जारी मात्रा</TableCell>
             <TableCell sx={{ color: "white" }} align="center">बाकी</TableCell>
             <TableCell sx={{ color: "white" }} align="center">वापस</TableCell>
             <TableCell sx={{ color: "white" }} align="center">टूटा</TableCell>
@@ -64,6 +65,7 @@ export default function RentalReturnTable({ rental, onChange, language  }) {
               sx={{ backgroundColor: idx % 2 ? "#fafafa" : "white" }}
             >
               <TableCell>{item.itemName}</TableCell>
+              <TableCell align="center">{item.issuedQty}</TableCell>
               <TableCell align="center">{item.remainingQty}</TableCell>
 
               {["returnedQty", "damagedQty", "missingQty"].map(field => (

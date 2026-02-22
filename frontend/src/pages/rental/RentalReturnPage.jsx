@@ -60,7 +60,7 @@ export default function RentalReturnPage() {
     setError("");
     try {
       const resp = await getRentalByReceipt(receiptNumber.trim());
-      setRental(resp.data);
+      setRental(resp);
       setReturnItems({});
     } catch {
       setRental(null);
