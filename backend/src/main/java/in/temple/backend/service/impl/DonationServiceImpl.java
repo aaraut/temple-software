@@ -294,6 +294,60 @@ public class DonationServiceImpl implements DonationService {
     public List<DonationListItemDto> searchActiveDonations(
             DonationSearchRequestDto req) {
 
+        if (req.getMobile() != null && !req.getMobile().isBlank()) {
+            return donationRepo
+                    .findByActiveTrueAndMobileContainingIgnoreCaseOrderByCreatedAtDesc(
+                            req.getMobile()
+                    )
+                    .stream()
+                    .map(this::convertToListItemDto)
+                    .toList();
+        }
+
+        if (req.getDonorName() != null && !req.getDonorName().isBlank()) {
+            return donationRepo
+                    .findByActiveTrueAndDonorNameContainingIgnoreCaseOrderByCreatedAtDesc(
+                            req.getDonorName()
+                    )
+                    .stream()
+                    .map(this::convertToListItemDto)
+                    .toList();
+        }
+
+        if (req.getPurposeNameEn() != null
+                && req.getFromDate() != null
+                && req.getToDate() != null) {
+
+            LocalDateTime start = req.getFromDate().atStartOfDay();
+            LocalDateTime end = req.getToDate().atTime(23, 59, 59);
+
+            List<Donation> donations;
+
+            if (req.getCreatedBy() != null
+                    && !req.getCreatedBy().equalsIgnoreCase("ALL")) {
+
+                donations = donationRepo
+                        .findByActiveTrueAndPurposeNameEnAndCreatedAtBetweenAndCreatedByOrderByCreatedAtDesc(
+                                req.getPurposeNameEn(),
+                                start,
+                                end,
+                                req.getCreatedBy()
+                        );
+            } else {
+
+                donations = donationRepo
+                        .findByActiveTrueAndPurposeNameEnAndCreatedAtBetweenOrderByCreatedAtDesc(
+                                req.getPurposeNameEn(),
+                                start,
+                                end
+                        );
+            }
+
+            return donations.stream()
+                    .map(this::convertToListItemDto)
+                    .toList();
+        }
+
         var from =
                 req.getFromDate() != null
                         ? req.getFromDate().atStartOfDay()
@@ -632,6 +686,32 @@ public class DonationServiceImpl implements DonationService {
         cell.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_RIGHT);
         return cell;
     }
+    @Override
+    public byte[] generateReceiptPdfById(Long id) {
+        Donation donation = donationRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Donation not found"));
 
+        return generateReceiptPdf(donation); // you already have this method
+    }
+
+    private DonationListItemDto convertToListItemDto(Donation donation) {
+
+        return DonationListItemDto.builder()
+                .id(donation.getId())
+                .receiptNumber(donation.getReceiptNumber())
+                .donorName(donation.getDonorName())
+                .mobile(donation.getMobile())
+                .purposeNameEn(donation.getPurposeNameEn())
+                .purposeNameHi(donation.getPurposeNameHi())
+                .amount(donation.getAmount())
+                .createdAt(donation.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    public Donation getDonationById(Long id) {
+        return donationRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Donation not found"));
+    }
 
 }

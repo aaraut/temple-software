@@ -1,6 +1,7 @@
 package in.temple.backend.model.enums;
 
-public enum OccurrenceType {
+public enum PeriodType {
     DAILY,
-    WEEKLY
+    WEEKLY,
+    MONTHLY
 }

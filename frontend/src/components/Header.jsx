@@ -281,7 +281,7 @@ const handleRoomClose = () => {
             >
               Bhakt Niwas Dashboard
             </MenuItem>
-            {/* <MenuItem
+            <MenuItem
               onClick={() => {
                 handleRoomClose();
                 navigate("/inventory/rooms");
@@ -297,7 +297,7 @@ const handleRoomClose = () => {
               }}
             >
               Room Booking
-            </MenuItem> */}
+            </MenuItem>
           </Menu>
 
 

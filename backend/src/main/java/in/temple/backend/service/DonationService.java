@@ -1,6 +1,7 @@
 package in.temple.backend.service;
 
 import in.temple.backend.dto.*;
+import in.temple.backend.model.Donation;
 
 import java.util.List;
 
@@ -36,7 +37,9 @@ public interface DonationService {
             String username);
 
 
+    byte[] generateReceiptPdfById(Long id);
 
+    Donation getDonationById(Long id);
 
 
 

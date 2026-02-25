@@ -1,6 +1,7 @@
 package in.temple.backend.controller;
 
 import in.temple.backend.dto.*;
+import in.temple.backend.model.Donation;
 import in.temple.backend.service.DonationService;
 
 import lombok.RequiredArgsConstructor;
@@ -89,6 +90,23 @@ public class DonationController {
                         "attachment; filename=receipt.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
+    }
+
+    @GetMapping(value = "/{id}/print", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> reprint(@PathVariable Long id) {
+
+        byte[] pdf = donationService.generateReceiptPdfById(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=receipt-" + id + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @GetMapping("/{id}")
+    public Donation getById(@PathVariable Long id) {
+        return donationService.getDonationById(id);
     }
 
 

@@ -23,6 +23,10 @@ import RoomPage from "./pages/room/RoomInventoryPage";
 import RoomBookingPage from "./pages/room/RoomBookingPage";
 import BhaktNiwasPage from "./pages/bhaktniwas/BhaktNiwasPage";
 import DonationPurposePage from "./pages/master/DonationPurposePage";
+import CollectionDashboard from "./pages/dashboard/CollectionDashboard";
+import DonationDetails from "./pages/reports/DonationDetails";
+import DonationEdit from "./pages/donation/DonationEdit";
+import DonationSearch from "./pages/donation/DonationSearch";
 // import RoomPage from "./components/room/RoomPage";
 
 
@@ -245,6 +249,47 @@ function App() {
             </ProtectedLayout>
           }
         />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <CollectionDashboard />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports/details"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <DonationDetails />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/donation/edit/:id"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <DonationEdit />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="donation/search"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <DonationSearch  />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
 
 
 

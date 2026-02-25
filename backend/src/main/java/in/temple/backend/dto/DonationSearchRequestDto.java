@@ -11,4 +11,7 @@ public class DonationSearchRequestDto {
     private String mobile;
     private LocalDate fromDate;
     private LocalDate toDate;
+    private String purposeNameEn;
+    private String createdBy;
+    private String donorName;
 }

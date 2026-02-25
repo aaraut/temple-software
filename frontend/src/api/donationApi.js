@@ -27,3 +27,22 @@ export async function createDonationAndPrint(payload, username) {
 
   return resp.data; // this will be Blob
 }
+
+// SEARCH DONATIONS (existing backend API)
+export const searchDonations = (payload) => {
+  return axiosClient.post("/donation/search", payload);
+};
+
+// REPRINT RECEIPT
+export const printDonation = (id) => {
+  return axiosClient.get(`/donation/${id}/print`, {
+    responseType: "blob",
+  });
+};
+
+// DISABLE (SOFT DELETE)
+export const changeDonationStatus = (id, active) => {
+  return axiosClient.put(`/donation/${id}/status`, null, {
+    params: { active },
+  });
+};

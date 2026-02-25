@@ -55,4 +55,32 @@ public interface DonationRepository
             LocalDateTime to
     );
 
+    List<Donation> findByCreatedAtBetweenAndActiveTrue(
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
+    List<Donation> findByCreatedAtBetweenAndCreatedByAndActiveTrue(
+            LocalDateTime start,
+            LocalDateTime end,
+            String createdBy
+    );
+
+    List<Donation> findByActiveTrueAndPurposeNameEnAndCreatedAtBetweenAndCreatedByOrderByCreatedAtDesc(
+            String purposeNameEn,
+            LocalDateTime start,
+            LocalDateTime end,
+            String createdBy
+    );
+
+    List<Donation> findByActiveTrueAndPurposeNameEnAndCreatedAtBetweenOrderByCreatedAtDesc(
+            String purposeNameEn,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
+    List<Donation> findByActiveTrueAndMobileContainingIgnoreCaseOrderByCreatedAtDesc(String mobile);
+
+    List<Donation> findByActiveTrueAndDonorNameContainingIgnoreCaseOrderByCreatedAtDesc(String donorName);
+
 }
