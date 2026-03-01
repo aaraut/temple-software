@@ -62,6 +62,21 @@ export default function DonationForm() {
     load();
   }, []);
 
+  useEffect(() => {
+  if (!metadata?.purposes) return;
+
+  const defaultPurpose = metadata.purposes.find(
+    (p) => p.nameEn === "Sankalp Abhishek"
+  );
+
+  if (defaultPurpose) {
+    setForm((prev) => ({
+      ...prev,
+      purposeId: defaultPurpose.id,
+    }));
+  }
+}, [metadata]);
+
   const selectedPurpose = metadata?.purposes.find(
     (p) => p.id === Number(form.purposeId)
   );
@@ -300,6 +315,24 @@ export default function DonationForm() {
             onChange={handleChange}
             margin="normal"
           />
+          {/* GOTRA */}
+          {requiresGotra && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>{t.gotra}</InputLabel>
+              <Select
+                name="gotraId"
+                value={form.gotraId}
+                label={t.gotra}
+                onChange={handleChange}
+              >
+                {metadata.gotras.map((g) => (
+                  <MenuItem key={g.id} value={g.id}>
+                    {language === "hi" ? g.nameHi : g.nameEn}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* ADDRESS */}
           <TextField
