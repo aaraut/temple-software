@@ -28,6 +28,11 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
         String path = request.getRequestURI();
 
+        if (path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs")) {
+            return true;
+        }
+
         if (path.equals("/api/auth/login") ||
                 path.equals("/api/auth/forgot-password")) {
             return true;

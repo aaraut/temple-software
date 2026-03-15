@@ -1,5 +1,16 @@
 // src/components/GotraForm.jsx
+
 import React, { useState, useEffect } from "react";
+import {
+  Button,
+  TextField,
+  Paper,
+  Typography,
+  Grid,
+  Box,
+  Alert,
+  Divider
+} from "@mui/material";
 
 export default function GotraForm({ initial = null, onCancel, onSaved }) {
   const [gotraHi, setGotraHi] = useState("");
@@ -21,54 +32,100 @@ export default function GotraForm({ initial = null, onCancel, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
     if (!gotraHi || !gotraEn) {
       setError("दोनों नाम भरें (Hindi और English).");
       return;
     }
+
     setSaving(true);
     try {
-      await onSaved({ gotraNameHi: gotraHi, gotraNameEn: gotraEn });
+      await onSaved({
+        gotraNameHi: gotraHi,
+        gotraNameEn: gotraEn
+      });
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Save failed");
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Save failed"
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 6, background: "#fff" }}>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 8 }}>
-          <label style={{ display: "block", fontSize: 13 }}>Gotra (हिंदी)</label>
-          <input
-            value={gotraHi}
-            onChange={(e) => setGotraHi(e.target.value)}
-            style={{ width: "100%", padding: 8 }}
-            placeholder="कश्यप"
-          />
-        </div>
+    <Paper
+      elevation={3}
+      sx={{
+        p: 3,
+        borderRadius: 3,
+        maxWidth: 500,
+        mx: "auto"
+      }}
+    >
+      <Typography variant="h6" fontWeight={600} gutterBottom>
+        {initial ? "Edit Gotra" : "Add New Gotra"}
+      </Typography>
 
-        <div style={{ marginBottom: 8 }}>
-          <label style={{ display: "block", fontSize: 13 }}>Gotra (English)</label>
-          <input
-            value={gotraEn}
-            onChange={(e) => setGotraEn(e.target.value)}
-            style={{ width: "100%", padding: 8 }}
-            placeholder="Kashyap"
-          />
-        </div>
+      <Divider sx={{ mb: 2 }} />
 
-        {error && <div style={{ color: "crimson", marginBottom: 8 }}>{error}</div>}
+      <Box component="form" onSubmit={handleSubmit}>
+        <Grid container spacing={2}>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={saving} style={{ padding: "8px 12px" }}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button type="button" onClick={onCancel} style={{ padding: "8px 12px" }}>
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Gotra (हिंदी)"
+              value={gotraHi}
+              onChange={(e) => setGotraHi(e.target.value)}
+              placeholder="कश्यप"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Gotra (English)"
+              value={gotraEn}
+              onChange={(e) => setGotraEn(e.target.value)}
+              placeholder="Kashyap"
+            />
+          </Grid>
+
+          {error && (
+            <Grid item xs={12}>
+              <Alert severity="error">
+                {error}
+              </Alert>
+            </Grid>
+          )}
+
+          <Grid item xs={12}>
+            <Box display="flex" gap={2}>
+              <Button
+                variant="contained"
+                type="submit"
+                disabled={saving}
+                fullWidth
+              >
+                {saving ? "Saving..." : "Save"}
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={onCancel}
+                fullWidth
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Grid>
+
+        </Grid>
+      </Box>
+    </Paper>
   );
 }

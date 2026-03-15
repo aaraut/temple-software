@@ -1,0 +1,8 @@
+CHeck ipv4 is dynamic or static
+On server laptop run:
+ipconfig /all
+
+Look for:
+DHCP Enabled . . . . . . . . : Yes
+If Yes → Dynamic IP
+If No → Static IP

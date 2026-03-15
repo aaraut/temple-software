@@ -7,8 +7,8 @@ export default function HomeRedirect() {
   if (!auth) return <Navigate to="/login" replace />;
 
   if (auth.role === "SUPER_ADMIN" || auth.role === "ADMIN") {
-    return <Navigate to="/gotra" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return <Navigate to="/gotra" replace />;
+  return <Navigate to="/dashboard" replace />;
 }

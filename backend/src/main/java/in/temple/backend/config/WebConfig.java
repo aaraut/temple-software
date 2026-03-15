@@ -15,11 +15,11 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(
-                        "http://localhost:8080",
-                        "http://localhost:5173",
-                        "http://127.0.0.1:8080",
-                        "http://192.168.1.102:8080" // no trailing slash
+                .allowedOriginPatterns(
+                        "http://localhost:*",
+                        "http://127.0.0.1:*",
+                        "http://192.168.*:*",   // LAN subnet
+                        "http://10.*:*"         // WireGuard subnet
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
@@ -33,7 +33,10 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
                         "/api/auth/login",
-                        "/api/auth/forgot-password"
+                        "/api/auth/forgot-password",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**"
                 );
     }
 }

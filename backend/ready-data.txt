@@ -1,0 +1,191 @@
+Things pending
+add @PreAuthorize("hasRole('ADMIN')") to changestatus api
+Donation report UI api are also pending
+inventory update audit does not show username in json
+Auto-scroll to form on Edit UI for bartan entry
+language toggle not working on rental return UI
+Delete room
+add room inventory currently in english
+
+//Infra level
+remove postgres port 5432 currently exposeddo
+
+
+//next time to update image follow this
+docker compose down
+docker pull yourdockerhubusername/temple-backend:1.1
+docker compose up -d
+
+
+INSERT INTO donation_purpose
+(name_en, name_hi, fixed_amount, active)
+VALUES
+('Sankalp Abhishek', 'संकल्प अभिषेक', 301, true),
+('Daan', 'दान', NULL, true),
+('Annadan', 'अन्नदान', 1500, true),
+('Prasadam', 'प्रसादम', 15000, true),
+('Mandir Nirman', 'मंदिर निर्माण', NULL, true);
+
+
+if reqd
+UPDATE donation_purpose
+SET version = 0
+WHERE version IS NULL;
+
+
+ALTER TABLE donation_purpose
+ALTER COLUMN version SET NOT NULL;
+
+ALTER TABLE donation_purpose
+ADD COLUMN requires_gotra BOOLEAN NOT NULL DEFAULT FALSE;
+
+UPDATE receipt_sequence
+SET version = 0
+WHERE version IS NULL;
+
+ALTER TABLE receipt_sequence
+ALTER COLUMN version SET NOT NULL;
+
+SELECT * FROM receipt_sequence;
+
+
+ALTER TABLE donation_purpose
+ADD COLUMN receipt_prefix VARCHAR(5);
+
+UPDATE donation_purpose SET receipt_prefix = 'AB' WHERE name_en = 'Sankalp Abhishek';
+UPDATE donation_purpose SET receipt_prefix = 'DN' WHERE name_en = 'Daan';
+UPDATE donation_purpose SET receipt_prefix = 'AN' WHERE name_en = 'Annadan';
+UPDATE donation_purpose SET receipt_prefix = 'PR' WHERE name_en = 'Prasadam';
+UPDATE donation_purpose SET receipt_prefix = 'NM' WHERE name_en = 'Mandir Nirman';
+
+ALTER TABLE donation_purpose
+ALTER COLUMN receipt_prefix SET NOT NULL;
+
+
+CREATE TABLE donation_audit (
+    id BIGSERIAL PRIMARY KEY,
+
+    donation_id BIGINT NOT NULL,
+
+    action VARCHAR(20) NOT NULL, -- CREATE / UPDATE
+
+    old_data TEXT,  -- JSON string
+    new_data TEXT,  -- JSON string
+
+    performed_by VARCHAR(100) NOT NULL,
+    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE donation
+ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;
+
+CREATE TABLE inventory_item (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    category VARCHAR(20) NOT NULL,
+    material_name_hi TEXT NOT NULL,
+    unit VARCHAR(20) NOT NULL,
+    rate NUMERIC(10,2) NOT NULL,
+    total_stock INT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE inventory_item_audit (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    inventory_item_id BIGINT NOT NULL,
+    action VARCHAR(20) NOT NULL,           -- CREATE / UPDATE / STOCK_CHANGE
+    changed_by VARCHAR(50) NOT NULL,
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    old_value JSONB,
+    new_value JSONB
+);
+
+ALTER TABLE inventory_item_audit
+ALTER COLUMN old_value TYPE TEXT;
+
+ALTER TABLE inventory_item_audit
+ALTER COLUMN new_value TYPE TEXT;
+
+// rental
+CREATE SEQUENCE rental_receipt_seq
+START WITH 1
+INCREMENT BY 1
+NO CYCLE;
+
+CREATE TABLE rental (
+    id BIGSERIAL PRIMARY KEY,
+
+    receipt_number VARCHAR(50) NOT NULL UNIQUE,
+    category VARCHAR(20) NOT NULL, -- BARTAN / BICHAYAT
+
+    customer_name VARCHAR(100) NOT NULL,
+    mobile VARCHAR(20),
+    address TEXT,
+    aadhaar VARCHAR(20) DEFAULT '000',
+
+    calculated_total_amount NUMERIC(10,2) NOT NULL,
+    charged_amount NUMERIC(10,2) NOT NULL,
+    deposit_amount NUMERIC(10,2) DEFAULT 0,
+
+    total_fine_amount NUMERIC(10,2) DEFAULT 0,
+    total_refund_amount NUMERIC(10,2) DEFAULT 0,
+
+    status VARCHAR(30) NOT NULL, -- ISSUED / PARTIALLY_RETURNED / RETURNED / CLOSED
+
+    created_by VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+
+CREATE TABLE rental_item (
+    id BIGSERIAL PRIMARY KEY,
+
+    rental_id BIGINT NOT NULL REFERENCES rental(id),
+
+    inventory_item_id BIGINT NOT NULL,
+    item_name_snapshot VARCHAR(200) NOT NULL,
+    rate_at_issue NUMERIC(10,2) NOT NULL,
+
+    issued_qty INTEGER NOT NULL,
+
+    returned_qty INTEGER DEFAULT 0,
+    damaged_qty INTEGER DEFAULT 0,
+    missing_qty INTEGER DEFAULT 0
+);
+
+CREATE TABLE rental_return (
+    id BIGSERIAL PRIMARY KEY,
+
+    rental_id BIGINT NOT NULL REFERENCES rental(id),
+
+    return_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fine_amount NUMERIC(10,2) DEFAULT 0,
+    remarks TEXT,
+
+    created_by VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE damaged_inventory (
+    inventory_item_id BIGINT PRIMARY KEY,
+    total_damaged_qty INTEGER NOT NULL DEFAULT 0,
+    last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE INDEX idx_rental_receipt ON rental(receipt_number);
+CREATE INDEX idx_rental_status ON rental(status);
+CREATE INDEX idx_rental_item_rental_id ON rental_item(rental_id);
+CREATE INDEX idx_rental_return_rental_id ON rental_return(rental_id);
+
+if reqd
+UPDATE room SET is_active = true WHERE is_active IS NULL;
+
+
+CREATE SEQUENCE room_booking_seq START 1;
+
+
+
+

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Donation Receipt</title>
+    <meta charset="UTF-8" />
+
+    <style>
+        @page {
+            size: A5;
+            margin: 40px 36px 36px 36px;
+        }
+
+        body {
+            font-family: 'Mukta';
+            font-size: 14px;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .space {
+            margin-top: 15px;
+        }
+
+        .top-gap {
+            margin-top: 60px;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
+        .full-width {
+            width: 100%;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+    </style>
+</head>
+
+<body class="no-break">
+
+<div class="top-gap"></div>
+
+<!-- Receipt Number & Date -->
+<table class="full-width">
+    <tr>
+        <td>रसीद नं० {{receiptNumber}}</td>
+        <td class="right">दिनांक {{date}}</td>
+    </tr>
+</table>
+
+<p class="space">
+    श्रीमान/श्रीमती {{donorName}} जी से
+</p>
+
+<!-- Address & Mobile -->
+<table class="full-width space">
+    <tr>
+        <td>पता {{address}}</td>
+        <td class="right">मो नं० {{mobile}}</td>
+    </tr>
+</table>
+
+<p class="space">
+    रुपये (शब्दों में) {{amountInWords}}
+</p>
+
+<p class="space">
+    उद्देश्य {{purpose}} हेतु दानराशि प्राप्त की।
+</p>
+
+<p class="bold space">
+    ₹ {{amount}} /-
+</p>
+
+<br />
+<br />
+
+<p>प्राप्तकर्ता</p>
+<p>चमत्कारिक श्री हनुमान मंदिर संस्थान</p>
+<p>(हनुमान लोक) जामसावली</p>
+
+<br />
+
+<p class="center">
+    आपका सहयोग मंदिर विकास हेतु अमूल्य है।
+</p>
+
+<hr />
+
+
+</body>
+</html>
