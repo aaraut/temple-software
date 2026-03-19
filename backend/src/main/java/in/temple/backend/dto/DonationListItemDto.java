@@ -20,4 +20,5 @@ public class DonationListItemDto {
     private String purposeNameHi;
     private BigDecimal amount;
     private LocalDateTime createdAt;
+    private String gotraId;
 }

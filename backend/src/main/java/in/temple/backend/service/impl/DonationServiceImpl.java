@@ -4,6 +4,7 @@ package in.temple.backend.service.impl;
 import in.temple.backend.dto.*;
 import in.temple.backend.model.*;
 import in.temple.backend.repository.*;
+import in.temple.backend.service.AuthContextService;
 import in.temple.backend.service.DonationService;
 import in.temple.backend.service.ReceiptService;
 
@@ -15,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
-
 
 
 
@@ -40,6 +40,7 @@ public class DonationServiceImpl implements DonationService {
     private final GotraRepository gotraRepository;
 
     private final DonationAuditRepository donationAuditRepo;
+    private final AuthContextService authContextService;
 
 
     // =================================================
@@ -421,6 +422,7 @@ public class DonationServiceImpl implements DonationService {
         dto.setPurposeNameHi(d.getPurposeNameHi());
         dto.setAmount(d.getAmount());
         dto.setCreatedAt(d.getCreatedAt());
+        dto.setGotraId(d.getGotraId());
         return dto;
     }
 
@@ -505,147 +507,186 @@ public class DonationServiceImpl implements DonationService {
                 username
         );
     }
-// install on ubuntu sudo apt install chromium-browser
+    // install on ubuntu sudo apt install chromium-browser
     private byte[] generateReceiptPdf(Donation donation) {
 
-    try {
+        try {
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+            // ── 1. Build receipt values ───────────────────────────────────────────
+            java.time.format.DateTimeFormatter formatter =
+                    java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-        com.lowagie.text.Document document =
-                new com.lowagie.text.Document(
-                        com.lowagie.text.PageSize.A5,
-                        40, 40, 60, 40
-                );
+            String formattedAmount = String.format("%,.0f", donation.getAmount());
+            String amountInWords   = in.temple.backend.util.HindiNumberUtil.convert(donation.getAmount());
+            String purposeHi       = donation.getPurposeNameHi() != null
+                    ? donation.getPurposeNameHi() : donation.getPurposeNameEn();
+            String address         = donation.getAddress() != null ? donation.getAddress() : "";
 
-        com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
-        document.open();
+            // Gotra — only present for Abhishek-type purposes
+            String gotraHi = (donation.getGotraNameHi() != null && !donation.getGotraNameHi().isBlank())
+                    ? donation.getGotraNameHi() : "";
 
-        // Fonts
-        com.lowagie.text.Font normal =
-                new com.lowagie.text.Font(
-                        com.lowagie.text.Font.HELVETICA, 12);
+            // Cashier name from the user who created this donation
+            String cashierName = "";
+            try {
+                User cashier = authContextService.getLoggedInUser(donation.getCreatedBy());
+                if (cashier.getName() != null && !cashier.getName().isBlank()) {
+                    cashierName = cashier.getName();
+                }
+            } catch (Exception ignored) {
+                cashierName = donation.getCreatedBy(); // fallback to username
+            }
 
-        com.lowagie.text.Font bold =
-                new com.lowagie.text.Font(
-                        com.lowagie.text.Font.HELVETICA, 12,
-                        com.lowagie.text.Font.BOLD);
+            // ── 2. Load NotoSansDevanagari font ───────────────────────────────────
+            // Java AWT's TextLayout uses the JVM's built-in HarfBuzz shaper which
+            // correctly shapes Devanagari conjuncts and matras. OpenPDF/openhtmltopdf
+            // do NOT do this shaping, which is why Hindi text appeared scrambled.
+            InputStream fontStream = getClass().getClassLoader()
+                    .getResourceAsStream("fonts/NotoSansDevanagari-Regular.ttf");
+            if (fontStream == null)
+                throw new RuntimeException("NotoSansDevanagari-Regular.ttf not found in resources/fonts/");
 
-        com.lowagie.text.Font titleFont =
-                new com.lowagie.text.Font(
-                        com.lowagie.text.Font.HELVETICA, 14,
-                        com.lowagie.text.Font.BOLD);
+            java.awt.Font baseFont = java.awt.Font.createFont(
+                    java.awt.Font.TRUETYPE_FONT, fontStream);
+            fontStream.close();
 
-        java.time.format.DateTimeFormatter formatter =
-                java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            // ── 3. Coordinate system ──────────────────────────────────────────────
+            // A5 = 420 × 595 pt. We render at SCALE=2 giving 840 × 1190 px.
+            // All layout values are in POINTS; multiply by SCALE for actual pixels.
+            // IMPORTANT: deriveFont(float) sets SIZE in points.
+            //            deriveFont(int)   sets STYLE (bold/italic) — DO NOT use for size.
+            final int SCALE  = 2;
+            final int W      = 420 * SCALE;   // 840 px
+            final int H      = 595 * SCALE;   // 1190 px
+            final int M      = 36  * SCALE;   // 36 pt margin
+            final int LINE_H = 22  * SCALE;   // 22 pt line height
 
-        String formattedAmount = String.format("%,.0f", donation.getAmount());
+            java.awt.Font fNormal = baseFont.deriveFont(12.0f * SCALE);
+            java.awt.Font fBold   = baseFont.deriveFont(java.awt.Font.BOLD, 13.0f * SCALE);
+            java.awt.Font fTitle  = baseFont.deriveFont(java.awt.Font.BOLD, 16.0f * SCALE);
 
-        // Top gap for pre-printed header
-        document.add(new com.lowagie.text.Paragraph("\n\n\n\n", normal));
+            // ── 4. Render onto BufferedImage ──────────────────────────────────────
+            java.awt.image.BufferedImage img =
+                    new java.awt.image.BufferedImage(W, H,
+                            java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = img.createGraphics();
 
-        // Title
-        com.lowagie.text.Paragraph title =
-                new com.lowagie.text.Paragraph("DONATION-RECEIPT", titleFont);
-        title.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
-        document.add(title);
+            g.setColor(java.awt.Color.WHITE);
+            g.fillRect(0, 0, W, H);
+            g.setColor(java.awt.Color.BLACK);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_FRACTIONALMETRICS,
+                    java.awt.RenderingHints.VALUE_FRACTIONALMETRICS_ON);
 
-        document.add(new com.lowagie.text.Paragraph("\n", normal));
+            java.awt.font.FontRenderContext frc = g.getFontRenderContext();
 
-        // Receipt No & Date table
-        com.lowagie.text.pdf.PdfPTable headerTable =
-                new com.lowagie.text.pdf.PdfPTable(2);
-        headerTable.setWidthPercentage(100);
-        headerTable.setWidths(new int[]{1, 1});
+            // ── Top gap for pre-printed header ────────────────────────────────────
+            int y = 90 * SCALE;
 
-        headerTable.addCell(getBorderlessCell(
-                "Receipt No: " + donation.getReceiptNumber(), normal));
+            // Title — centred + underlined
+            java.awt.font.TextLayout titleLayout =
+                    new java.awt.font.TextLayout("दान रसीद", fTitle, frc);
+            int titleW = (int) titleLayout.getBounds().getWidth();
+            int titleX = (W - titleW) / 2;
+            titleLayout.draw(g, titleX, y);
+            int titleBottom = y + (int) titleLayout.getDescent() + 2 * SCALE;
+            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
+            g.drawLine(titleX, titleBottom, titleX + titleW, titleBottom);
+            y += (int) titleLayout.getBounds().getHeight() + 18 * SCALE;
 
-        headerTable.addCell(getRightAlignedCell(
-                "Date: " + donation.getCreatedAt().format(formatter), normal));
+            // रसीद क्रमांक & दिनांक
+            drawLine(g, "रसीद क्रमांक: " + donation.getReceiptNumber(), M, y, fNormal, frc);
+            drawLine(g, "दिनांक: " + donation.getCreatedAt().format(formatter), M + 200 * SCALE, y, fNormal, frc);
+            y += LINE_H + 8 * SCALE;
 
-        document.add(headerTable);
+            // Donor
+            drawLine(g, "श्रीमान/श्रीमती " + donation.getDonorName() + " जी से सादर प्राप्त", M, y, fNormal, frc);
+            y += LINE_H + 4 * SCALE;
 
-        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+            // Address & mobile on separate lines
+            drawLine(g, "पता: " + address, M, y, fNormal, frc);
+            y += LINE_H;
+            drawLine(g, "मोबाइल: " + donation.getMobile(), M, y, fNormal, frc);
+            y += LINE_H + 8 * SCALE;
 
-        // Body
-        document.add(new com.lowagie.text.Paragraph(
-                "Received with sincere thanks from:", normal));
+            // Gotra — only when present
+            if (!gotraHi.isEmpty()) {
+                drawLine(g, "गोत्र: " + gotraHi, M, y, fNormal, frc);
+                y += LINE_H;
+            }
 
-//        document.add(new com.lowagie.text.Paragraph("\n", normal));
+            // Amount line — bold, all on one line: ₹ amount (words) नकद
+            drawLine(g, "राशि: ₹ " + formattedAmount + " /- (शब्दों में: " + amountInWords + ") नकद", M, y, fBold, frc);
+            y += LINE_H + 8 * SCALE;
 
-        document.add(new com.lowagie.text.Paragraph(
-                donation.getDonorName(), bold));
+            // Purpose on two lines
+            drawLine(g, "उद्देश्य:", M, y, fNormal, frc);
+            y += LINE_H;
+            drawLine(g, purposeHi + " हेतु दान राशि", M, y, fNormal, frc);
+            y += LINE_H * 2;
 
-        document.add(new com.lowagie.text.Paragraph("\n", normal));
+            // Signatory block
+            drawLine(g, "प्राप्तकर्ता:", M, y, fNormal, frc);
+            y += (int)(LINE_H * 1.5);
+            drawLine(g, cashierName,                             M, y, fNormal, frc); y += LINE_H;
+            drawLine(g, "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
+            drawLine(g, "(हनुमान लोक) जामसावली",               M, y, fNormal, frc);
+            y += LINE_H * 2;
 
-//        document.add(new com.lowagie.text.Paragraph("Address:", normal));
+            // Footer — centred
+            String footer = "आपका सहयोग मंदिर विकास हेतु अमूल्य है।";
+            java.awt.font.TextLayout tl =
+                    new java.awt.font.TextLayout(footer, fNormal, frc);
+            int fx = (int)((W - tl.getBounds().getWidth()) / 2);
+            drawLine(g, footer, fx, y, fNormal, frc);
+            y += LINE_H;
 
-        document.add(new com.lowagie.text.Paragraph(
-                donation.getAddress() != null ? "Address: " + donation.getAddress() : "",
-                normal));
+            // Horizontal rule
+            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
+            g.drawLine(M, y, W - M, y);
 
-//        document.add(new com.lowagie.text.Paragraph("\n", normal));
+            g.dispose();
 
-        document.add(new com.lowagie.text.Paragraph(
-                "Mobile: " + donation.getMobile(), normal));
+            // ── 5. Encode BufferedImage → JPEG ────────────────────────────────────
+            ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "JPEG", imgOut);
 
-        // document.add(new com.lowagie.text.Paragraph("\n", normal));
+            // ── 6. Embed JPEG in A5 PDF via OpenPDF ──────────────────────────────
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        document.add(new com.lowagie.text.Paragraph(
-                "A donation of Rs. " + formattedAmount + "/- has been received towards:" ,
-                normal));
+            com.lowagie.text.Document document =
+                    new com.lowagie.text.Document(
+                            com.lowagie.text.PageSize.A5,
+                            0, 0, 0, 0
+                    );
 
-//        document.add(new com.lowagie.text.Paragraph(
-//                "has been received towards:",
-//                normal));
-//
-//        document.add(new com.lowagie.text.Paragraph("\n", normal));
+            com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
+            document.open();
 
-        document.add(new com.lowagie.text.Paragraph(
-                donation.getPurposeNameEn().toUpperCase(),
-                bold));
+            com.lowagie.text.Image pdfImg =
+                    com.lowagie.text.Image.getInstance(imgOut.toByteArray());
+            pdfImg.scaleToFit(com.lowagie.text.PageSize.A5.getWidth(),
+                    com.lowagie.text.PageSize.A5.getHeight());
+            pdfImg.setAbsolutePosition(0, 0);
+            document.add(pdfImg);
+            document.close();
 
-//        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
+            return out.toByteArray();
 
-
-
-
-//        document.add(new com.lowagie.text.Paragraph(
-//                "development of the temple.",
-//                normal));
-
-        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
-        document.add(new com.lowagie.text.Paragraph(
-                "Authorized Signatory",
-                normal));
-        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
-
-        document.add(new com.lowagie.text.Paragraph(
-                "For Chamatkarik Shree Hanuman Mandir Sansthan",
-                normal));
-
-        document.add(new com.lowagie.text.Paragraph(
-                "(Hanuman Lok), Jamsawli",
-                normal));
-
-//        document.add(new com.lowagie.text.Paragraph("\n\n", normal));
-//
-//
-//
-//        document.add(new com.lowagie.text.Paragraph(
-//                "Your support plays a vital role in the continued service and development of the temple.",
-//                normal));
-
-        document.close();
-
-        return out.toByteArray();
-
-    } catch (Exception e) {
-        e.printStackTrace();
-        throw new RuntimeException("Failed to generate receipt PDF", e);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Failed to generate receipt PDF", e);
+        }
     }
-}
+
+    /** Draw text via TextLayout — applies HarfBuzz shaping for correct Devanagari. */
+    private static void drawLine(java.awt.Graphics2D g, String text, int x, int y,
+                                 java.awt.Font font,
+                                 java.awt.font.FontRenderContext frc) {
+        if (text == null || text.isEmpty()) return;
+        new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
+    }
 
 
     @Override
@@ -705,6 +746,7 @@ public class DonationServiceImpl implements DonationService {
                 .purposeNameHi(donation.getPurposeNameHi())
                 .amount(donation.getAmount())
                 .createdAt(donation.getCreatedAt())
+                .gotraId(donation.getGotraId())
                 .build();
     }
 

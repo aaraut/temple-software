@@ -24,6 +24,11 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import LanguageToggle from "../../components/LanguageToggle";
 
+// FIX 1: Default address in both languages.
+// Backend always stores English. Form shows Hindi when language = "hi".
+const DEFAULT_ADDRESS_EN = "Nagpur / Chhindwara";
+const DEFAULT_ADDRESS_HI = "नागपुर / छिंदवाड़ा";
+
 export default function DonationForm() {
   const { auth } = useAuth();
 
@@ -37,7 +42,7 @@ export default function DonationForm() {
 
   const [form, setForm] = useState({
     donorName: "",
-    address: "Nagpur / Chhindwara",
+    address: DEFAULT_ADDRESS_EN,   // always stored in English internally
     mobile: "",
     purposeId: "",
     amount: "",
@@ -52,6 +57,7 @@ export default function DonationForm() {
     async function load() {
       try {
         const data = await getDonationFormMetadata();
+        console.log("GOTRAS FROM API:", JSON.stringify(data.gotras));
         setMetadata(data);
       } catch (e) {
         setError("Failed to load donation metadata");
@@ -70,9 +76,14 @@ export default function DonationForm() {
   );
 
   if (defaultPurpose) {
+    // Jackson serialises boolean isDefault as "default" in JSON
+    const defaultGotra = metadata.gotras?.find((g) => g.nameEn?.toLowerCase() === "kashyap");
     setForm((prev) => ({
       ...prev,
       purposeId: defaultPurpose.id,
+      gotraId: defaultPurpose.requiresGotra && defaultGotra
+        ? defaultGotra.id
+        : prev.gotraId,
     }));
   }
 }, [metadata]);
@@ -100,6 +111,18 @@ export default function DonationForm() {
     }
   }, [selectedPurpose]);
 
+  // FIX 2b: When user manually switches to a purpose that requires gotra,
+  // auto-select Kashyap if nothing is already selected.
+  useEffect(() => {
+    if (!requiresGotra || !metadata?.gotras) return;
+
+    setForm((f) => {
+      if (f.gotraId) return f; // already selected, don't override
+      const defaultGotra = metadata.gotras.find((g) => g.nameEn?.toLowerCase() === "kashyap");
+      return defaultGotra ? { ...f, gotraId: defaultGotra.id } : f;
+    });
+  }, [requiresGotra, metadata]);
+
   // ================= MOBILE AUTO SEARCH =================
   const handleMobileBlur = async () => {
     if (!form.mobile || form.mobile.length !== 10) return;
@@ -116,10 +139,18 @@ export default function DonationForm() {
 
         const latest = res.data[0];
 
+        // Restore gotraId from the previous donation if available,
+        // otherwise fall back to Kashyap when purpose requires gotra.
+        const restoredGotra = latest.gotraId
+          || (requiresGotra
+            ? metadata?.gotras?.find((g) => g.nameEn?.toLowerCase() === "kashyap")?.id || ""
+            : "");
+
         setForm((prev) => ({
           ...prev,
           donorName: latest.donorName || "",
-          address: latest.address || "Nagpur / Chhindwara",
+          address: latest.address || DEFAULT_ADDRESS_EN,
+          gotraId: restoredGotra || prev.gotraId,
         }));
 
         setAutoFilled(true);
@@ -143,7 +174,7 @@ export default function DonationForm() {
       setForm((prev) => ({
         ...prev,
         donorName: selected.donorName || "",
-        address: selected.address || "Nagpur / Chhindwara",
+        address: selected.address || DEFAULT_ADDRESS_EN,
       }));
       setAutoFilled(true);
     }
@@ -160,7 +191,7 @@ export default function DonationForm() {
   const handleReset = () => {
     setForm({
       donorName: "",
-      address: "Nagpur / Chhindwara",
+      address: DEFAULT_ADDRESS_EN,
       mobile: "",
       purposeId: "",
       amount: "",
@@ -170,9 +201,34 @@ export default function DonationForm() {
     setMobileMatches([]);
   };
 
+  // FIX 1: Show Hindi address on form when in Hindi mode,
+  // but keep form.address in English so backend always gets English.
+  const displayAddress =
+    language === "hi" && form.address === DEFAULT_ADDRESS_EN
+      ? DEFAULT_ADDRESS_HI
+      : form.address;
+
+  const handleAddressChange = (e) => {
+    const val = e.target.value;
+    // If user types the Hindi default back, normalise to English for storage
+    const toStore = val === DEFAULT_ADDRESS_HI ? DEFAULT_ADDRESS_EN : val;
+    setForm({ ...form, address: toStore });
+  };
+
   const handleSaveAndPrint = async () => {
     setError("");
     setSuccess("");
+
+    // FIX 3: Validate gotra on the frontend before calling the backend,
+    // so the error message shows clearly in the UI.
+    if (requiresGotra && !form.gotraId) {
+      setError(
+        language === "hi"
+          ? "कृपया गोत्र चुनें"
+          : "Please select a Gotra"
+      );
+      return;
+    }
 
     try {
       setLoading(true);
@@ -193,20 +249,17 @@ export default function DonationForm() {
 
       const blobUrl = URL.createObjectURL(blob);
 
-      const printWindow = window.open("", "_blank");
-
-      printWindow.document.write(`
-        <html>
-          <body style="margin:0">
-            <iframe src="${blobUrl}" 
-              style="width:100%;height:100vh;border:none"
-              onload="window.print(); setTimeout(() => window.close(), 500);">
-            </iframe>
-          </body>
-        </html>
-      `);
-
-      printWindow.document.close();
+      // Open the PDF blob URL directly in a new tab.
+      // Previously this used an <iframe> which caused the PDF viewer to
+      // render as a black rectangle when printed. Opening the blob URL
+      // directly lets the browser print the actual PDF content.
+      const printWindow = window.open(blobUrl, "_blank");
+      if (printWindow) {
+        printWindow.addEventListener("load", () => {
+          printWindow.print();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        });
+      }
 
       setSuccess("Donation saved successfully!");
       handleReset();
@@ -302,7 +355,7 @@ export default function DonationForm() {
 
           {autoFilled && (
             <Typography variant="caption" color="success.main">
-              ✔ Auto-filled from last donation
+              {language === "hi" ? "✔ पिछले दान से स्वतः भरा गया" : "✔ Auto-filled from last donation"}
             </Typography>
           )}
 
@@ -339,8 +392,8 @@ export default function DonationForm() {
             fullWidth
             label={t.address}
             name="address"
-            value={form.address}
-            onChange={handleChange}
+            value={displayAddress}
+            onChange={handleAddressChange}
             margin="normal"
           />
 

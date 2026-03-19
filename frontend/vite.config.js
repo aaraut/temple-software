@@ -24,6 +24,9 @@ export default defineConfig({
       }
     })
   ],
+  optimizeDeps: {
+  include: ['lipilekhika']
+},
 
   // 🔑 THIS IS THE MISSING PART
   server: {
