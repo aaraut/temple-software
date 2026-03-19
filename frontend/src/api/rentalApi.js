@@ -46,3 +46,17 @@ export async function returnRental(payload) {
   );
   return resp.data;
 }
+
+/**
+ * ✅ Return rental items AND print Hindi receipt PDF
+ */
+export async function returnRentalAndPrint(payload, username) {
+  const resp = await axiosClient.post(
+    `/rentals/return-and-print?username=${encodeURIComponent(username)}`,
+    payload,
+    {
+      responseType: "blob"   // 🔥 PDF blob
+    }
+  );
+  return resp.data;
+}

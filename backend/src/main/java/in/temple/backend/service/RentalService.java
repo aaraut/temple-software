@@ -13,4 +13,9 @@ public interface RentalService {
             String username
     );
 
+    byte[] returnRentalAndPrintReceipt(
+            RentalReturnRequestDto request,
+            String username
+    );
+
 }
