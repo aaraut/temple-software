@@ -11,9 +11,12 @@ import {
   IconButton,
   Paper,
   Box,
-  Grid
+  Grid,
+  Typography,
+  CircularProgress
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { searchDonorByMobile } from "../../api/rentalApi";
 
 const labels = {
   hi: {
@@ -26,7 +29,8 @@ const labels = {
     submit: "किराया दर्ज करें",
     qty: "मात्रा",
     rate: "दर",
-    total: "योग"
+    total: "योग",
+    autoFilled: "✔ पिछले दान रिकॉर्ड से भरा गया"
   },
   en: {
     titleBartan: "Bartan Rental",
@@ -38,7 +42,8 @@ const labels = {
     submit: "Create Rental",
     qty: "Quantity",
     rate: "Rate",
-    total: "Total"
+    total: "Total",
+    autoFilled: "✔ Auto-filled from previous donation record"
   }
 };
 
@@ -63,6 +68,8 @@ export default function RentalIssueForm({
 
   const [depositAmount, setDepositAmount] = useState("");
   const [chargedAmount, setChargedAmount] = useState("");
+  const [autoFilled, setAutoFilled] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const calculatedTotal = useMemo(() => {
     return items.reduce((sum, i) => sum + i.rate * i.quantity, 0);
@@ -72,17 +79,36 @@ export default function RentalIssueForm({
     setItems([{ inventoryItemId: "", quantity: 1, rate: 0 }]);
     setDepositAmount("");
     setChargedAmount("");
-    setCustomer({
-      customerName: "",
-      mobile: "",
-      address: "",
-      aadhaar: "000"
-    });
+    setCustomer({ customerName: "", mobile: "", address: "", aadhaar: "000" });
+    setAutoFilled(false);
   }, [category]);
 
   useEffect(() => {
     setChargedAmount(calculatedTotal);
   }, [calculatedTotal]);
+
+  // ── Mobile blur → search donation table → prefill name + address ───────────
+  const handleMobileBlur = async () => {
+    if (!customer.mobile || customer.mobile.length < 5) return;
+    try {
+      setSearching(true);
+      const results = await searchDonorByMobile(customer.mobile);
+      if (results && results.length > 0) {
+        const latest = results[0];
+        setCustomer(prev => ({
+          ...prev,
+          customerName: latest.donorName || prev.customerName,
+          address: latest.address || prev.address
+        }));
+        setAutoFilled(true);
+      }
+    } catch {
+      // silent — user can still type manually
+    } finally {
+      setSearching(false);
+    }
+  };
+  // ───────────────────────────────────────────────────────────────────────────
 
   const addItem = () => {
     setItems([...items, { inventoryItemId: "", quantity: 1, rate: 0 }]);
@@ -91,12 +117,10 @@ export default function RentalIssueForm({
   const updateItem = (idx, field, value) => {
     const updated = [...items];
     updated[idx][field] = value;
-
     if (field === "inventoryItemId") {
       const inv = inventory.find(i => i.id === Number(value));
       updated[idx].rate = inv?.rate || 0;
     }
-
     setItems(updated);
   };
 
@@ -121,13 +145,9 @@ export default function RentalIssueForm({
     setItems([{ inventoryItemId: "", quantity: 1, rate: 0 }]);
     setDepositAmount("");
     setChargedAmount("");
-    setCustomer({
-      customerName: "",
-      mobile: "",
-      address: "",
-      aadhaar: "000"
-    });
-  }; 
+    setCustomer({ customerName: "", mobile: "", address: "", aadhaar: "000" });
+    setAutoFilled(false);
+  };
 
   return (
     <Paper elevation={3} sx={{ p: 3, mt: 2 }}>
@@ -139,8 +159,28 @@ export default function RentalIssueForm({
       </Box>
 
       {/* Customer Details */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 1 }}>
         <Grid container spacing={2}>
+
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label={t.mobile}
+              value={customer.mobile}
+              onChange={(e) => {
+                setAutoFilled(false);
+                setCustomer({ ...customer, mobile: e.target.value });
+              }}
+              onBlur={handleMobileBlur}
+              InputProps={{
+                endAdornment: searching
+                  ? <CircularProgress size={16} sx={{ mr: 1 }} />
+                  : null
+              }}
+            />
+          </Grid>
+
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
@@ -157,18 +197,6 @@ export default function RentalIssueForm({
             <TextField
               fullWidth
               size="small"
-              label={t.mobile}
-              value={customer.mobile}
-              onChange={(e) =>
-                setCustomer({ ...customer, mobile: e.target.value })
-              }
-            />
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              size="small"
               label={t.address}
               value={customer.address}
               onChange={(e) =>
@@ -176,11 +204,19 @@ export default function RentalIssueForm({
               }
             />
           </Grid>
+
         </Grid>
+
+        {/* Autofill note — same style as donation form */}
+        {autoFilled && (
+          <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: "block" }}>
+            {t.autoFilled}
+          </Typography>
+        )}
       </Box>
 
       {/* Items Table */}
-      <Paper variant="outlined">
+      <Paper variant="outlined" sx={{ mt: 2 }}>
         <Table size="small">
           <TableHead sx={{ backgroundColor: "#7a1f1f" }}>
             <TableRow>
@@ -230,10 +266,7 @@ export default function RentalIssueForm({
                 <TableCell sx={{ py: 1 }}>{row.rate * row.quantity}</TableCell>
 
                 <TableCell sx={{ py: 1 }}>
-                  <IconButton
-                    size="small"
-                    onClick={() => removeItem(idx)}
-                  >
+                  <IconButton size="small" onClick={() => removeItem(idx)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -243,12 +276,7 @@ export default function RentalIssueForm({
         </Table>
       </Paper>
 
-      {/* Add Item */}
-      <Button
-        onClick={addItem}
-        size="small"
-        sx={{ mt: 1, mb: 2 }}
-      >
+      <Button onClick={addItem} size="small" sx={{ mt: 1, mb: 2 }}>
         + {t.addItem}
       </Button>
 
@@ -289,12 +317,8 @@ export default function RentalIssueForm({
 
       {/* Submit */}
       <Box sx={{ mt: 3 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSubmit}
-        >
-           Save & Print
+        <Button variant="contained" color="primary" onClick={handleSubmit}>
+          Save & Print
         </Button>
         <Button
           variant="contained"

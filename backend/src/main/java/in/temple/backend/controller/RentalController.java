@@ -82,4 +82,21 @@ public class RentalController {
                 .body(pdf);
     }
 
+    @PostMapping(
+            value = "/return-and-print",
+            produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> returnAndPrint(
+            @RequestBody RentalReturnRequestDto request,
+            @RequestParam String username
+    ) {
+        byte[] pdf = rentalService.returnRentalAndPrintReceipt(request, username);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=rental-return-receipt.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
 }

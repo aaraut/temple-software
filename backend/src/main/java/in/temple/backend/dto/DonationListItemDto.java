@@ -15,9 +15,11 @@ public class DonationListItemDto {
     private Long id;
     private String receiptNumber;
     private String donorName;
+    private String address;
     private String mobile;
     private String purposeNameEn;
     private String purposeNameHi;
     private BigDecimal amount;
     private LocalDateTime createdAt;
+    private String gotraId;
 }
