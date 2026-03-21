@@ -741,6 +741,7 @@ public class DonationServiceImpl implements DonationService {
                 .id(donation.getId())
                 .receiptNumber(donation.getReceiptNumber())
                 .donorName(donation.getDonorName())
+                .address(donation.getAddress())
                 .mobile(donation.getMobile())
                 .purposeNameEn(donation.getPurposeNameEn())
                 .purposeNameHi(donation.getPurposeNameHi())

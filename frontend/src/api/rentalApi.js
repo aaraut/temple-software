@@ -1,6 +1,16 @@
 import axiosClient from "./axiosClient";
 
 /**
+ * Reuse donation search to pre-fill customer name + address.
+ * Searches by mobile — returns DonationListItemDto list.
+ * No new backend endpoint needed.
+ */
+export async function searchDonorByMobile(mobile) {
+  const resp = await axiosClient.post("/donation/search", { mobile });
+  return resp.data; // DonationListItemDto[]
+}
+
+/**
  * Issue rental (only save – optional if still needed somewhere)
  */
 export async function issueRental(payload) {

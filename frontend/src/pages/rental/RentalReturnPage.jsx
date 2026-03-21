@@ -9,7 +9,7 @@ import {
   Typography,
   Divider
 } from "@mui/material";
-import { getRentalByReceipt, returnRentalAndPrint } from "../../api/rentalApi";
+import { getRentalByReceipt, returnRental } from "../../api/rentalApi";
 import { useAuth } from "../../context/AuthContext";
 import LanguageToggle from "../../components/LanguageToggle";
 import RentalReturnTable from "../../components/rental/RentalReturnTable";
@@ -70,22 +70,13 @@ export default function RentalReturnPage() {
 
   const handleSubmit = async () => {
     try {
-      const pdfBlob = await returnRentalAndPrint(
-        {
-          receiptNumber,
-          fineAmount: fineAmount || 0,
-          remarks,
-          handledBy: auth.username,
-          items: Object.values(returnItems)
-        },
-        auth.username
-      );
-
-      // Open PDF in new tab
-      const file = new Blob([pdfBlob], { type: "application/pdf" });
-      const fileURL = window.URL.createObjectURL(file);
-      window.open(fileURL);
-
+      await returnRental({
+        receiptNumber,
+        fineAmount: fineAmount || 0,
+        remarks,
+        handledBy: auth.username,
+        items: Object.values(returnItems)
+      });
       setSuccess(t.successReturn);
       setRental(null);
       setReceiptNumber("");
