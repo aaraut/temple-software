@@ -22,7 +22,6 @@ import {
 } from "../../api/donationApi";
 
 import { useAuth } from "../../context/AuthContext";
-import LanguageToggle from "../../components/LanguageToggle";
 
 // FIX 1: Default address in both languages.
 // Backend always stores English. Form shows Hindi when language = "hi".
@@ -30,11 +29,10 @@ const DEFAULT_ADDRESS_EN = "Nagpur / Chhindwara";
 const DEFAULT_ADDRESS_HI = "नागपुर / छिंदवाड़ा";
 
 export default function DonationForm() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();   // ← language from global context
 
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [language, setLanguage] = useState("hi");
 
   const [autoFilled, setAutoFilled] = useState(false);
   const [mobileMatches, setMobileMatches] = useState([]);
@@ -304,7 +302,6 @@ export default function DonationForm() {
             <Typography variant="h5" fontWeight={600}>
               {t.title}
             </Typography>
-            <LanguageToggle value={language} onChange={setLanguage} />
           </Box>
 
           {/* PURPOSE */}

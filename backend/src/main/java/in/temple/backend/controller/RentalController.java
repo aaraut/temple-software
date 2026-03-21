@@ -18,85 +18,48 @@ public class RentalController {
 
     private final RentalService rentalService;
 
-    /**
-     * Issue a new rental (Rent out items)
-     */
     @PostMapping("/issue")
-    public ResponseEntity<?> issueRental(
-            @RequestBody RentalIssueRequestDto request
-    ) {
+    public ResponseEntity<?> issueRental(@RequestBody RentalIssueRequestDto request) {
         String receiptNumber = rentalService.issueRental(request);
-
-        return ResponseEntity.ok(
-                Map.of(
-                        "message", "Rental issued successfully",
-                        "receiptNumber", receiptNumber
-                )
-        );
+        return ResponseEntity.ok(Map.of("message", "Rental issued successfully", "receiptNumber", receiptNumber));
     }
 
-    /**
-     * Return rental items (partial or full return)
-     */
     @PostMapping("/return")
-    public ResponseEntity<?> returnRental(
-            @RequestBody RentalReturnRequestDto request
-    ) {
+    public ResponseEntity<?> returnRental(@RequestBody RentalReturnRequestDto request) {
         rentalService.returnRental(request);
+        return ResponseEntity.ok(Map.of("message", "Rental return processed successfully"));
+    }
 
-        return ResponseEntity.ok(
-                Map.of(
-                        "message", "Rental return processed successfully"
-                )
-        );
+    @GetMapping("/search/mobile")
+    public ResponseEntity<?> searchByMobile(@RequestParam String mobile) {
+        return ResponseEntity.ok(rentalService.searchByMobile(mobile));
+    }
+
+    @GetMapping("/search/name")
+    public ResponseEntity<?> searchByName(@RequestParam String name) {
+        return ResponseEntity.ok(rentalService.searchByName(name));
     }
 
     @GetMapping("/{receiptNumber}")
-    public ResponseEntity<?> getRental(
-            @PathVariable String receiptNumber
-    ) {
-        return ResponseEntity.ok(
-                rentalService.getRentalByReceipt(receiptNumber)
-        );
+    public ResponseEntity<?> getRental(@PathVariable String receiptNumber) {
+        return ResponseEntity.ok(rentalService.getRentalByReceipt(receiptNumber));
     }
 
-    @PostMapping(
-            value = "/create-and-print",
-            produces = MediaType.APPLICATION_PDF_VALUE
-    )
-    public ResponseEntity<byte[]> createAndPrint(
-            @RequestBody RentalIssueRequestDto request,
-            @RequestParam String username
-    ) {
-
-        byte[] pdf =
-                rentalService.createRentalAndReturnReceiptPdf(
-                        request,
-                        username
-                );
-
+    @PostMapping(value = "/create-and-print", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> createAndPrint(@RequestBody RentalIssueRequestDto request, @RequestParam String username) {
+        byte[] pdf = rentalService.createRentalAndReturnReceiptPdf(request, username);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=rental-receipt.pdf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rental-receipt.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }
 
-    @PostMapping(
-            value = "/return-and-print",
-            produces = MediaType.APPLICATION_PDF_VALUE
-    )
-    public ResponseEntity<byte[]> returnAndPrint(
-            @RequestBody RentalReturnRequestDto request,
-            @RequestParam String username
-    ) {
+    @PostMapping(value = "/return-and-print", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> returnAndPrint(@RequestBody RentalReturnRequestDto request, @RequestParam String username) {
         byte[] pdf = rentalService.returnRentalAndPrintReceipt(request, username);
-
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=rental-return-receipt.pdf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rental-return-receipt.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }
-
 }

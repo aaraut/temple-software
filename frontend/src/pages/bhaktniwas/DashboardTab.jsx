@@ -11,12 +11,28 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import { getOccupancy } from "../../api/roomBookingApi";
 
-export default function DashboardTab() {
-  const [occupancy, setOccupancy] = useState(null);
+const L = {
+  en: {
+    title: "Bhakt Niwas Dashboard",
+    totalRooms: "Total Rooms",
+    occupiedRooms: "Occupied Rooms",
+    occupancyPct: "Occupancy %",
+    calendar: "Booking Calendar",
+  },
+  hi: {
+    title: "भक्त निवास डैशबोर्ड",
+    totalRooms: "कुल कमरे",
+    occupiedRooms: "भरे हुए कमरे",
+    occupancyPct: "अधिभोग %",
+    calendar: "बुकिंग कैलेंडर",
+  },
+};
 
-  useEffect(() => {
-    loadOccupancy();
-  }, []);
+export default function DashboardTab({ language = "hi" }) {
+  const [occupancy, setOccupancy] = useState(null);
+  const t = L[language] ?? L.en;
+
+  useEffect(() => { loadOccupancy(); }, []);
 
   const loadOccupancy = async () => {
     try {
@@ -29,58 +45,33 @@ export default function DashboardTab() {
 
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Bhakt Niwas Dashboard
-      </Typography>
+      <Typography variant="h6" gutterBottom>{t.title}</Typography>
 
-      {/* Occupancy Section */}
       {occupancy && (
         <>
           <Grid container spacing={4} sx={{ mt: 1 }}>
             <Grid item xs={4}>
-              <Typography>Total Rooms</Typography>
-              <Typography variant="h4">
-                {occupancy.totalRooms}
-              </Typography>
+              <Typography>{t.totalRooms}</Typography>
+              <Typography variant="h4">{occupancy.totalRooms}</Typography>
             </Grid>
-
             <Grid item xs={4}>
-              <Typography>Occupied Rooms</Typography>
-              <Typography variant="h4">
-                {occupancy.occupiedRooms}
-              </Typography>
+              <Typography>{t.occupiedRooms}</Typography>
+              <Typography variant="h4">{occupancy.occupiedRooms}</Typography>
             </Grid>
-
             <Grid item xs={4}>
-              <Typography>Occupancy %</Typography>
-              <Typography variant="h4">
-                {occupancy.occupancyPercentage.toFixed(2)}%
-              </Typography>
+              <Typography>{t.occupancyPct}</Typography>
+              <Typography variant="h4">{occupancy.occupancyPercentage.toFixed(2)}%</Typography>
             </Grid>
           </Grid>
-
           <Box sx={{ mt: 2 }}>
-            <LinearProgress
-              variant="determinate"
-              value={occupancy.occupancyPercentage}
-              sx={{ height: 10, borderRadius: 5 }}
-            />
+            <LinearProgress variant="determinate" value={occupancy.occupancyPercentage} sx={{ height: 10, borderRadius: 5 }} />
           </Box>
-
           <Divider sx={{ my: 4 }} />
         </>
       )}
 
-      {/* Calendar Section */}
-      <Typography variant="h6" gutterBottom>
-        Booking Calendar
-      </Typography>
-
-      <FullCalendar
-        plugins={[dayGridPlugin]}
-        initialView="dayGridMonth"
-        height="auto"
-      />
+      <Typography variant="h6" gutterBottom>{t.calendar}</Typography>
+      <FullCalendar plugins={[dayGridPlugin]} initialView="dayGridMonth" height="auto" />
     </Paper>
   );
 }

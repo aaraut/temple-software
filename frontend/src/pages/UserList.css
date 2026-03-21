@@ -56,3 +56,135 @@
   text-align: center;
   color: #777;
 }
+
+/* ─── Add User Card ──────────────────────────────────────────── */
+.add-user-card {
+  background: white;
+  border: 1.5px solid #e8d5c4;
+  border-left: 5px solid #7a1f1f;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(122,31,31,0.08);
+}
+
+.add-user-title {
+  margin: 0 0 18px;
+  color: #7a1f1f;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.add-user-error {
+  background: #fdf0f0;
+  border: 1px solid #f5c6c6;
+  color: #c0392b;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 0.88rem;
+  margin-bottom: 14px;
+}
+
+.add-user-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.add-user-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.add-user-field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.add-user-field input,
+.add-user-field select {
+  padding: 9px 11px;
+  border: 1.5px solid #ddd;
+  border-radius: 7px;
+  font-size: 0.92rem;
+  color: #333;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.add-user-field input:focus,
+.add-user-field select:focus {
+  border-color: #7a1f1f;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(122,31,31,0.08);
+}
+
+.add-user-field input[type="date"] {
+  color: #555;
+}
+
+.add-user-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.add-user-btn-primary {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #8b2323, #7a1f1f);
+  color: white;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(122,31,31,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.add-user-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(122,31,31,0.35);
+}
+
+.add-user-btn-secondary {
+  padding: 10px 24px;
+  background: white;
+  color: #7a1f1f;
+  border: 1.5px solid #7a1f1f;
+  border-radius: 7px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.add-user-btn-secondary:hover {
+  background: #fdf5f5;
+}
+
+/* ─── Primary button (+ Add User) ───────────────────────────── */
+.primary-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #8b2323, #7a1f1f);
+  color: white;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  box-shadow: 0 3px 10px rgba(122,31,31,0.25);
+  transition: transform 0.15s;
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+}

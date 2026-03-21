@@ -8,47 +8,104 @@ export default function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [language, setLanguage] = useState("hi");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     try {
       const data = await loginApi(username, password);
-      login(data);
+      login(data, language);
       window.location.replace("/");
     } catch (err) {
-      setError("Invalid username or password");
+      setError(
+        language === "hi"
+          ? "अमान्य यूज़रनेम या पासवर्ड"
+          : "Invalid username or password"
+      );
     }
   };
 
   return (
     <div className="login-container">
       <form className="login-box" onSubmit={handleSubmit}>
-        <h2>Temple Admin Login</h2>
 
+        {/* Icon */}
+        <div className="login-temple-icon">🛕</div>
+
+        {/* Title */}
+        <h2>{language === "hi" ? "चमत्कारिक श्री हनुमान मंदिर जामसावली मंदिर लॉगिन" : "Chamatkarik Shree Hanuman Mandir Jamsawli Temple Login"}</h2>
+
+        {/* Error */}
         {error && <p className="error">{error}</p>}
 
-        <input
-          placeholder="Username"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          required
-        />
+        {/* Inputs */}
+        <div className="login-input-group">
+          <div className="login-input-wrapper">
+            <span className="login-input-icon">👤</span>
+            <input
+              type="text"
+              placeholder={language === "hi" ? "यूज़रनेम" : "Username"}
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              required
+              autoComplete="username"
+            />
+          </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-        />
+          <div className="login-input-wrapper">
+            <span className="login-input-icon">🔒</span>
+            <input
+              type="password"
+              placeholder={language === "hi" ? "पासवर्ड" : "Password"}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+        </div>
 
-        <button type="submit">Login</button>
+        {/* Language Selection */}
+        <div className="language-select-group">
+          <label className="language-select-label">
+            {language === "hi" ? "भाषा चुनें" : "Select Language"}
+          </label>
+          <div className="language-radio-group">
+            <label className="language-radio-option">
+              <input
+                type="radio"
+                name="language"
+                value="hi"
+                checked={language === "hi"}
+                onChange={() => setLanguage("hi")}
+              />
+              <span>हिंदी</span>
+            </label>
+            <label className="language-radio-option">
+              <input
+                type="radio"
+                name="language"
+                value="en"
+                checked={language === "en"}
+                onChange={() => setLanguage("en")}
+              />
+              <span>English</span>
+            </label>
+          </div>
+        </div>
 
+        {/* Submit */}
+        <button type="submit">
+          {language === "hi" ? "लॉगिन करें" : "Login"}
+        </button>
+
+        <div className="login-divider" />
+
+        {/* Forgot */}
         <p className="forgot" onClick={() => window.location.href = "/forgot-password"}>
-            Forgot Password?
+          {language === "hi" ? "पासवर्ड भूल गए?" : "Forgot Password?"}
         </p>
 
       </form>

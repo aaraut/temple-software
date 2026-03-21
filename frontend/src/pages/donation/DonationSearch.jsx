@@ -16,7 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 export default function DonationSearch() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();
   const navigate = useNavigate();
 
   const [mobile, setMobile] = useState("");

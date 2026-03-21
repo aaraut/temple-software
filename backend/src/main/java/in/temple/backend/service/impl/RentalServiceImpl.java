@@ -674,4 +674,34 @@ public class RentalServiceImpl implements RentalService {
         new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<in.temple.backend.dto.RentalSearchResultDto> searchByMobile(String mobile) {
+        return rentalRepository.findByMobileContainingOrderByCreatedAtDesc(mobile)
+                .stream()
+                .map(this::toSearchResult)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<in.temple.backend.dto.RentalSearchResultDto> searchByName(String name) {
+        return rentalRepository.findByCustomerNameContainingIgnoreCaseOrderByCreatedAtDesc(name)
+                .stream()
+                .map(this::toSearchResult)
+                .toList();
+    }
+
+    private in.temple.backend.dto.RentalSearchResultDto toSearchResult(in.temple.backend.model.Rental r) {
+        return new in.temple.backend.dto.RentalSearchResultDto(
+                r.getReceiptNumber(),
+                r.getCustomerName(),
+                r.getMobile(),
+                r.getAddress(),
+                r.getCategory() != null ? r.getCategory().name() : "",
+                r.getStatus() != null ? r.getStatus().name() : "",
+                r.getCreatedAt()
+        );
+    }
+
 }

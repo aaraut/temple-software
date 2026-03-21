@@ -4,18 +4,16 @@ import { useLocation } from "react-router-dom";
 import { createRentalAndPrint  } from "../../api/rentalApi";
 import { getInventoryItems } from "../../api/inventoryApi";
 import { useAuth } from "../../context/AuthContext";
-import LanguageToggle from "../../components/LanguageToggle";
 import RentalIssueForm from "../../components/rental/RentalIssueForm";
 
 export default function RentalIssuePage() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();   // ← global language
   const location = useLocation();
 
   const category = location.pathname.includes("bichayat")
     ? "BICHAYAT"
     : "BARTAN";
 
-  const [language, setLanguage] = useState("hi");
   const [inventory, setInventory] = useState([]);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -91,10 +89,6 @@ export default function RentalIssuePage() {
 
   return (
     <Box sx={{ maxWidth: 1000, margin: "auto" }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <LanguageToggle value={language} onChange={setLanguage} />
-      </Box>
-
       <RentalIssueForm
         inventory={inventory}
         language={language}

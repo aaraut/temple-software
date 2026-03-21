@@ -22,7 +22,7 @@ export default function DonationEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();
 
   const isViewMode = new URLSearchParams(location.search).get("mode") === "view";
 
