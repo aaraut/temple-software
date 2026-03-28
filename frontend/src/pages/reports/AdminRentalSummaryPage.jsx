@@ -106,7 +106,7 @@ export default function AdminRentalSummaryPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" fontWeight={600} gutterBottom>
-        किराया आय — एडमिन सारांश
+        किराया आय — एडमिन संक्षिप्त विवरण
       </Typography>
 
       {/* Filter bar */}
