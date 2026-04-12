@@ -13,7 +13,8 @@ import {
   Box,
   Grid,
   Typography,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { searchDonorByMobile } from "../../api/rentalApi";
@@ -30,7 +31,12 @@ const labels = {
     qty: "मात्रा",
     rate: "दर",
     total: "योग",
-    autoFilled: "✔ पिछले दान रिकॉर्ड से भरा गया"
+    autoFilled: "✔ पिछले दान रिकॉर्ड से भरा गया",
+    errName: "कृपया ग्राहक का नाम दर्ज करें",
+    errMobile: "कृपया 10 अंकों का मोबाइल नंबर दर्ज करें",
+    errAddress: "कृपया पता दर्ज करें",
+    errItem: "कृपया कम से कम एक सामान चुनें",
+    errQty: "सभी सामान की मात्रा 1 या अधिक होनी चाहिए",
   },
   en: {
     titleBartan: "Bartan Rental",
@@ -43,7 +49,12 @@ const labels = {
     qty: "Quantity",
     rate: "Rate",
     total: "Total",
-    autoFilled: "✔ Auto-filled from previous donation record"
+    autoFilled: "✔ Auto-filled from previous donation record",
+    errName: "Please enter customer name",
+    errMobile: "Please enter a valid 10-digit mobile number",
+    errAddress: "Please enter address",
+    errItem: "Please select at least one item",
+    errQty: "All item quantities must be 1 or more",
   }
 };
 
@@ -70,6 +81,7 @@ export default function RentalIssueForm({
   const [chargedAmount, setChargedAmount] = useState("");
   const [autoFilled, setAutoFilled] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const calculatedTotal = useMemo(() => {
     return items.reduce((sum, i) => sum + i.rate * i.quantity, 0);
@@ -129,15 +141,37 @@ export default function RentalIssueForm({
   };
 
   const handleSubmit = () => {
+    setFormError("");
+
+    // Validate customer fields
+    if (!customer.customerName.trim()) {
+      setFormError(t.errName); return;
+    }
+    if (!customer.mobile.trim() || !/^[0-9]{10}$/.test(customer.mobile.trim())) {
+      setFormError(t.errMobile); return;
+    }
+    if (!customer.address.trim()) {
+      setFormError(t.errAddress); return;
+    }
+
+    // Validate items
+    const validItems = items.filter(i => i.inventoryItemId !== "");
+    if (validItems.length === 0) {
+      setFormError(t.errItem); return;
+    }
+    if (validItems.some(i => !i.quantity || i.quantity < 1)) {
+      setFormError(t.errQty); return;
+    }
+
     onSubmit({
       ...customer,
-      items: items.map(i => ({
+      items: validItems.map(i => ({
         inventoryItemId: i.inventoryItemId,
         quantity: i.quantity
       })),
       calculatedTotalAmount: calculatedTotal,
       chargedAmount: chargedAmount || calculatedTotal,
-      depositAmount
+      depositAmount: depositAmount || 0
     });
   };
 
@@ -147,6 +181,7 @@ export default function RentalIssueForm({
     setChargedAmount("");
     setCustomer({ customerName: "", mobile: "", address: "", aadhaar: "000" });
     setAutoFilled(false);
+    setFormError("");
   };
 
   return (
@@ -314,6 +349,13 @@ export default function RentalIssueForm({
           </Grid>
         </Grid>
       </Box>
+
+      {/* Validation error */}
+      {formError && (
+        <Box sx={{ mt: 2 }}>
+          <Alert severity="error">{formError}</Alert>
+        </Box>
+      )}
 
       {/* Submit */}
       <Box sx={{ mt: 3 }}>

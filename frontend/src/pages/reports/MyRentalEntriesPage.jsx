@@ -26,15 +26,45 @@ const thisMonth  = () => {
 const fmtDate = (raw) => {
   if (!raw) return "";
   const d = new Date(raw);
-  return isNaN(d) ? raw : d.toLocaleDateString("hi-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return isNaN(d) ? raw : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 const STATUS_COLOR = { ISSUED: "warning", PARTIALLY_RETURNED: "info", CLOSED: "success", RETURNED: "success" };
-const STATUS_LABEL = { ISSUED: "जारी", PARTIALLY_RETURNED: "आंशिक", CLOSED: "बंद", RETURNED: "वापस" };
+
+const L = {
+  hi: {
+    title: "किराया प्रविष्टियाँ",
+    today: "आज", week: "इस सप्ताह", month: "इस माह",
+    categoryLabel: "श्रेणी", all: "सभी", bartan: "बर्तन", bichayat: "बिछायत",
+    from: "से", to: "तक",
+    colReceipt: "रसीद", colDate: "दिनांक", colCategory: "श्रेणी",
+    colCustomer: "ग्राहक", colIssued: "जारी", colPending: "बाकी",
+    colAmount: "राशि (₹)", colStatus: "स्थिति",
+    statusIssued: "जारी", statusPartial: "आंशिक", statusClosed: "बंद", statusReturned: "वापस",
+  },
+  en: {
+    title: "Rental Entries",
+    today: "Today", week: "This Week", month: "This Month",
+    categoryLabel: "Category", all: "All", bartan: "Bartan", bichayat: "Bichayat",
+    from: "From", to: "To",
+    colReceipt: "Receipt", colDate: "Date", colCategory: "Category",
+    colCustomer: "Customer", colIssued: "Issued", colPending: "Pending",
+    colAmount: "Amount (₹)", colStatus: "Status",
+    statusIssued: "Issued", statusPartial: "Partial", statusClosed: "Closed", statusReturned: "Returned",
+  },
+};
 
 export default function MyRentalEntriesPage() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();
+  const t = L[language] ?? L.en;
   const navigate = useNavigate();
+
+  const STATUS_LABEL = {
+    ISSUED: t.statusIssued,
+    PARTIALLY_RETURNED: t.statusPartial,
+    CLOSED: t.statusClosed,
+    RETURNED: t.statusReturned,
+  };
 
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(false);
@@ -58,27 +88,27 @@ export default function MyRentalEntriesPage() {
   }, [filters, category]);
 
   const columns = [
-    { field: "receiptNumber", headerName: "रसीद", flex: 1.2, minWidth: 160 },
+    { field: "receiptNumber", headerName: t.colReceipt, flex: 1.2, minWidth: 160 },
     {
-      field: "createdAt", headerName: "दिनांक", flex: 1, minWidth: 110,
+      field: "createdAt", headerName: t.colDate, flex: 1, minWidth: 110,
       renderCell: (p) => fmtDate(p.value)
     },
     {
-      field: "category", headerName: "श्रेणी", width: 100,
+      field: "category", headerName: t.colCategory, width: 100,
       renderCell: (p) => (
-        <Chip label={p.value === "BARTAN" ? "बर्तन" : "बिछायत"} size="small"
+        <Chip label={p.value === "BARTAN" ? t.bartan : t.bichayat} size="small"
           color={p.value === "BARTAN" ? "primary" : "secondary"} variant="outlined" />
       )
     },
-    { field: "customerName", headerName: "ग्राहक", flex: 1, minWidth: 120 },
-    { field: "totalIssuedQty", headerName: "जारी", width: 70, align: "center", headerAlign: "center" },
-    { field: "totalPendingQty", headerName: "बाकी", width: 70, align: "center", headerAlign: "center" },
+    { field: "customerName", headerName: t.colCustomer, flex: 1, minWidth: 120 },
+    { field: "totalIssuedQty",  headerName: t.colIssued,  width: 70, align: "center", headerAlign: "center" },
+    { field: "totalPendingQty", headerName: t.colPending, width: 70, align: "center", headerAlign: "center" },
     {
-      field: "chargedAmount", headerName: "राशि (₹)", width: 90, align: "right", headerAlign: "right",
+      field: "chargedAmount", headerName: t.colAmount, width: 90, align: "right", headerAlign: "right",
       renderCell: (p) => `₹ ${p.value ?? 0}`
     },
     {
-      field: "status", headerName: "स्थिति", width: 110,
+      field: "status", headerName: t.colStatus, width: 110,
       renderCell: (p) => (
         <Chip
           label={STATUS_LABEL[p.value] ?? p.value}
@@ -91,15 +121,13 @@ export default function MyRentalEntriesPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Typography variant="h5" fontWeight={600}>किराया प्रविष्टियाँ</Typography>
+        <Typography variant="h5" fontWeight={600}>{t.title}</Typography>
       </Box>
 
-      {/* Filter bar */}
       <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", mb: 2 }}>
         <Stack direction="row" spacing={1}>
-          {[["today","आज"],["week","इस सप्ताह"],["month","इस माह"]].map(([key, label]) => (
+          {[["today", t.today], ["week", t.week], ["month", t.month]].map(([key, label]) => (
             <Button key={key} size="small"
               variant={preset === key ? "contained" : "outlined"}
               onClick={() => applyPreset(key)}
@@ -108,29 +136,28 @@ export default function MyRentalEntriesPage() {
         </Stack>
 
         <TextField
-          select size="small" label="श्रेणी"
+          select size="small" label={t.categoryLabel}
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           sx={{ minWidth: 130 }}
         >
-          <MenuItem value="">सभी</MenuItem>
-          <MenuItem value="BARTAN">बर्तन</MenuItem>
-          <MenuItem value="BICHAYAT">बिछायत</MenuItem>
+          <MenuItem value="">{t.all}</MenuItem>
+          <MenuItem value="BARTAN">{t.bartan}</MenuItem>
+          <MenuItem value="BICHAYAT">{t.bichayat}</MenuItem>
         </TextField>
 
-        <TextField size="small" label="से" type="date"
+        <TextField size="small" label={t.from} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.fromDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, fromDate: e.target.value })); }}
         />
-        <TextField size="small" label="तक" type="date"
+        <TextField size="small" label={t.to} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.toDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, toDate: e.target.value })); }}
         />
       </Box>
 
-      {/* Grid */}
       <Box sx={{ height: 520 }}>
         <DataGrid
           rows={rows}

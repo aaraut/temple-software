@@ -18,8 +18,27 @@ import {
   changeDonationStatus,
 } from "../../api/donationApi";
 
+// Safely format date — handles Java LocalDateTime array [y,m,d,h,min,s,nano]
+// and ISO strings, returns "Invalid Date" never
+const formatDate = (v) => {
+  if (!v) return "";
+  if (Array.isArray(v)) {
+    const [year, month, day, hour = 0, min = 0, sec = 0] = v;
+    const d = new Date(year, month - 1, day, hour, min, sec);
+    return d.toLocaleString("en-IN");
+  }
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleString("en-IN");
+};
+
+// Safely format amount — handles BigDecimal string or number
+const formatAmount = (v) => {
+  const n = Number(v ?? 0);
+  return `₹ ${isNaN(n) ? "0" : n.toLocaleString("en-IN")}`;
+};
+
 export default function DonationDetails() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,6 +51,44 @@ export default function DonationDetails() {
   const [confirmId, setConfirmId] = useState(null);
 
   const isAdmin = auth?.role === "ADMIN";
+
+  const L = {
+    hi: {
+      title: "रसीद विवरण",
+      receipt: "रसीद क्रमांक",
+      donor: "दानकर्ता",
+      mobile: "मोबाइल",
+      amount: "राशि",
+      date: "दिनांक",
+      actions: "कार्रवाई",
+      view: "अधिक जानकारी",
+      print: "प्रिंट",
+      update: "अपडेट",
+      disable: "डिलीट",
+      confirmTitle: "डिलीट की पुष्टि करें",
+      confirmMsg: "क्या आप इस दान को डिलीट करना चाहते हैं?",
+      cancel: "रद्द करें",
+      confirm: "हाँ, डिलीट करें",
+    },
+    en: {
+      title: "Receipt Details",
+      receipt: "Receipt",
+      donor: "Donor",
+      mobile: "Mobile",
+      amount: "Amount",
+      date: "Date",
+      actions: "Actions",
+      view: "View",
+      print: "Print",
+      update: "Update",
+      disable: "Disable",
+      confirmTitle: "Confirm Disable",
+      confirmMsg: "क्या आप इस दान को डिलीट करना चाहते हैं?",
+      cancel: "Cancel",
+      confirm: "Confirm",
+    },
+  };
+  const t = L[language] ?? L.en;
 
   useEffect(() => {
     loadData();
@@ -80,8 +137,9 @@ export default function DonationDetails() {
     window.open(url);
   };
 
+  // Fix 1: pass auth.username to changeDonationStatus
   const handleDisable = async (id) => {
-    await changeDonationStatus(id, false);
+    await changeDonationStatus(id, false, auth.username);
     loadData();
   };
 
@@ -90,41 +148,41 @@ export default function DonationDetails() {
   };
 
   const columns = [
-    { field: "receiptNumber", headerName: "Receipt", width: 150 },
-    { field: "donorName", headerName: "Donor", width: 200 },
-    { field: "mobile", headerName: "Mobile", width: 140 },
+    { field: "receiptNumber", headerName: t.receipt, width: 150 },
+    { field: "donorName", headerName: t.donor, width: 200 },
+    { field: "mobile", headerName: t.mobile, width: 140 },
     {
       field: "amount",
-      headerName: "Amount",
+      headerName: t.amount,
       width: 120,
-      valueFormatter: (params) =>
-        `₹ ${Number(params.value).toLocaleString("en-IN")}`,
+      // Fix 2: NaN — MUI v6 valueFormatter receives value directly, not params.value
+      valueFormatter: (value) => formatAmount(value),
     },
     {
       field: "createdAt",
-      headerName: "Date",
+      headerName: t.date,
       width: 200,
-      valueFormatter: (params) =>
-        new Date(params.value).toLocaleString(),
+      // Fix 3: Invalid Date — Java LocalDateTime serializes as array
+      valueFormatter: (value) => formatDate(value),
     },
     {
       field: "actions",
-      headerName: "Actions",
+      headerName: t.actions,
       width: 300,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
           <Button
             size="small"
             onClick={() => navigate(`/donation/edit/${params.row.id}?mode=view`)}
-            >
-            View
-        </Button>
+          >
+            {t.view}
+          </Button>
 
           <Button
             size="small"
             onClick={() => handlePrint(params.row)}
           >
-            Print
+            {t.print}
           </Button>
 
           {isAdmin && (
@@ -133,7 +191,7 @@ export default function DonationDetails() {
                 size="small"
                 onClick={() => handleUpdate(params.row)}
               >
-                Update
+                {t.update}
               </Button>
 
               <Button
@@ -141,7 +199,7 @@ export default function DonationDetails() {
                 color="error"
                 onClick={() => setConfirmId(params.row.id)}
               >
-                Disable
+                {t.disable}
               </Button>
             </>
           )}
@@ -152,40 +210,40 @@ export default function DonationDetails() {
 
   return (
     <>
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h6" mb={2}>
-        {purpose} - Receipt Details
-      </Typography>
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h6" mb={2}>
+          {purpose} - {t.title}
+        </Typography>
 
-      <DataGrid
-        rows={rows}
-        columns={columns}
-        getRowId={(row) => row.id}
-        autoHeight
-        pageSizeOptions={[10, 20, 50]}
-      />
-    </Box>
-    <Dialog open={!!confirmId} onClose={() => setConfirmId(null)}>
-        <DialogTitle>Confirm Disable</DialogTitle>
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          autoHeight
+          pageSizeOptions={[10, 20, 50]}
+        />
+      </Box>
+
+      <Dialog open={!!confirmId} onClose={() => setConfirmId(null)}>
+        <DialogTitle>{t.confirmTitle}</DialogTitle>
         <DialogContent>
-            Are you sure you want to disable this donation?
+          {t.confirmMsg}
         </DialogContent>
         <DialogActions>
-            <Button onClick={() => setConfirmId(null)}>Cancel</Button>
-            <Button
+          <Button onClick={() => setConfirmId(null)}>{t.cancel}</Button>
+          <Button
             color="error"
             onClick={async () => {
-                await changeDonationStatus(confirmId, false);
-                setConfirmId(null);
-                loadData();
+              // Fix 1 (dialog): pass auth.username here too
+              await changeDonationStatus(confirmId, false, auth.username);
+              setConfirmId(null);
+              loadData();
             }}
-            >
-            Confirm
-            </Button>
+          >
+            {t.confirm}
+          </Button>
         </DialogActions>
-    </Dialog>
-
+      </Dialog>
     </>
   );
 }
-

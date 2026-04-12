@@ -24,8 +24,8 @@ const L = {
     labelEnglish: "गोत्र (अंग्रेजी)",
     placeholderHindi: "कश्यप",
     placeholderEnglish: "Kashyap",
-    save: "सहेजें",
-    saving: "सहेज रहे हैं...",
+    save: "नया गोत्र जोड़ें",
+    saving: "जोड़ रहे हैं...",
     cancel: "रद्द करें",
     errorBoth: "दोनों नाम भरें (हिंदी और अंग्रेजी)।",
   },
@@ -110,10 +110,10 @@ export default function GotraForm({ initial = null, onCancel, onSaved, language 
 
           <Grid item xs={12}>
             <Box display="flex" gap={2}>
-              <Button variant="contained" type="submit" disabled={saving} fullWidth>
+              <Button variant="contained" type="submit" disabled={saving} sx={{ minWidth: 180 }}>
                 {saving ? t.saving : t.save}
               </Button>
-              <Button variant="outlined" color="secondary" onClick={onCancel} fullWidth>
+              <Button variant="outlined" color="secondary" onClick={onCancel} sx={{ minWidth: 120 }}>
                 {t.cancel}
               </Button>
             </Box>

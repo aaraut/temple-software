@@ -75,7 +75,7 @@ export default function DonationForm() {
 
   if (defaultPurpose) {
     // Jackson serialises boolean isDefault as "default" in JSON
-    const defaultGotra = metadata.gotras?.find((g) => g.nameEn?.toLowerCase() === "kashyap");
+    const defaultGotra = metadata.gotras?.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"));
     setForm((prev) => ({
       ...prev,
       purposeId: defaultPurpose.id,
@@ -116,7 +116,7 @@ export default function DonationForm() {
 
     setForm((f) => {
       if (f.gotraId) return f; // already selected, don't override
-      const defaultGotra = metadata.gotras.find((g) => g.nameEn?.toLowerCase() === "kashyap");
+      const defaultGotra = metadata.gotras.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"));
       return defaultGotra ? { ...f, gotraId: defaultGotra.id } : f;
     });
   }, [requiresGotra, metadata]);
@@ -141,7 +141,7 @@ export default function DonationForm() {
         // otherwise fall back to Kashyap when purpose requires gotra.
         const restoredGotra = latest.gotraId
           || (requiresGotra
-            ? metadata?.gotras?.find((g) => g.nameEn?.toLowerCase() === "kashyap")?.id || ""
+            ? metadata?.gotras?.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"))?.id || ""
             : "");
 
         setForm((prev) => ({

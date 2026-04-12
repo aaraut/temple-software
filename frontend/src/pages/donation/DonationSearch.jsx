@@ -15,6 +15,23 @@ import {
 } from "../../api/donationApi";
 import { useNavigate } from "react-router-dom";
 
+// Safely format amount — handles BigDecimal string or number
+const formatAmount = (v) => {
+  const n = Number(v ?? 0);
+  return `₹ ${isNaN(n) ? "0" : n.toLocaleString("en-IN")}`;
+};
+
+// Safely format date — handles Java LocalDateTime array [y,m,d,h,min,s,nano]
+const formatDate = (v) => {
+  if (!v) return "";
+  if (Array.isArray(v)) {
+    const [year, month, day, hour = 0, min = 0, sec = 0] = v;
+    return new Date(year, month - 1, day, hour, min, sec).toLocaleString("en-IN");
+  }
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleString("en-IN");
+};
+
 export default function DonationSearch() {
   const { auth, language } = useAuth();
   const navigate = useNavigate();
@@ -25,12 +42,49 @@ export default function DonationSearch() {
 
   const isAdmin = auth.role === "ADMIN";
 
+  const L = {
+    hi: {
+      title: "पिछले दान खोजें",
+      mobile: "मोबाइल नंबर",
+      donorName: "दानकर्ता का नाम",
+      search: "खोजें",
+      receipt: "रसीद क्रमांक",
+      name: "नाम",
+      mobileCol: "मोबाइल",
+      purpose: "उद्देश्य",
+      amount: "राशि",
+      date: "दिनांक",
+      actions: "कार्रवाई",
+      view: "अधिक जानकारी",
+      print: "प्रिंट",
+      update: "अपडेट",
+      disable: "डिलीट",
+    },
+    en: {
+      title: "Search Past Donations",
+      mobile: "Mobile Number",
+      donorName: "Donor Name",
+      search: "Search",
+      receipt: "Receipt",
+      name: "Name",
+      mobileCol: "Mobile",
+      purpose: "Purpose",
+      amount: "Amount",
+      date: "Date",
+      actions: "Actions",
+      view: "View",
+      print: "Print",
+      update: "Update",
+      disable: "Disable",
+    },
+  };
+  const t = L[language] ?? L.en;
+
   const handleSearch = async () => {
     const res = await searchDonations({
       mobile,
       donorName: name
     });
-
     setRows(res.data);
   };
 
@@ -43,27 +97,32 @@ export default function DonationSearch() {
   };
 
   const columns = [
-    { field: "receiptNumber", headerName: "Receipt", width: 150 },
-    { field: "donorName", headerName: "Name", width: 200 },
-    { field: "mobile", headerName: "Mobile", width: 140 },
-    { field: "purposeNameEn", headerName: "Purpose", width: 180 },
+    { field: "receiptNumber", headerName: t.receipt, width: 150 },
+    { field: "donorName",     headerName: t.name,    width: 200 },
+    { field: "mobile",        headerName: t.mobileCol, width: 140 },
+    {
+      field: "purposeNameEn",
+      headerName: t.purpose,
+      width: 180,
+      // Show Hindi purpose name when in Hindi mode
+      valueGetter: (value, row) =>
+        language === "hi" ? (row.purposeNameHi || value) : value,
+    },
     {
       field: "amount",
-      headerName: "Amount",
+      headerName: t.amount,
       width: 120,
-      valueFormatter: (params) =>
-        `₹ ${Number(params.value).toLocaleString("en-IN")}`
+      valueFormatter: (value) => formatAmount(value),
     },
     {
       field: "createdAt",
-      headerName: "Date",
+      headerName: t.date,
       width: 200,
-      valueFormatter: (params) =>
-        new Date(params.value).toLocaleString()
+      valueFormatter: (value) => formatDate(value),
     },
     {
       field: "actions",
-      headerName: "Actions",
+      headerName: t.actions,
       width: 300,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
@@ -73,14 +132,14 @@ export default function DonationSearch() {
               navigate(`/donation/edit/${params.row.id}?mode=view`)
             }
           >
-            View
+            {t.view}
           </Button>
 
           <Button
             size="small"
             onClick={() => handlePrint(params.row)}
           >
-            Print
+            {t.print}
           </Button>
 
           {isAdmin && (
@@ -91,17 +150,17 @@ export default function DonationSearch() {
                   navigate(`/donation/edit/${params.row.id}`)
                 }
               >
-                Update
+                {t.update}
               </Button>
 
               <Button
                 size="small"
                 color="error"
                 onClick={() =>
-                  changeDonationStatus(params.row.id, false)
+                  changeDonationStatus(params.row.id, false, auth.username)
                 }
               >
-                Disable
+                {t.disable}
               </Button>
             </>
           )}
@@ -113,24 +172,24 @@ export default function DonationSearch() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h6" mb={2}>
-        Search Past Donations
+        {t.title}
       </Typography>
 
       <Stack direction="row" spacing={2} mb={2}>
         <TextField
-          label="Mobile Number"
+          label={t.mobile}
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
         />
 
         <TextField
-          label="Donor Name"
+          label={t.donorName}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
 
         <Button variant="contained" onClick={handleSearch}>
-          Search
+          {t.search}
         </Button>
       </Stack>
 

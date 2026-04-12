@@ -231,7 +231,7 @@ export default function RoomInventoryPage() {
 
   
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <p>{language === "hi" ? "लोड हो रहा है..." : "Loading..."}</p>;
 
   return (
     <Box sx={{ maxWidth: 1100, margin: "auto", p: 2 }}>
@@ -356,16 +356,21 @@ export default function RoomInventoryPage() {
                 <TableCell>{r.roomNumber}</TableCell>
                 <TableCell>{r.blockName}</TableCell>
                 <TableCell>{r.floor}</TableCell>
-                <TableCell>{r.status}</TableCell>
+                <TableCell>
+                  {r.status === "AVAILABLE" ? (language === "hi" ? "उपलब्ध" : "Available")
+                    : r.status === "MAINTENANCE" ? (language === "hi" ? "रखरखाव" : "Maintenance")
+                    : r.status === "BLOCKED" ? (language === "hi" ? "अवरुद्ध" : "Blocked")
+                    : r.status}
+                </TableCell>
                 <TableCell>
                   <FormControl sx={{ minWidth: 180 }}>
                     <Select
                       value={r.cleaningStatus}
                       onChange={(e) => handleCleaningChange(r.id, e.target.value)}
                     >
-                      <MenuItem value="CLEAN">CLEAN</MenuItem>
-                      <MenuItem value="DIRTY">DIRTY</MenuItem>
-                      <MenuItem value="CLEANING_IN_PROGRESS">CLEANING_IN_PROGRESS</MenuItem>
+                      <MenuItem value="CLEAN">{language === "hi" ? "साफ" : "Clean"}</MenuItem>
+                      <MenuItem value="DIRTY">{language === "hi" ? "गंदा" : "Dirty"}</MenuItem>
+                      <MenuItem value="CLEANING_IN_PROGRESS">{language === "hi" ? "सफाई जारी" : "Cleaning in Progress"}</MenuItem>
                     </Select>
                   </FormControl>
                 </TableCell>
