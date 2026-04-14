@@ -22,7 +22,6 @@ import {
 } from "../../api/donationApi";
 
 import { useAuth } from "../../context/AuthContext";
-import LanguageToggle from "../../components/LanguageToggle";
 
 // FIX 1: Default address in both languages.
 // Backend always stores English. Form shows Hindi when language = "hi".
@@ -30,11 +29,10 @@ const DEFAULT_ADDRESS_EN = "Nagpur / Chhindwara";
 const DEFAULT_ADDRESS_HI = "नागपुर / छिंदवाड़ा";
 
 export default function DonationForm() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();   // ← language from global context
 
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [language, setLanguage] = useState("hi");
 
   const [autoFilled, setAutoFilled] = useState(false);
   const [mobileMatches, setMobileMatches] = useState([]);
@@ -77,7 +75,7 @@ export default function DonationForm() {
 
   if (defaultPurpose) {
     // Jackson serialises boolean isDefault as "default" in JSON
-    const defaultGotra = metadata.gotras?.find((g) => g.nameEn?.toLowerCase() === "kashyap");
+    const defaultGotra = metadata.gotras?.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"));
     setForm((prev) => ({
       ...prev,
       purposeId: defaultPurpose.id,
@@ -118,7 +116,7 @@ export default function DonationForm() {
 
     setForm((f) => {
       if (f.gotraId) return f; // already selected, don't override
-      const defaultGotra = metadata.gotras.find((g) => g.nameEn?.toLowerCase() === "kashyap");
+      const defaultGotra = metadata.gotras.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"));
       return defaultGotra ? { ...f, gotraId: defaultGotra.id } : f;
     });
   }, [requiresGotra, metadata]);
@@ -143,7 +141,7 @@ export default function DonationForm() {
         // otherwise fall back to Kashyap when purpose requires gotra.
         const restoredGotra = latest.gotraId
           || (requiresGotra
-            ? metadata?.gotras?.find((g) => g.nameEn?.toLowerCase() === "kashyap")?.id || ""
+            ? metadata?.gotras?.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"))?.id || ""
             : "");
 
         setForm((prev) => ({
@@ -304,7 +302,6 @@ export default function DonationForm() {
             <Typography variant="h5" fontWeight={600}>
               {t.title}
             </Typography>
-            <LanguageToggle value={language} onChange={setLanguage} />
           </Box>
 
           {/* PURPOSE */}

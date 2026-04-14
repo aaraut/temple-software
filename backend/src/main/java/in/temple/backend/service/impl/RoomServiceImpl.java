@@ -9,12 +9,21 @@ import in.temple.backend.service.AuthContextService;
 import in.temple.backend.service.RoomService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import in.temple.backend.dto.RoomBlockRequestDto;
+import in.temple.backend.dto.RoomBlockResultDto;
 import in.temple.backend.dto.RoomResponseDto;
+import in.temple.backend.repository.RoomBookingRepository;
+import in.temple.backend.repository.RoomBlockRepository;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomServiceImpl implements RoomService {
@@ -23,8 +32,9 @@ public class RoomServiceImpl implements RoomService {
     private final RoomCategoryRepository categoryRepository;
     private final AmenityRepository amenityRepository;
     private final RoomAmenityRepository roomAmenityRepository;
-
     private final RoomAuditRepository roomAuditRepository;
+    private final RoomBookingRepository bookingRepository;
+    private final RoomBlockRepository roomBlockRepository;
 
 
 
@@ -183,6 +193,144 @@ public class RoomServiceImpl implements RoomService {
     }
 
 
+    @Override
+    @jakarta.transaction.Transactional
+    public RoomBlockResultDto blockRooms(RoomBlockRequestDto request) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
+        List<in.temple.backend.model.Room> targets =
+                (request.getRoomIds() == null || request.getRoomIds().isEmpty())
+                        ? roomRepository.findByIsActiveTrue()
+                        : roomRepository.findAllById(request.getRoomIds());
+
+        List<RoomBlockResultDto.ConflictDto> conflicts = new ArrayList<>();
+        int blocked = 0;
+
+        for (in.temple.backend.model.Room room : targets) {
+            boolean hasConflict = bookingRepository.existsOverlappingBooking(
+                    room.getId(),
+                    List.of(
+                            in.temple.backend.model.enums.BookingStatus.BOOKED,
+                            in.temple.backend.model.enums.BookingStatus.CHECKED_IN
+                    ),
+                    request.getBlockFrom(),
+                    request.getBlockTo()
+            );
+
+            if (hasConflict) {
+                bookingRepository.findByRoomIdAndStatusIn(
+                                room.getId(),
+                                List.of(
+                                        in.temple.backend.model.enums.BookingStatus.BOOKED,
+                                        in.temple.backend.model.enums.BookingStatus.CHECKED_IN
+                                )
+                        ).stream()
+                        .filter(b -> b.getScheduledCheckOut().isAfter(request.getBlockFrom())
+                                && b.getScheduledCheckIn().isBefore(request.getBlockTo()))
+                        .forEach(b -> conflicts.add(
+                                RoomBlockResultDto.ConflictDto.builder()
+                                        .roomId(room.getId())
+                                        .roomNumber(room.getRoomNumber())
+                                        .blockName(room.getBlockName())
+                                        .bookingNumber(b.getBookingNumber())
+                                        .customerName(b.getCustomerName())
+                                        .mobileNumber(b.getMobileNumber())
+                                        .status(b.getStatus().name())
+                                        .scheduledCheckIn(b.getScheduledCheckIn().format(fmt))
+                                        .scheduledCheckOut(b.getScheduledCheckOut().format(fmt))
+                                        .build()
+                        ));
+            } else {
+                roomBlockRepository.save(
+                        in.temple.backend.model.RoomBlock.builder()
+                                .roomId(room.getId())
+                                .blockFrom(request.getBlockFrom())
+                                .blockTo(request.getBlockTo())
+                                .reason(request.getReason() != null ? request.getReason() : "Festival/Event")
+                                .blockedBy(request.getBlockedBy())
+                                .active(true)
+                                .build()
+                );
+                // Do NOT change room.status — block is date-range only via room_block table
+                roomAuditRepository.save(
+                        in.temple.backend.model.RoomAudit.builder()
+                                .roomId(room.getId())
+                                .action("BLOCKED")
+                                .details(String.format("Blocked from %s to %s. Reason: %s",
+                                        request.getBlockFrom().format(fmt),
+                                        request.getBlockTo().format(fmt),
+                                        request.getReason() != null ? request.getReason() : "Festival/Event"))
+                                .performedBy(request.getBlockedBy())
+                                .build()
+                );
+                log.info("ROOM BLOCKED | room={} | from={} | to={} | by={}",
+                        room.getRoomNumber(), request.getBlockFrom(), request.getBlockTo(), request.getBlockedBy());
+                blocked++;
+            }
+        }
+
+        return RoomBlockResultDto.builder()
+                .blockedCount(blocked)
+                .skippedCount(conflicts.size())
+                .conflicts(conflicts)
+                .build();
+    }
+
+    @Override
+    @jakarta.transaction.Transactional
+    public void unblockRooms(RoomBlockRequestDto request) {
+        List<Long> roomIds   = request.getRoomIds();
+        LocalDateTime from   = request.getUnblockFrom();
+        LocalDateTime to     = request.getUnblockTo();
+        String unblockedBy   = request.getUnblockedBy();
+
+        List<in.temple.backend.model.Room> rooms =
+                (roomIds == null || roomIds.isEmpty())
+                        ? roomRepository.findByIsActiveTrue()
+                        : roomRepository.findAllById(roomIds);
+
+        List<Long> targetIds = rooms.stream().map(in.temple.backend.model.Room::getId).toList();
+
+        roomBlockRepository.deactivateBlocksForPeriod(targetIds, from, to);
+
+        for (in.temple.backend.model.Room room : rooms) {
+            // room.status is always AVAILABLE — blocking is date-range only via room_block table
+            roomAuditRepository.save(
+                    in.temple.backend.model.RoomAudit.builder()
+                            .roomId(room.getId())
+                            .action("UNBLOCKED")
+                            .details(String.format("Unblocked period %s to %s by %s", from, to, unblockedBy))
+                            .performedBy(unblockedBy)
+                            .build()
+            );
+            log.info("ROOM UNBLOCKED | room={} | from={} | to={} | by={}", room.getRoomNumber(), from, to, unblockedBy);
+        }
+    }
+
+    @Override
+    public java.util.List<in.temple.backend.dto.RoomBlockDto> getActiveBlocksForMonth(String month) {
+        String[] parts = month.split("-");
+        int year = Integer.parseInt(parts[0]);
+        int mo   = Integer.parseInt(parts[1]);
+        LocalDateTime monthStart = LocalDateTime.of(year, mo, 1, 0, 0);
+        LocalDateTime monthEnd   = monthStart.plusMonths(1).minusSeconds(1);
+
+        return roomBlockRepository.findAll().stream()
+                .filter(rb -> rb.isActive()
+                        && rb.getBlockFrom().isBefore(monthEnd)
+                        && rb.getBlockTo().isAfter(monthStart))
+                .map(rb -> {
+                    in.temple.backend.model.Room room = roomRepository.findById(rb.getRoomId()).orElse(null);
+                    return in.temple.backend.dto.RoomBlockDto.builder()
+                            .roomId(rb.getRoomId())
+                            .roomNumber(room != null ? room.getRoomNumber() : "?")
+                            .blockFrom(rb.getBlockFrom())
+                            .blockTo(rb.getBlockTo())
+                            .reason(rb.getReason())
+                            .blockedBy(rb.getBlockedBy())
+                            .build();
+                })
+                .collect(java.util.stream.Collectors.toList());
+    }
 
 }

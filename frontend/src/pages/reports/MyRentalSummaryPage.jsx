@@ -22,6 +22,39 @@ const thisMonth = () => {
   };
 };
 
+const L = {
+  hi: {
+    title: "मेरी किराया रिपोर्ट",
+    today: "आज", week: "इस सप्ताह", month: "इस माह",
+    from: "से", to: "तक",
+    totalRentals: "कुल किराये",
+    totalIncome: "कुल आय",
+    deposit: "जमानत राशि",
+    discount: "कुल छूट",
+    totalDue: "कुल देय",
+    depositSection: "जमानत विवरण",
+    depositCollected: "जमा की गई",
+    depositRefunded: "वापस की गई",
+    depositPending: "बाकी जमानत",
+    loading: "डेटा लोड हो रहा है...",
+  },
+  en: {
+    title: "My Rental Report",
+    today: "Today", week: "This Week", month: "This Month",
+    from: "From", to: "To",
+    totalRentals: "Total Rentals",
+    totalIncome: "Total Income",
+    deposit: "Security Deposit",
+    discount: "Total Discount",
+    totalDue: "Total Due",
+    depositSection: "Deposit Breakdown",
+    depositCollected: "Collected",
+    depositRefunded: "Refunded",
+    depositPending: "Pending Deposit",
+    loading: "Loading data...",
+  },
+};
+
 function StatCard({ label, value, color = "text.primary", sub }) {
   return (
     <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
@@ -41,7 +74,9 @@ function StatCard({ label, value, color = "text.primary", sub }) {
 }
 
 export default function MyRentalSummaryPage() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();
+  const t = L[language] ?? L.en;
+
   const [data, setData]     = useState(null);
   const [preset, setPreset] = useState("month");
   const [filters, setFilters] = useState(thisMonth());
@@ -59,30 +94,29 @@ export default function MyRentalSummaryPage() {
       .catch(() => setData(null));
   }, [filters]);
 
-  const rupee = (v) => `₹ ${Number(v ?? 0).toLocaleString("hi-IN")}`;
+  const rupee = (v) => `₹ ${Number(v ?? 0).toLocaleString("en-IN")}`;
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" fontWeight={600} gutterBottom>
-        मेरी किराया रिपोर्ट
+        {t.title}
       </Typography>
 
-      {/* Filter bar */}
       <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", mb: 3 }}>
         <Stack direction="row" spacing={1}>
-          {[["today","आज"],["week","इस सप्ताह"],["month","इस माह"]].map(([key, label]) => (
+          {[["today", t.today], ["week", t.week], ["month", t.month]].map(([key, label]) => (
             <Button key={key} size="small"
               variant={preset === key ? "contained" : "outlined"}
               onClick={() => applyPreset(key)}
             >{label}</Button>
           ))}
         </Stack>
-        <TextField size="small" label="से" type="date"
+        <TextField size="small" label={t.from} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.fromDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, fromDate: e.target.value })); }}
         />
-        <TextField size="small" label="तक" type="date"
+        <TextField size="small" label={t.to} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.toDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, toDate: e.target.value })); }}
@@ -91,45 +125,43 @@ export default function MyRentalSummaryPage() {
 
       {data ? (
         <>
-          {/* Primary stats */}
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6} sm={3}>
-              <StatCard label="कुल किराये" value={data.totalRentals ?? "—"} />
+              <StatCard label={t.totalRentals} value={data.totalRentals ?? "—"} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <StatCard label="कुल आय" value={rupee(data.totalChargedAmount)} color="success.main" />
+              <StatCard label={t.totalIncome} value={rupee(data.totalChargedAmount)} color="success.main" />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <StatCard label="जमानत राशि" value={rupee(data.depositCollected)} />
+              <StatCard label={t.deposit} value={rupee(data.depositCollected)} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <StatCard label="कुल छूट" value={rupee(data.totalDiscountAmount)} color="error.main"
-                sub={data.totalCalculatedAmount ? `कुल देय: ${rupee(data.totalCalculatedAmount)}` : undefined}
+              <StatCard label={t.discount} value={rupee(data.totalDiscountAmount)} color="error.main"
+                sub={data.totalCalculatedAmount ? `${t.totalDue}: ${rupee(data.totalCalculatedAmount)}` : undefined}
               />
             </Grid>
           </Grid>
 
           <Divider sx={{ my: 2 }} />
 
-          {/* Deposit breakdown */}
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            जमानत विवरण
+            {t.depositSection}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={6} sm={4}>
-              <StatCard label="जमा की गई" value={rupee(data.depositCollected)} />
+              <StatCard label={t.depositCollected} value={rupee(data.depositCollected)} />
             </Grid>
             <Grid item xs={6} sm={4}>
-              <StatCard label="वापस की गई" value={rupee(data.depositRefunded)} />
+              <StatCard label={t.depositRefunded} value={rupee(data.depositRefunded)} />
             </Grid>
             <Grid item xs={6} sm={4}>
-              <StatCard label="बाकी जमानत" value={rupee(data.depositPending)}
+              <StatCard label={t.depositPending} value={rupee(data.depositPending)}
                 color={Number(data.depositPending ?? 0) > 0 ? "warning.main" : "text.primary"} />
             </Grid>
           </Grid>
         </>
       ) : (
-        <Typography color="text.secondary">डेटा लोड हो रहा है...</Typography>
+        <Typography color="text.secondary">{t.loading}</Typography>
       )}
     </Box>
   );

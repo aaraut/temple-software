@@ -5,6 +5,7 @@ import {
   Grid, TextField, Divider
 } from "@mui/material";
 import { getAdminRentalSummary } from "../../api/rentalReportApi";
+import { useAuth } from "../../context/AuthContext";
 
 const fmt = (d) => d.toISOString().slice(0, 10);
 const today     = () => { const d = new Date(); return { fromDate: fmt(d), toDate: fmt(d) }; };
@@ -20,6 +21,49 @@ const thisMonth = () => {
     fromDate: fmt(new Date(now.getFullYear(), now.getMonth(), 1)),
     toDate:   fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0))
   };
+};
+
+const L = {
+  hi: {
+    title: "किराया आय — एडमिन संक्षिप्त विवरण",
+    today: "आज", week: "इस सप्ताह", month: "इस माह",
+    from: "से", to: "तक",
+    totalIncome: "कुल आय",
+    totalDue: "कुल देय",
+    discount: "छूट",
+    totalFine: "कुल जुर्माना",
+    depositPending: "बाकी जमानत",
+    depositCollected: "जमा",
+    depositRefunded: "वापस",
+    userBreakdown: "यूज़र-वार विवरण",
+    colUser: "यूज़र",
+    colRentals: "किराये",
+    colIncome: "आय (₹)",
+    colDue: "देय (₹)",
+    colDiscount: "छूट (₹)",
+    colDiscountPct: "छूट %",
+    colFine: "जुर्माना (₹)",
+  },
+  en: {
+    title: "Rental Income — Admin Summary",
+    today: "Today", week: "This Week", month: "This Month",
+    from: "From", to: "To",
+    totalIncome: "Total Income",
+    totalDue: "Total Due",
+    discount: "Discount",
+    totalFine: "Total Fine",
+    depositPending: "Pending Deposit",
+    depositCollected: "Collected",
+    depositRefunded: "Refunded",
+    userBreakdown: "User-wise Breakdown",
+    colUser: "User",
+    colRentals: "Rentals",
+    colIncome: "Income (₹)",
+    colDue: "Due (₹)",
+    colDiscount: "Discount (₹)",
+    colDiscountPct: "Disc %",
+    colFine: "Fine (₹)",
+  },
 };
 
 function StatCard({ label, value, color = "text.primary", sub }) {
@@ -41,6 +85,9 @@ function StatCard({ label, value, color = "text.primary", sub }) {
 }
 
 export default function AdminRentalSummaryPage() {
+  const { language } = useAuth();
+  const t = L[language] ?? L.en;
+
   const [data, setData]       = useState(null);
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(false);
@@ -75,29 +122,29 @@ export default function AdminRentalSummaryPage() {
       .finally(() => setLoading(false));
   }, [filters]);
 
-  const rupee = (v) => `₹ ${Number(v ?? 0).toLocaleString("hi-IN")}`;
+  const rupee = (v) => `₹ ${Number(v ?? 0).toLocaleString("en-IN")}`;
 
   const columns = [
-    { field: "createdBy",      headerName: "यूज़र",       flex: 1, minWidth: 110 },
-    { field: "totalRentals",   headerName: "किराये",      width: 90,  align: "center", headerAlign: "center" },
+    { field: "createdBy",       headerName: t.colUser,       flex: 1, minWidth: 110 },
+    { field: "totalRentals",    headerName: t.colRentals,    width: 90,  align: "center", headerAlign: "center" },
     {
-      field: "chargedAmount",  headerName: "आय (₹)",      flex: 1, minWidth: 110,
+      field: "chargedAmount",   headerName: t.colIncome,     flex: 1, minWidth: 110,
       align: "right", headerAlign: "right",
       renderCell: (p) => rupee(p.value)
     },
     {
-      field: "calculatedAmount", headerName: "देय (₹)",   flex: 1, minWidth: 110,
+      field: "calculatedAmount", headerName: t.colDue,       flex: 1, minWidth: 110,
       align: "right", headerAlign: "right",
       renderCell: (p) => rupee(p.value)
     },
     {
-      field: "discountAmount", headerName: "छूट (₹)",     flex: 1, minWidth: 100,
+      field: "discountAmount",  headerName: t.colDiscount,   flex: 1, minWidth: 100,
       align: "right", headerAlign: "right",
       renderCell: (p) => rupee(p.value)
     },
-    { field: "discountPercent", headerName: "छूट %",      width: 80,  align: "right", headerAlign: "right" },
+    { field: "discountPercent", headerName: t.colDiscountPct, width: 80, align: "right", headerAlign: "right" },
     {
-      field: "fineCollected",  headerName: "जुर्माना (₹)", flex: 1, minWidth: 110,
+      field: "fineCollected",   headerName: t.colFine,       flex: 1, minWidth: 110,
       align: "right", headerAlign: "right",
       renderCell: (p) => rupee(p.value)
     }
@@ -106,57 +153,54 @@ export default function AdminRentalSummaryPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" fontWeight={600} gutterBottom>
-        किराया आय — एडमिन सारांश
+        {t.title}
       </Typography>
 
-      {/* Filter bar */}
       <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", mb: 3 }}>
         <Stack direction="row" spacing={1}>
-          {[["today","आज"],["week","इस सप्ताह"],["month","इस माह"]].map(([key, label]) => (
+          {[["today", t.today], ["week", t.week], ["month", t.month]].map(([key, label]) => (
             <Button key={key} size="small"
               variant={preset === key ? "contained" : "outlined"}
               onClick={() => applyPreset(key)}
             >{label}</Button>
           ))}
         </Stack>
-        <TextField size="small" label="से" type="date"
+        <TextField size="small" label={t.from} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.fromDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, fromDate: e.target.value })); }}
         />
-        <TextField size="small" label="तक" type="date"
+        <TextField size="small" label={t.to} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.toDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, toDate: e.target.value })); }}
         />
       </Box>
 
-      {/* Overall summary cards */}
       {data && (
         <>
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6} sm={3}>
-              <StatCard label="कुल आय" value={rupee(data.totalChargedAmount)} color="success.main" />
+              <StatCard label={t.totalIncome} value={rupee(data.totalChargedAmount)} color="success.main" />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <StatCard label="कुल देय" value={rupee(data.totalCalculatedAmount)}
-                sub={`छूट: ${rupee(data.totalDiscountAmount)}`} />
+              <StatCard label={t.totalDue} value={rupee(data.totalCalculatedAmount)}
+                sub={`${t.discount}: ${rupee(data.totalDiscountAmount)}`} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <StatCard label="कुल जुर्माना" value={rupee(data.totalFineCollected)} color="warning.main" />
+              <StatCard label={t.totalFine} value={rupee(data.totalFineCollected)} color="warning.main" />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <StatCard label="बाकी जमानत" value={rupee(data.depositPending)}
+              <StatCard label={t.depositPending} value={rupee(data.depositPending)}
                 color={Number(data.depositPending ?? 0) > 0 ? "error.main" : "text.primary"}
-                sub={`जमा: ${rupee(data.depositCollected)} · वापस: ${rupee(data.depositRefunded)}`} />
+                sub={`${t.depositCollected}: ${rupee(data.depositCollected)} · ${t.depositRefunded}: ${rupee(data.depositRefunded)}`} />
             </Grid>
           </Grid>
 
           <Divider sx={{ my: 2 }} />
 
-          {/* Per-user breakdown */}
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            यूज़र-वार विवरण
+            {t.userBreakdown}
           </Typography>
         </>
       )}

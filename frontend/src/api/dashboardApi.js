@@ -4,14 +4,10 @@ export const getDashboardSummary = (
   period,
   selectedUser,
   loggedInUser,
-  role
+  role,
+  date        // optional: "yyyy-mm-dd", if omitted backend uses today
 ) => {
-  return axiosClient.get("/dashboard/summary", {
-    params: {
-      period,
-      selectedUser,
-      loggedInUser,
-      role,
-    },
-  });
+  const params = { period, selectedUser, loggedInUser, role };
+  if (date) params.date = date;
+  return axiosClient.get("/dashboard/summary", { params });
 };

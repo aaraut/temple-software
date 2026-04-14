@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 public class DonationSummaryDTO {
 
     private String purpose;
+    private String purposeHi;
     private Long receiptCount;
     private BigDecimal amount;
 }

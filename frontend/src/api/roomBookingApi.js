@@ -4,6 +4,12 @@ import axiosClient from "./axiosClient";
 export const createBooking = (data) =>
   axiosClient.post("/room-bookings", data);
 
+/* ---------- CREATE AND PRINT ---------- */
+export const createBookingAndPrint = (data) =>
+  axiosClient.post("/room-bookings/create-and-print", data, {
+    responseType: "blob",
+  });
+
 /* ---------- CHECK-IN ---------- */
 export const checkInBooking = (data) =>
   axiosClient.post("/room-bookings/check-in", data);
@@ -39,3 +45,12 @@ export const getRevenueReport = (username, start, end) =>
   axiosClient.get("/room-bookings/reports/revenue", {
     params: { username, start, end },
   });
+/* ---------- PRINT RECEIPT ---------- */
+export const printBookingReceipt = (bookingNumber) =>
+  axiosClient.get(`/room-bookings/${encodeURIComponent(bookingNumber)}/print`, {
+    responseType: "blob",
+  });
+
+/* ---------- GET BOOKING DETAIL ---------- */
+export const getBookingDetail = (bookingNumber) =>
+  axiosClient.get(`/room-bookings/${encodeURIComponent(bookingNumber)}`);

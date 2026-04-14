@@ -1,18 +1,39 @@
-// src/components/GotraForm.jsx
-
 import React, { useState, useEffect } from "react";
 import {
-  Button,
-  TextField,
-  Paper,
-  Typography,
-  Grid,
-  Box,
-  Alert,
-  Divider
+  Button, TextField, Paper, Typography,
+  Grid, Box, Alert, Divider
 } from "@mui/material";
 
-export default function GotraForm({ initial = null, onCancel, onSaved }) {
+const L = {
+  en: {
+    addTitle: "Add New Gotra",
+    editTitle: "Edit Gotra",
+    labelHindi: "Gotra (हिंदी)",
+    labelEnglish: "Gotra (English)",
+    placeholderHindi: "कश्यप",
+    placeholderEnglish: "Kashyap",
+    save: "Save",
+    saving: "Saving...",
+    cancel: "Cancel",
+    errorBoth: "Please fill both Hindi and English names.",
+  },
+  hi: {
+    addTitle: "नया गोत्र जोड़ें",
+    editTitle: "गोत्र एडिट करें",
+    labelHindi: "गोत्र (हिंदी)",
+    labelEnglish: "गोत्र (अंग्रेजी)",
+    placeholderHindi: "कश्यप",
+    placeholderEnglish: "Kashyap",
+    save: "नया गोत्र जोड़ें",
+    saving: "जोड़ रहे हैं...",
+    cancel: "रद्द करें",
+    errorBoth: "दोनों नाम भरें (हिंदी और अंग्रेजी)।",
+  },
+};
+
+export default function GotraForm({ initial = null, onCancel, onSaved, language = "hi" }) {
+  const t = L[language] ?? L.en;
+
   const [gotraHi, setGotraHi] = useState("");
   const [gotraEn, setGotraEn] = useState("");
   const [saving, setSaving] = useState(false);
@@ -34,39 +55,24 @@ export default function GotraForm({ initial = null, onCancel, onSaved }) {
     setError(null);
 
     if (!gotraHi || !gotraEn) {
-      setError("दोनों नाम भरें (Hindi और English).");
+      setError(t.errorBoth);
       return;
     }
 
     setSaving(true);
     try {
-      await onSaved({
-        gotraNameHi: gotraHi,
-        gotraNameEn: gotraEn
-      });
+      await onSaved({ gotraNameHi: gotraHi, gotraNameEn: gotraEn });
     } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-        err?.message ||
-        "Save failed"
-      );
+      setError(err?.response?.data?.message || err?.message || "Save failed");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Paper
-      elevation={3}
-      sx={{
-        p: 3,
-        borderRadius: 3,
-        maxWidth: 500,
-        mx: "auto"
-      }}
-    >
+    <Paper elevation={3} sx={{ p: 3, borderRadius: 3, maxWidth: 500, mx: "auto" }}>
       <Typography variant="h6" fontWeight={600} gutterBottom>
-        {initial ? "Edit Gotra" : "Add New Gotra"}
+        {initial ? t.editTitle : t.addTitle}
       </Typography>
 
       <Divider sx={{ mb: 2 }} />
@@ -77,49 +83,38 @@ export default function GotraForm({ initial = null, onCancel, onSaved }) {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Gotra (हिंदी)"
+              label={t.labelHindi}
               value={gotraHi}
               onChange={(e) => setGotraHi(e.target.value)}
-              placeholder="कश्यप"
+              placeholder={t.placeholderHindi}
+              InputLabelProps={{ shrink: true }}
             />
           </Grid>
 
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Gotra (English)"
+              label={t.labelEnglish}
               value={gotraEn}
               onChange={(e) => setGotraEn(e.target.value)}
-              placeholder="Kashyap"
+              placeholder={t.placeholderEnglish}
+              InputLabelProps={{ shrink: true }}
             />
           </Grid>
 
           {error && (
             <Grid item xs={12}>
-              <Alert severity="error">
-                {error}
-              </Alert>
+              <Alert severity="error">{error}</Alert>
             </Grid>
           )}
 
           <Grid item xs={12}>
             <Box display="flex" gap={2}>
-              <Button
-                variant="contained"
-                type="submit"
-                disabled={saving}
-                fullWidth
-              >
-                {saving ? "Saving..." : "Save"}
+              <Button variant="contained" type="submit" disabled={saving} sx={{ minWidth: 180 }}>
+                {saving ? t.saving : t.save}
               </Button>
-
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={onCancel}
-                fullWidth
-              >
-                Cancel
+              <Button variant="outlined" color="secondary" onClick={onCancel} sx={{ minWidth: 120 }}>
+                {t.cancel}
               </Button>
             </Box>
           </Grid>

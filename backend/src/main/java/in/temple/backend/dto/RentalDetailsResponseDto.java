@@ -15,6 +15,8 @@ public class RentalDetailsResponseDto {
     private String mobile;
     private String address;
 
+    private BigDecimal chargedAmount;
+    private BigDecimal calculatedTotalAmount;
     private BigDecimal depositAmount;
     private BigDecimal totalFineAmount;
     private String status;

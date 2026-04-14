@@ -1,6 +1,9 @@
 package in.temple.backend.service;
 
 import in.temple.backend.dto.CleaningStatusUpdateDto;
+import in.temple.backend.dto.RoomBlockDto;
+import in.temple.backend.dto.RoomBlockRequestDto;
+import in.temple.backend.dto.RoomBlockResultDto;
 import in.temple.backend.dto.RoomCreateRequestDto;
 import in.temple.backend.dto.RoomResponseDto;
 import in.temple.backend.model.enums.CleaningStatus;
@@ -19,6 +22,10 @@ public interface RoomService {
 
     void deleteRoom(Long roomId, String deletedBy);
 
+    RoomBlockResultDto blockRooms(RoomBlockRequestDto request);
 
+    void unblockRooms(RoomBlockRequestDto request);
+
+    java.util.List<RoomBlockDto> getActiveBlocksForMonth(String month);
 
 }

@@ -39,3 +39,15 @@ export const deleteRoom = async (id, username) => {
   );
   return response.data;
 };
+
+/* ---------- BLOCK ROOMS ---------- */
+export const blockRooms = (data) =>
+  axiosClient.post("/rooms/block", data);
+
+/* ---------- UNBLOCK ROOMS ---------- */
+export const unblockRooms = (data) =>
+  axiosClient.post("/rooms/unblock", data);
+
+/* ---------- GET ACTIVE BLOCKS FOR MONTH ---------- */
+export const getBlocksForMonth = (month) =>
+  axiosClient.get(`/rooms/blocks?month=${month}`);

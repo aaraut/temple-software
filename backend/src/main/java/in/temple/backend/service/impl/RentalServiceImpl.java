@@ -191,6 +191,8 @@ public class RentalServiceImpl implements RentalService {
         dto.setCustomerName(rental.getCustomerName());
         dto.setMobile(rental.getMobile());
         dto.setAddress(rental.getAddress());
+        dto.setChargedAmount(rental.getChargedAmount());
+        dto.setCalculatedTotalAmount(rental.getCalculatedTotalAmount());
         dto.setDepositAmount(rental.getDepositAmount());
         dto.setTotalFineAmount(rental.getTotalFineAmount());
         dto.setStatus(rental.getStatus().name());
@@ -672,6 +674,44 @@ public class RentalServiceImpl implements RentalService {
                                        java.awt.font.FontRenderContext frc) {
         if (text == null || text.isEmpty()) return;
         new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<in.temple.backend.dto.RentalSearchResultDto> searchByMobile(String mobile) {
+        return rentalRepository.findByMobileContainingOrderByCreatedAtDesc(mobile)
+                .stream()
+                .map(this::toSearchResult)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<in.temple.backend.dto.RentalSearchResultDto> searchByName(String name) {
+        return rentalRepository.findByCustomerNameContainingIgnoreCaseOrderByCreatedAtDesc(name)
+                .stream()
+                .map(this::toSearchResult)
+                .toList();
+    }
+
+    private in.temple.backend.dto.RentalSearchResultDto toSearchResult(in.temple.backend.model.Rental r) {
+        return new in.temple.backend.dto.RentalSearchResultDto(
+                r.getReceiptNumber(),
+                r.getCustomerName(),
+                r.getMobile(),
+                r.getAddress(),
+                r.getCategory() != null ? r.getCategory().name() : "",
+                r.getStatus() != null ? r.getStatus().name() : "",
+                r.getCreatedAt()
+        );
+    }
+
+    @Override
+    public byte[] reprintReceipt(String receiptNumber) {
+        Rental rental = rentalRepository.findByReceiptNumber(receiptNumber)
+                .orElseThrow(() -> new RuntimeException("Rental not found: " + receiptNumber));
+        List<RentalItem> items = rentalItemRepository.findByRentalId(rental.getId());
+        return generateRentalReceiptPdf(rental, items);
     }
 
 }

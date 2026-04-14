@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 public class SummaryItem {
 
     private String purpose;
+    private String purposeHi;
     private Long receiptCount;
     private BigDecimal amount;
 }

@@ -4,6 +4,7 @@ import {
   Typography, Box, Button, Stack, Chip, TextField, MenuItem
 } from "@mui/material";
 import { getPendingRentals } from "../../api/rentalReportApi";
+import { useAuth } from "../../context/AuthContext";
 
 const fmt = (d) => d.toISOString().slice(0, 10);
 const today     = () => { const d = new Date(); return { fromDate: fmt(d), toDate: fmt(d) }; };
@@ -24,13 +25,43 @@ const thisMonth = () => {
 const fmtDate = (raw) => {
   if (!raw) return "";
   const d = new Date(raw);
-  return isNaN(d) ? raw : d.toLocaleDateString("hi-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return isNaN(d) ? raw : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 const STATUS_COLOR = { ISSUED: "warning", PARTIALLY_RETURNED: "info" };
-const STATUS_LABEL = { ISSUED: "जारी", PARTIALLY_RETURNED: "आंशिक वापसी" };
+
+const L = {
+  hi: {
+    title: "लंबित किराये",
+    today: "आज", week: "इस सप्ताह", month: "इस माह",
+    categoryLabel: "श्रेणी", all: "सभी", bartan: "बर्तन", bichayat: "बिछायत",
+    from: "से", to: "तक",
+    colReceipt: "रसीद", colDate: "दिनांक", colCategory: "श्रेणी",
+    colCustomer: "ग्राहक", colMobile: "मोबाइल", colUser: "यूज़र",
+    colPending: "बाकी सामान", colDeposit: "जमानत (₹)", colStatus: "स्थिति",
+    statusIssued: "जारी", statusPartial: "आंशिक वापसी",
+  },
+  en: {
+    title: "Pending Rentals",
+    today: "Today", week: "This Week", month: "This Month",
+    categoryLabel: "Category", all: "All", bartan: "Bartan", bichayat: "Bichayat",
+    from: "From", to: "To",
+    colReceipt: "Receipt", colDate: "Date", colCategory: "Category",
+    colCustomer: "Customer", colMobile: "Mobile", colUser: "User",
+    colPending: "Pending Items", colDeposit: "Deposit (₹)", colStatus: "Status",
+    statusIssued: "Issued", statusPartial: "Partial Return",
+  },
+};
 
 export default function PendingRentalReportPage() {
+  const { language } = useAuth();
+  const t = L[language] ?? L.en;
+
+  const STATUS_LABEL = {
+    ISSUED: t.statusIssued,
+    PARTIALLY_RETURNED: t.statusPartial,
+  };
+
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(false);
   const [preset, setPreset]   = useState("month");
@@ -46,31 +77,30 @@ export default function PendingRentalReportPage() {
 
   useEffect(() => {
     setLoading(true);
-    // No createdBy — fetch ALL users' pending rentals
-    getPendingRentals({ ...filters, category })
+    getPendingRentals({ ...filters, ...(category ? { category } : {}) })
       .then((r) => setRows(r.data.map((x, i) => ({ id: i, ...x }))))
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
   }, [filters, category]);
 
   const columns = [
-    { field: "receiptNumber", headerName: "रसीद", flex: 1.2, minWidth: 160 },
+    { field: "receiptNumber", headerName: t.colReceipt, flex: 1.2, minWidth: 160 },
     {
-      field: "createdAt", headerName: "दिनांक", flex: 1, minWidth: 110,
+      field: "createdAt", headerName: t.colDate, flex: 1, minWidth: 110,
       renderCell: (p) => fmtDate(p.value)
     },
     {
-      field: "category", headerName: "श्रेणी", width: 100,
+      field: "category", headerName: t.colCategory, width: 100,
       renderCell: (p) => (
-        <Chip label={p.value === "BARTAN" ? "बर्तन" : "बिछायत"} size="small"
+        <Chip label={p.value === "BARTAN" ? t.bartan : t.bichayat} size="small"
           color={p.value === "BARTAN" ? "primary" : "secondary"} variant="outlined" />
       )
     },
-    { field: "customerName", headerName: "ग्राहक", flex: 1, minWidth: 120 },
-    { field: "mobile",       headerName: "मोबाइल", flex: 1, minWidth: 110 },
-    { field: "createdBy",    headerName: "यूज़र",   width: 100 },
+    { field: "customerName", headerName: t.colCustomer, flex: 1, minWidth: 120 },
+    { field: "mobile",       headerName: t.colMobile,   flex: 1, minWidth: 110 },
+    { field: "createdBy",    headerName: t.colUser,     width: 100 },
     {
-      field: "totalPendingQty", headerName: "बाकी सामान", width: 100,
+      field: "totalPendingQty", headerName: t.colPending, width: 110,
       align: "center", headerAlign: "center",
       renderCell: (p) => (
         <Chip label={p.value} size="small"
@@ -78,12 +108,12 @@ export default function PendingRentalReportPage() {
       )
     },
     {
-      field: "depositAmount", headerName: "जमानत (₹)", width: 110,
+      field: "depositAmount", headerName: t.colDeposit, width: 110,
       align: "right", headerAlign: "right",
       renderCell: (p) => `₹ ${p.value ?? 0}`
     },
     {
-      field: "status", headerName: "स्थिति", width: 130,
+      field: "status", headerName: t.colStatus, width: 130,
       renderCell: (p) => (
         <Chip
           label={STATUS_LABEL[p.value] ?? p.value}
@@ -97,13 +127,12 @@ export default function PendingRentalReportPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Typography variant="h5" fontWeight={600}>लंबित किराये</Typography>
+        <Typography variant="h5" fontWeight={600}>{t.title}</Typography>
       </Box>
 
-      {/* Filter bar */}
       <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", mb: 2 }}>
         <Stack direction="row" spacing={1}>
-          {[["today","आज"],["week","इस सप्ताह"],["month","इस माह"]].map(([key, label]) => (
+          {[["today", t.today], ["week", t.week], ["month", t.month]].map(([key, label]) => (
             <Button key={key} size="small"
               variant={preset === key ? "contained" : "outlined"}
               onClick={() => applyPreset(key)}
@@ -112,29 +141,28 @@ export default function PendingRentalReportPage() {
         </Stack>
 
         <TextField
-          select size="small" label="श्रेणी"
+          select size="small" label={t.categoryLabel}
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           sx={{ minWidth: 130 }}
         >
-          <MenuItem value="">सभी</MenuItem>
-          <MenuItem value="BARTAN">बर्तन</MenuItem>
-          <MenuItem value="BICHAYAT">बिछायत</MenuItem>
+          <MenuItem value="">{t.all}</MenuItem>
+          <MenuItem value="BARTAN">{t.bartan}</MenuItem>
+          <MenuItem value="BICHAYAT">{t.bichayat}</MenuItem>
         </TextField>
 
-        <TextField size="small" label="से" type="date"
+        <TextField size="small" label={t.from} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.fromDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, fromDate: e.target.value })); }}
         />
-        <TextField size="small" label="तक" type="date"
+        <TextField size="small" label={t.to} type="date"
           InputLabelProps={{ shrink: true }}
           value={filters.toDate || ""}
           onChange={(e) => { setPreset(""); setFilters(f => ({ ...f, toDate: e.target.value })); }}
         />
       </Box>
 
-      {/* Grid */}
       <Box sx={{ height: 540 }}>
         <DataGrid
           rows={rows}

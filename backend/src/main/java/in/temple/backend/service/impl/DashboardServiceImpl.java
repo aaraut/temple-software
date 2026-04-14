@@ -36,9 +36,9 @@ public class DashboardServiceImpl implements DashboardService {
             String period,
             String selectedUser,
             String loggedInUser,
-            String role
+            String role,
+            LocalDate targetDate
     ) {
-
         boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
 
         String filterUser = isAdmin
@@ -46,17 +46,23 @@ public class DashboardServiceImpl implements DashboardService {
                 : loggedInUser;
 
         LocalDateTime start;
-        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime end;
 
         switch (period.toUpperCase()) {
-            case "DAILY" ->
-                    start = LocalDate.now().atStartOfDay();
-            case "WEEKLY" ->
-                    start = LocalDate.now().minusDays(6).atStartOfDay();
-            case "MONTHLY" ->
-                    start = LocalDate.now().withDayOfMonth(1).atStartOfDay();
-            default ->
-                    throw new IllegalArgumentException("Invalid period");
+            case "DAILY" -> {
+                // Use the provided targetDate for the full day window
+                start = targetDate.atStartOfDay();
+                end   = targetDate.plusDays(1).atStartOfDay();
+            }
+            case "WEEKLY" -> {
+                start = targetDate.minusDays(6).atStartOfDay();
+                end   = targetDate.plusDays(1).atStartOfDay();
+            }
+            case "MONTHLY" -> {
+                start = targetDate.withDayOfMonth(1).atStartOfDay();
+                end   = targetDate.plusDays(1).atStartOfDay();
+            }
+            default -> throw new IllegalArgumentException("Invalid period");
         }
 
         // ================= DONATIONS =================
@@ -73,17 +79,13 @@ public class DashboardServiceImpl implements DashboardService {
 
         Map<String, DonationSummaryDTO> donationMap = new LinkedHashMap<>();
 
-        // Initialize all purposes except Goshala
         for (DonationPurpose purpose : allPurposes) {
-
-            if ("Goshala Daan".equalsIgnoreCase(purpose.getNameEn())) {
-                continue;
-            }
-
+            if ("Goshala Daan".equalsIgnoreCase(purpose.getNameEn())) continue;
             donationMap.put(
                     purpose.getNameEn(),
                     DonationSummaryDTO.builder()
                             .purpose(purpose.getNameEn())
+                            .purposeHi(purpose.getNameHi())
                             .receiptCount(0L)
                             .amount(BigDecimal.ZERO)
                             .build()
@@ -91,24 +93,17 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         BigDecimal donationTotal = BigDecimal.ZERO;
-
-        // ✅ GOSHALA CALCULATION VARIABLES
         Long goshalaCount = 0L;
         BigDecimal goshalaAmount = BigDecimal.ZERO;
 
         for (Donation d : donations) {
-
             String purposeName = d.getPurposeNameEn();
-
-            // ✅ HANDLE GOSHALA SEPARATELY
             if ("Goshala Daan".equalsIgnoreCase(purposeName)) {
                 goshalaCount++;
                 goshalaAmount = goshalaAmount.add(d.getAmount());
                 continue;
             }
-
             DonationSummaryDTO dto = donationMap.get(purposeName);
-
             if (dto != null) {
                 dto.setReceiptCount(dto.getReceiptCount() + 1);
                 dto.setAmount(dto.getAmount().add(d.getAmount()));
@@ -122,45 +117,29 @@ public class DashboardServiceImpl implements DashboardService {
                 ? rentalRepository.findByCreatedAtBetween(start, end)
                 : rentalRepository.findByCreatedAtBetweenAndCreatedBy(start, end, filterUser);
 
-        RentalSummaryDTO bartan =
-                new RentalSummaryDTO(0L, BigDecimal.ZERO, BigDecimal.ZERO);
+        RentalSummaryDTO bartan   = new RentalSummaryDTO(0L, BigDecimal.ZERO, BigDecimal.ZERO);
+        RentalSummaryDTO bichayat = new RentalSummaryDTO(0L, BigDecimal.ZERO, BigDecimal.ZERO);
 
-        RentalSummaryDTO bichayat =
-                new RentalSummaryDTO(0L, BigDecimal.ZERO, BigDecimal.ZERO);
-
-        BigDecimal rentTotal = BigDecimal.ZERO;
+        BigDecimal rentTotal    = BigDecimal.ZERO;
         BigDecimal depositTotal = BigDecimal.ZERO;
 
         for (Rental r : rentals) {
-
             if (r.getStatus() == null) continue;
-
             InventoryCategory category = r.getCategory();
-
-            BigDecimal charged =
-                    r.getChargedAmount() != null
-                            ? r.getChargedAmount()
-                            : BigDecimal.ZERO;
-
-            BigDecimal deposit =
-                    r.getDepositAmount() != null
-                            ? r.getDepositAmount()
-                            : BigDecimal.ZERO;
+            BigDecimal charged = r.getChargedAmount() != null ? r.getChargedAmount() : BigDecimal.ZERO;
+            BigDecimal deposit = r.getDepositAmount() != null ? r.getDepositAmount() : BigDecimal.ZERO;
 
             if (InventoryCategory.BARTAN.equals(category)) {
-
                 bartan.setTransactions(bartan.getTransactions() + 1);
                 bartan.setRentTotal(bartan.getRentTotal().add(charged));
                 bartan.setDepositTotal(bartan.getDepositTotal().add(deposit));
-
             } else if (InventoryCategory.BICHAYAT.equals(category)) {
-
                 bichayat.setTransactions(bichayat.getTransactions() + 1);
                 bichayat.setRentTotal(bichayat.getRentTotal().add(charged));
                 bichayat.setDepositTotal(bichayat.getDepositTotal().add(deposit));
             }
 
-            rentTotal = rentTotal.add(charged);
+            rentTotal    = rentTotal.add(charged);
             depositTotal = depositTotal.add(deposit);
         }
 
@@ -175,6 +154,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .goshalaDaan(
                         SummaryItem.builder()
                                 .purpose("Goshala Daan")
+                                .purposeHi("गौशाला दान")
                                 .receiptCount(goshalaCount)
                                 .amount(goshalaAmount)
                                 .build()

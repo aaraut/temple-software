@@ -11,6 +11,7 @@ import {
 const labels = {
   hi: {
     item: "सामान",
+    issuedQty: "जारी मात्रा",
     remaining: "बाकी",
     returned: "वापस",
     damaged: "टूटा",
@@ -18,6 +19,7 @@ const labels = {
   },
   en: {
     item: "Item",
+    issuedQty: "Issued Qty",
     remaining: "Remaining",
     returned: "Returned",
     damaged: "Damaged",
@@ -50,11 +52,11 @@ export default function RentalReturnTable({ rental, onChange, language  }) {
         <TableHead sx={{ backgroundColor: "#7a1f1f" }}>
           <TableRow>
             <TableCell sx={{ color: "white" }}>{t.item}</TableCell>
-            <TableCell sx={{ color: "white" }} align="center">जारी मात्रा</TableCell>
-            <TableCell sx={{ color: "white" }} align="center">बाकी</TableCell>
-            <TableCell sx={{ color: "white" }} align="center">वापस</TableCell>
-            <TableCell sx={{ color: "white" }} align="center">टूटा</TableCell>
-            <TableCell sx={{ color: "white" }} align="center">गायब</TableCell>
+            <TableCell sx={{ color: "white" }} align="center">{t.issuedQty}</TableCell>
+            <TableCell sx={{ color: "white" }} align="center">{t.remaining}</TableCell>
+            <TableCell sx={{ color: "white" }} align="center">{t.returned}</TableCell>
+            <TableCell sx={{ color: "white" }} align="center">{t.damaged}</TableCell>
+            <TableCell sx={{ color: "white" }} align="center">{t.missing}</TableCell>
           </TableRow>
         </TableHead>
 

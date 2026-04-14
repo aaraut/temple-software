@@ -41,8 +41,8 @@ export const printDonation = (id) => {
 };
 
 // DISABLE (SOFT DELETE)
-export const changeDonationStatus = (id, active) => {
+export const changeDonationStatus = (id, active, username) => {
   return axiosClient.put(`/donation/${id}/status`, null, {
-    params: { active },
+    params: { active, username },
   });
 };
