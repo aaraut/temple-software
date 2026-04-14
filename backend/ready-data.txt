@@ -1,4 +1,6 @@
 Things pending
+SEARCH RECEIPT ON HOME PAGE DOES NOT SEARCH BY RECEIPT NUMBER MAKE IT
+
 add @PreAuthorize("hasRole('ADMIN')") to changestatus api
 Donation report UI api are also pending
 inventory update audit does not show username in json

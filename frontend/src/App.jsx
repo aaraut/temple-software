@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 import Login from "./pages/Login";
 import GotraList from "./pages/GotraList";
 import HomeRedirect from "./pages/HomeRedirect";
@@ -34,7 +36,16 @@ import DonationSearch from "./pages/donation/DonationSearch";
 function App() {
   const { auth } = useAuth();
 
+  const theme = createTheme({
+    typography: {
+      htmlFontSize: 24,   // actual html font-size: 150% of 16px = 24px
+      fontSize: 16,       // base font size for MUI to scale from
+    },
+  });
+
   return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -310,6 +321,7 @@ function App() {
 
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

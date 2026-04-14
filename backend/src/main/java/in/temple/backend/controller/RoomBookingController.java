@@ -21,6 +21,20 @@ public class RoomBookingController {
         return bookingService.createBooking(request);
     }
 
+    @GetMapping(value = "/{bookingNumber}/print", produces = "application/pdf")
+    public org.springframework.http.ResponseEntity<byte[]> printBookingReceipt(
+            @PathVariable String bookingNumber) {
+        byte[] pdf = bookingService.printBookingReceipt(bookingNumber);
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "inline; filename=room-receipt-" + bookingNumber + ".pdf")
+                .body(pdf);
+    }
+
+    @GetMapping("/{bookingNumber}")
+    public RoomBookingDetailDto getBookingDetail(@PathVariable String bookingNumber) {
+        return bookingService.getBookingDetail(bookingNumber);
+    }
+
     @PostMapping("/check-in")
     public void checkIn(@RequestBody RoomCheckInRequestDto request) {
         bookingService.checkIn(request);

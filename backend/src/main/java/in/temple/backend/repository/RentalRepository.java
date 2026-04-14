@@ -12,14 +12,11 @@ import java.util.Optional;
 public interface RentalRepository extends JpaRepository<Rental, Long> {
     Optional<Rental> findByReceiptNumber(String receiptNumber);
 
-    List<Rental> findByCreatedAtBetween(
-            LocalDateTime start,
-            LocalDateTime end
-    );
+    List<Rental> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
-    List<Rental> findByCreatedAtBetweenAndCreatedBy(
-            LocalDateTime start,
-            LocalDateTime end,
-            String createdBy
-    );
+    List<Rental> findByCreatedAtBetweenAndCreatedBy(LocalDateTime start, LocalDateTime end, String createdBy);
+
+    List<Rental> findByMobileContainingOrderByCreatedAtDesc(String mobile);
+
+    List<Rental> findByCustomerNameContainingIgnoreCaseOrderByCreatedAtDesc(String customerName);
 }

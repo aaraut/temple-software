@@ -17,4 +17,10 @@ public class RoomAvailabilityDto {
     private RoomStatus roomStatus;
     private CleaningStatus cleaningStatus;
     private Boolean available;
+
+    // Populated only when roomStatus == BLOCKED
+    private String blockedBy;
+    private String blockReason;   // extracted from audit details
+    private String blockFrom;     // extracted from audit details
+    private String blockTo;       // extracted from audit details
 }

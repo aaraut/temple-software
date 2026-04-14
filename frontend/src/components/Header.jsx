@@ -6,16 +6,44 @@ import {
   Button,
   Menu,
   MenuItem,
-  IconButton
+  IconButton,
+  ToggleButton,
+  ToggleButtonGroup
 } from "@mui/material";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import TranslateIcon from "@mui/icons-material/Translate";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
 
+// All nav labels in both languages
+const NAV = {
+  home:              { en: "Home",              hi: "होम" },
+  donation:          { en: "Donation",          hi: "दान" },
+  master:            { en: "Master",            hi: "मास्टर" },
+  bartan:            { en: "Bartan",            hi: "बर्तन" },
+  bichayat:          { en: "Bichayat",          hi: "बिछायत" },
+  gotra:             { en: "Gotra",             hi: "गोत्र" },
+  donationPurpose:   { en: "Donation Purpose",  hi: "दान उद्देश्य" },
+  rental:            { en: "Rental",            hi: "किराया" },
+  returnRental:      { en: "Return Rental",     hi: "किराया वापसी" },
+  reports:           { en: "Reports",           hi: "रिपोर्ट" },
+  myEntries:         { en: "My Rental Entries", hi: "मेरी किराया प्रविष्टियाँ" },
+  myRentalSummary:   { en: "My Rental Summary", hi: "मेरी किराया संक्षिप्त विवरण" },
+  pendingRentals:    { en: "Pending Rentals",   hi: "लंबित किराया" },
+  adminRental:       { en: "Rental Admin Summary", hi: "किराया एडमिन संक्षिप्त विवरण" },
+  bhaktNiwas:        { en: "Bhakt Niwas",       hi: "भक्त निवास" },
+  bhaktNiwasDash:    { en: "Bhakt Niwas Dashboard", hi: "भक्त निवास डैशबोर्ड" },
+  roomInventory:     { en: "Room Inventory",    hi: "कमरा सूची" },
+  roomBooking:       { en: "Room Booking",      hi: "कमरा बुकिंग" },
+  users:             { en: "Users",             hi: "यूज़र मैनेजमेंट" },
+  changePassword:    { en: "Change Password",   hi: "पासवर्ड बदलें" },
+  logout:            { en: "Logout",            hi: "लॉगआउट" },
+};
+
 export default function Header() {
-  const { auth, logout } = useAuth();
+  const { auth, logout, language, setLanguage } = useAuth();
   const navigate = useNavigate();
 
   const [donationAnchor, setDonationAnchor] = useState(null);
@@ -24,330 +52,143 @@ export default function Header() {
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [reportAnchor, setReportAnchor] = useState(null);
   const [roomAnchor, setRoomAnchor] = useState(null);
-  const openRoom = Boolean(roomAnchor);
-  const openReport = Boolean(reportAnchor);
-
 
   if (!auth) return null;
 
-  const isAdmin =
-    auth.role === "ADMIN" || auth.role === "SUPER_ADMIN";
+  const t = (key) => NAV[key]?.[language] ?? NAV[key]?.en ?? key;
 
-  /* ---------- Donation Menu ---------- */
-  const openDonation = Boolean(donationAnchor);
-  const handleDonationOpen = (event) => {
-    setDonationAnchor(event.currentTarget);
-  };
-  const handleDonationClose = () => {
-    setDonationAnchor(null);
-  };
+  const isAdmin = auth.role === "ADMIN" || auth.role === "SUPER_ADMIN";
 
-  /* ---------- Inventory Menu ---------- */
+  const openDonation  = Boolean(donationAnchor);
   const openInventory = Boolean(inventoryAnchor);
-  const handleInventoryOpen = (event) => {
-    setInventoryAnchor(event.currentTarget);
-  };
-  const handleInventoryClose = () => {
-    setInventoryAnchor(null);
-  };
-
-  /* ---------- Rental Menu ---------- */
-  const openRental = Boolean(rentalAnchor);
-  const handleRentalOpen = (event) => {
-    setRentalAnchor(event.currentTarget);
-  };
-  const handleRentalClose = () => {
-    setRentalAnchor(null);
-  };
-
-  /* ---------- Profile Menu ---------- */
-  const openProfile = Boolean(profileAnchor);
-  const handleProfileOpen = (event) => {
-    setProfileAnchor(event.currentTarget);
-  };
-  const handleProfileClose = () => {
-    setProfileAnchor(null);
-  };
-
-  /****************Reports */
-  const handleReportOpen = (event) => {
-  setReportAnchor(event.currentTarget);
-  };
-  const handleReportClose = () => {
-    setReportAnchor(null);
-  };
-
-  
-
-const handleRoomOpen = (event) => {
-  setRoomAnchor(event.currentTarget);
-};
-
-const handleRoomClose = () => {
-  setRoomAnchor(null);
-};
-
+  const openRental    = Boolean(rentalAnchor);
+  const openProfile   = Boolean(profileAnchor);
+  const openReport    = Boolean(reportAnchor);
+  const openRoom      = Boolean(roomAnchor);
 
   return (
     <AppBar position="static" sx={{ backgroundColor: "#7a1f1f" }}>
-      <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+      <Toolbar sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
 
         {/* Logo */}
         <Typography
           variant="h6"
-          sx={{ cursor: "pointer", fontWeight: 600 }}
+          sx={{ cursor: "pointer", fontWeight: 600, fontSize: { xs: "0.85rem", md: "1rem" } }}
           onClick={() => navigate("/")}
         >
-          🛕 Chamatkarik Shree Hanuman Mandir Jamsawli
+          🛕 {language === "hi" ? "चमत्कारिक श्री हनुमान मंदिर जामसावली" : "Chamatkarik Shree Hanuman Mandir Jamsawli"}
         </Typography>
 
         {/* Main Menu */}
-        <Box sx={{ display: "flex", gap: 2 }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
 
-          <Button color="inherit" onClick={() => navigate("/")}>
-            Home
+          <Button color="inherit" onClick={() => navigate("/")} sx={{ fontSize: "0.82rem" }}>
+            {t("home")}
           </Button>
 
-          
-
-          <Button color="inherit" onClick={() => navigate("/donation")}>
-            Donation
+          <Button color="inherit" onClick={() => navigate("/donation")} sx={{ fontSize: "0.82rem" }}>
+            {t("donation")}
           </Button>
 
-          {/* 🔹 Inventory Dropdown */}
-          <Button
-            color="inherit"
-            endIcon={<ArrowDropDownIcon />}
-            onClick={handleInventoryOpen}
-          >
-            Master
+          {/* Master Dropdown */}
+          <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+            onClick={(e) => setInventoryAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
+            {t("master")}
           </Button>
-
-          <Menu
-            anchorEl={inventoryAnchor}
-            open={openInventory}
-            onClose={handleInventoryClose}
+          <Menu anchorEl={inventoryAnchor} open={openInventory} onClose={() => setInventoryAnchor(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-            transformOrigin={{ vertical: "top", horizontal: "left" }}
-          >
-            <MenuItem
-              onClick={() => {
-                handleInventoryClose();
-                navigate("/inventory/bartan");
-              }}
-            >
-              Bartan
-            </MenuItem>
-
-            <MenuItem
-              onClick={() => {
-                handleInventoryClose();
-                navigate("/inventory/bichayat");
-              }}
-            >
-              Bichayat
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleInventoryClose();
-                navigate("/gotra");
-              }}
-            >
-              Gotra
-            </MenuItem>
+            transformOrigin={{ vertical: "top", horizontal: "left" }}>
+            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bartan"); }}>{t("bartan")}</MenuItem>
+            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bichayat"); }}>{t("bichayat")}</MenuItem>
+            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/gotra"); }}>{t("gotra")}</MenuItem>
             {isAdmin && (
-            <MenuItem
-              onClick={() => {
-                handleInventoryClose();
-                navigate("/master/donation-purpose");
-              }}
-            >
-              Donation Purpose
-            </MenuItem>
-          )}
-          </Menu>
-          
-
-          {/* 🔹 Rental Dropdown (NEW) */}
-          <Button
-            color="inherit"
-            endIcon={<ArrowDropDownIcon />}
-            onClick={handleRentalOpen}
-          >
-            Rental
-          </Button>
-
-          <Menu
-            anchorEl={rentalAnchor}
-            open={openRental}
-            onClose={handleRentalClose}
-            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-            transformOrigin={{ vertical: "top", horizontal: "left" }}
-          >
-            <MenuItem
-              onClick={() => {
-                handleRentalClose();
-                navigate("/rentals/bartan");
-              }}
-            >
-              Bartan
-            </MenuItem>
-
-            <MenuItem
-              onClick={() => {
-                handleRentalClose();
-                navigate("/rentals/bichayat");
-              }}
-            >
-              Bichayat
-            </MenuItem>
-          </Menu>
-          <MenuItem onClick={() => navigate("/rentals/return")}>
-            Return Rental
-          </MenuItem>
-          
-          <Button
-            color="inherit"
-            endIcon={<ArrowDropDownIcon />}
-            onClick={handleReportOpen}
-          >
-            Reports
-          </Button>
-
-          <Menu
-            anchorEl={reportAnchor}
-            open={openReport}
-            onClose={handleReportClose}
-          >
-            <MenuItem
-              onClick={() => {
-                handleReportClose();
-                navigate("/reports/rentals/my-entries");
-              }}
-            >
-              My Rental Entries
-            </MenuItem>
-
-            <MenuItem
-              onClick={() => {
-                handleReportClose();
-                navigate("/reports/rentals/my");
-              }}
-            >
-              My Rental Summary
-            </MenuItem>
-
-            <MenuItem
-              onClick={() => {
-                handleReportClose();
-                navigate("/reports/rentals/pending");
-              }}
-            >
-              Pending Rentals
-            </MenuItem>
-
-            {isAdmin && (
-              <MenuItem
-                onClick={() => {
-                  handleReportClose();
-                  navigate("/reports/rentals/admin");
-                }}
-              >
-                Rental Admin Summary
-              </MenuItem>
+              <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/master/donation-purpose"); }}>{t("donationPurpose")}</MenuItem>
             )}
           </Menu>
-          {/* 🔹 Bhakt Niwas Dropdown */}
-          <Button
-            color="inherit"
-            endIcon={<ArrowDropDownIcon />}
-            onClick={handleRoomOpen}
-          >
-            Bhakt Niwas
-          </Button>
 
-          <Menu
-            anchorEl={roomAnchor}
-            open={openRoom}
-            onClose={handleRoomClose}
+          {/* Rental Dropdown */}
+          <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+            onClick={(e) => setRentalAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
+            {t("rental")}
+          </Button>
+          <Menu anchorEl={rentalAnchor} open={openRental} onClose={() => setRentalAnchor(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-            transformOrigin={{ vertical: "top", horizontal: "left" }}
-          >
-            <MenuItem
-              onClick={() => {
-                handleRoomClose();
-                navigate("/bhakt-niwas");
-              }}
-            >
-              Bhakt Niwas Dashboard
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleRoomClose();
-                navigate("/inventory/rooms");
-              }}
-            >
-              Room Inventory
-            </MenuItem>
-
-            <MenuItem
-              onClick={() => {
-                handleRoomClose();
-                navigate("/rooms/bookings");
-              }}
-            >
-              Room Booking
-            </MenuItem>
+            transformOrigin={{ vertical: "top", horizontal: "left" }}>
+            <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bartan"); }}>{t("bartan")}</MenuItem>
+            <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bichayat"); }}>{t("bichayat")}</MenuItem>
+            <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/return"); }}>{t("returnRental")}</MenuItem>
           </Menu>
 
-
-
-          {/* Donation Dropdown (REFERENCE – COMMENTED) */}
-          {/*
-          <Button
-            color="inherit"
-            endIcon={<ArrowDropDownIcon />}
-            onClick={handleDonationOpen}
-          >
-            Donation
+          {/* Reports Dropdown */}
+          <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+            onClick={(e) => setReportAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
+            {t("reports")}
           </Button>
-
-          <Menu
-            anchorEl={donationAnchor}
-            open={openDonation}
-            onClose={handleDonationClose}
-          >
-            <MenuItem
-              onClick={() => {
-                handleDonationClose();
-                navigate("/donation/abhishek");
-              }}
-            >
-              Abhishek
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleDonationClose();
-                navigate("/donation/daan");
-              }}
-            >
-              Daan
-            </MenuItem>
+          <Menu anchorEl={reportAnchor} open={openReport} onClose={() => setReportAnchor(null)}>
+            <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/my-entries"); }}>{t("myEntries")}</MenuItem>
+            <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/my"); }}>{t("myRentalSummary")}</MenuItem>
+            <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/pending"); }}>{t("pendingRentals")}</MenuItem>
+            {isAdmin && (
+              <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/admin"); }}>{t("adminRental")}</MenuItem>
+            )}
           </Menu>
-          */}
+
+          {/* Bhakt Niwas Dropdown */}
+          <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+            onClick={(e) => setRoomAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
+            {t("bhaktNiwas")}
+          </Button>
+          <Menu anchorEl={roomAnchor} open={openRoom} onClose={() => setRoomAnchor(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas"); }}>{t("bhaktNiwasDash")}</MenuItem>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/rooms"); }}>{t("roomInventory")}</MenuItem>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/rooms/bookings"); }}>{t("roomBooking")}</MenuItem>
+          </Menu>
 
           {isAdmin && (
-            <Button color="inherit" onClick={() => navigate("/users")}>
-              Users
+            <Button color="inherit" onClick={() => navigate("/users")} sx={{ fontSize: "0.82rem" }}>
+              {t("users")}
             </Button>
           )}
         </Box>
 
-        {/* Profile Menu */}
-        <Box>
-          <IconButton color="inherit" onClick={handleProfileOpen}>
+        {/* Right side: Language Toggle + Profile */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+
+          {/* ── Language Toggle in Header ── */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <TranslateIcon sx={{ fontSize: "1rem", opacity: 0.8 }} />
+            <ToggleButtonGroup
+              value={language}
+              exclusive
+              onChange={(_, lang) => lang && setLanguage(lang)}
+              size="small"
+              sx={{
+                "& .MuiToggleButton-root": {
+                  color: "white",
+                  borderColor: "rgba(255,255,255,0.4)",
+                  fontSize: "0.75rem",
+                  padding: "2px 8px",
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(255,255,255,0.25)",
+                    color: "white",
+                  },
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.15)",
+                  }
+                }
+              }}
+            >
+              <ToggleButton value="hi">हिंदी</ToggleButton>
+              <ToggleButton value="en">EN</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          {/* Profile Menu */}
+          <IconButton color="inherit" onClick={(e) => setProfileAnchor(e.currentTarget)}>
             <AccountCircle />
-            <Typography sx={{ ml: 1 }}>
+            <Typography sx={{ ml: 1, fontSize: "0.85rem" }}>
               {auth.username}
             </Typography>
             <ArrowDropDownIcon />
@@ -356,27 +197,18 @@ const handleRoomClose = () => {
           <Menu
             anchorEl={profileAnchor}
             open={openProfile}
-            onClose={handleProfileClose}
+            onClose={() => setProfileAnchor(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             transformOrigin={{ vertical: "top", horizontal: "right" }}
           >
-            <MenuItem
-              onClick={() => {
-                handleProfileClose();
-                navigate("/change-password");
-              }}
-            >
-              Change Password
+            <MenuItem onClick={() => { setProfileAnchor(null); navigate("/change-password"); }}>
+              {t("changePassword")}
             </MenuItem>
-
             <MenuItem
-              onClick={() => {
-                handleProfileClose();
-                logout();
-              }}
+              onClick={() => { setProfileAnchor(null); logout(); }}
               sx={{ color: "#7a1f1f", fontWeight: 500 }}
             >
-              Logout
+              {t("logout")}
             </MenuItem>
           </Menu>
         </Box>

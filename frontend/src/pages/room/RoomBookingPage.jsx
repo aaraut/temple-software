@@ -1,408 +1,1248 @@
 import { useEffect, useState } from "react";
+import { Box, Typography, Divider, Snackbar, Alert } from "@mui/material";
 import {
-  TextField,
-  Button,
-  Grid,
-  Paper,
-  Typography,
-  Snackbar,
-  Alert,
-  FormControl,
-  Select,
-  MenuItem,
-  InputLabel,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Box,
-  Divider,
-} from "@mui/material";
-
-import {
-  createBooking,
-  checkInBooking,
-  checkoutBooking,
-  shiftRoom,
-  getAvailability,
-  searchBookings,
+  createBooking, printBookingReceipt, getBookingDetail, checkInBooking, checkoutBooking, shiftRoom, getAvailability, searchBookings,
 } from "../../api/roomBookingApi";
-
-import { getRooms } from "../../api/roomApi";
+import { getRooms, blockRooms, unblockRooms } from "../../api/roomApi";
+import { cancelBooking } from "../../api/roomBookingApi";
 import { useAuth } from "../../context/AuthContext";
 
+const nowLocal = () => {
+  const d = new Date(); d.setSeconds(0, 0);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const todayNoon = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T12:00`;
+};
+
+const nextDayCheckout = (checkInStr) => {
+  if (!checkInStr) return "";
+  const d = new Date(checkInStr);
+  d.setDate(d.getDate() + 1);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T10:00`;
+};
+
+// Input sanitizers — strip to allowed chars only
+const sanitizers = {
+  name:    (v) => v.replace(/[^a-zA-Zऀ-ॿ\s.'-]/g, "").slice(0, 60),
+  mobile:  (v) => v.replace(/[^0-9]/g, "").slice(0, 10),
+  idProof: (v) => v.replace(/[^a-zA-Z0-9\s-]/g, "").slice(0, 20),
+  booking: (v) => v.replace(/[^A-Z0-9-]/g, "").slice(0, 25),
+  number:  (v) => v.replace(/[^0-9.]/g, "").slice(0, 8),
+};
+
+const C = {
+  bg: "#fdf9f4", card: "#ffffff", border: "#e8ddd0",
+  borderFocus: "#c8894a", accent: "#c8894a", accentDark: "#a86830",
+  text: "#2d1f0f", textMuted: "#8a7560",
+};
+
+const inputBase = (readOnly) => ({
+  width: "100%", boxSizing: "border-box",
+  padding: "10px 12px", border: `1.5px solid ${C.border}`,
+  borderRadius: 8, fontSize: "0.875rem",
+  fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+  background: readOnly ? "#faf8f5" : "#fff",
+  color: readOnly ? "#5a4a3a" : C.text, outline: "none",
+  transition: "border-color 0.18s",
+});
+
+const FieldLabel = ({ children }) => (
+  <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: C.text, letterSpacing: 0.3, mb: 0.5, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+    {children}
+  </Typography>
+);
+
+const Field = ({ label, name, value, onChange, type = "text", min, readOnly, maxLength, placeholder }) => (
+  <Box>
+    <FieldLabel>{label}</FieldLabel>
+    <input
+      type={type} name={name} value={value} onChange={onChange}
+      min={min} readOnly={readOnly} maxLength={maxLength} placeholder={placeholder}
+      style={inputBase(readOnly)}
+      onFocus={(e) => { if (!readOnly) e.target.style.borderColor = C.borderFocus; }}
+      onBlur={(e) => { e.target.style.borderColor = C.border; }}
+    />
+  </Box>
+);
+
+// Split date+time picker — date part closes on pick, time is separate
+const DateTimePicker = ({ label, value, onChange, readOnly, noTime }) => {
+  const date = value ? value.slice(0, 10) : "";
+  const time = noTime ? "10:00" : (value ? value.slice(11, 16) : "12:00");
+  return (
+    <Box>
+      <FieldLabel>{label}</FieldLabel>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <input
+          type="date"
+          value={date}
+          readOnly={readOnly}
+          onChange={(e) => { if (readOnly) return; e.target.blur(); onChange(e.target.value + "T10:00"); }}
+          style={{ ...inputBase(readOnly), flex: noTime ? "1 1 auto" : 2, fontSize: "0.75rem" }}
+          onFocus={(e) => { if (!readOnly) e.target.style.borderColor = C.borderFocus; }}
+          onBlur={(e) => { e.target.style.borderColor = C.border; }}
+        />
+        {!noTime && (
+          <input
+            type="time"
+            value={time}
+            readOnly={readOnly}
+            onChange={(e) => { if (readOnly) return; e.target.blur(); onChange(date + "T" + e.target.value); }}
+            style={{ ...inputBase(readOnly), flex: 1, fontSize: "0.75rem" }}
+            onFocus={(e) => { if (!readOnly) e.target.style.borderColor = C.borderFocus; }}
+            onBlur={(e) => { e.target.style.borderColor = C.border; }}
+          />
+        )}
+        {noTime && (
+          <Box sx={{
+            display: "flex", alignItems: "center", px: 1.5,
+            background: "#f5f0eb", borderRadius: "6px",
+            border: "1px solid #e0d5c8", fontSize: "0.75rem", color: "#8a7560",
+            whiteSpace: "nowrap", flexShrink: 0,
+          }}>
+            10:00 AM
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+const StyledSelect = ({ label, name, value, onChange, disabled, children }) => (
+  <Box>
+    <FieldLabel>{label}</FieldLabel>
+    <select
+      name={name} value={value} onChange={onChange} disabled={disabled}
+      style={{
+        ...inputBase(disabled), cursor: disabled ? "not-allowed" : "pointer",
+        appearance: "none", paddingRight: 32,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238a7560' d='M5 7L0 2h10z'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
+        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+      }}
+    >
+      {children}
+    </select>
+  </Box>
+);
+
+const SectionHead = ({ children }) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2.5 }}>
+    <Box sx={{ width: 3, height: 18, background: C.accent, borderRadius: 2 }} />
+    <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: C.accent }}>
+      {children}
+    </Typography>
+  </Box>
+);
+
+const ActionBtn = ({ label, icon, onClick, disabled, colorSet }) => {
+  const sets = {
+    green:  { bg: "#f0faf0", color: "#2d7a2d", border: "#b8ddb8" },
+    red:    { bg: "#fff5f5", color: "#b03030", border: "#e8c0c0" },
+    blue:   { bg: "#f5f5ff", color: "#4040b0", border: "#c0c0e8" },
+    tan:    { bg: "#fdf6ee", color: "#8a7560", border: "#e8ddd0" },
+  };
+  const s = disabled ? { bg: "#f5f2ee", color: "#c0b8b0", border: "#e8e0d8" } : (sets[colorSet] || sets.tan);
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width: "100%", padding: "11px 16px",
+      background: s.bg, color: s.color, border: `1.5px solid ${s.border}`,
+      borderRadius: 8, fontSize: "0.8125rem", fontWeight: 600,
+      cursor: disabled ? "not-allowed" : "pointer",
+      textAlign: "left", display: "flex", alignItems: "center", gap: 10,
+      transition: "all 0.15s", opacity: disabled ? 0.65 : 1,
+    }}>
+      <span style={{ fontSize: "1.0625rem" }}>{icon}</span>{label}
+    </button>
+  );
+};
+
 export default function RoomBookingPage() {
-  const { auth } = useAuth();
+  const { auth, language } = useAuth();
 
-  const [rooms, setRooms] = useState([]);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+  const L = {
+    hi: {
+      pageTitle: "भक्त निवास", pageSubtitle: "बुकिंग",
+      createBooking: "नई बुकिंग", bookingConfirmed: "बुकिंग सफल — फॉर्म लॉक",
+      selectRoom: "— कमरा चुनें —", customerName: "अतिथि नाम",
+      mobile: "मोबाइल नंबर", idProofType: "पहचान पत्र प्रकार",
+      idProofNumber: "पहचान पत्र नंबर", bookingType: "बुकिंग प्रकार",
+      checkIn: "चेक-इन", checkOut: "चेक-आउट (10:00 AM)",
+      surcharge: "अतिरिक्त सरचार्ज (₹)", extraCharge: "अतिरिक्त शुल्क (₹)",
+      deposit: "सुरक्षा जमा (₹)", grossAmount: "कुल राशि",
+      createBtn: "बुकिंग बनाएं", createdBtn: "✓ बुकिंग दर्ज", resetBtn: "↺ रीसेट",
+      actions: "कार्रवाई", bookingNumber: "बुकिंग नंबर",
+      searchLink: "🔍 नाम / मोबाइल से खोजें",
+      checkInBtn: "चेक-इन", checkoutBtn: "चेकआउट",
+      shiftBtn: "कमरा बदलें", availBtn: "उपलब्धता देखें",
+      statusBooked: "⏳ चेक-इन की प्रतीक्षा", statusCheckedIn: "✅ अतिथि चेक-इन हो गए",
+      statusCheckedOut: "🏁 चेकआउट हो गया",
+      checkAvailTitle: "कमरा उपलब्धता", searchAvail: "उपलब्धता खोजें",
+      roomsFound: (n) => `${n} कमरे मिले`,
+      available: "✓ उपलब्ध", occupied: "✗ व्यस्त",
+      dirty: "⚠ गंदा", cleaning: "⚠ सफाई जारी",
+      dirtyWarn: "कृपया चेक-इन से पहले हाउसकीपिंग से कमरे की स्थिति अपडेट करवाएं।",
+      selectRoom2: "चुनें",
+      searchBooking: "बुकिंग खोजें", searchMobile: "मोबाइल नंबर",
+      searchName: "अतिथि नाम", searchBtn: "खोजें",
+      bookingsFound: (n) => `${n} बुकिंग मिली`,
+      selectBooking: "✓ चुनें", printReceipt: "🖨 प्रिंट",
+      aadhar: "आधार", drivingLicense: "ड्राइविंग लाइसेंस", govtId: "सरकारी पहचान पत्र",
+      twentyFourHour: "24 घंटे", fixedSlot: "फिक्स्ड स्लॉट",
+      threeHour: "3 घंटे", sixHour: "6 घंटे",
+    },
+    en: {
+      pageTitle: "Bhakt Niwas", pageSubtitle: "Room Booking",
+      createBooking: "Create Booking", bookingConfirmed: "Booking Confirmed — Form Locked",
+      selectRoom: "— Select Room —", customerName: "Customer Name",
+      mobile: "Mobile Number", idProofType: "ID Proof Type",
+      idProofNumber: "ID Proof Number", bookingType: "Booking Type",
+      checkIn: "Check-In", checkOut: "Check-Out (10:00 AM)",
+      surcharge: "Extra Surcharge (₹)", extraCharge: "Extra Charge (₹)",
+      deposit: "Security Deposit (₹)", grossAmount: "Gross Amount",
+      createBtn: "Create Booking", createdBtn: "✓ Created", resetBtn: "↺ Reset",
+      actions: "Actions", bookingNumber: "Booking Number",
+      searchLink: "🔍 Search by Name / Mobile",
+      checkInBtn: "Check-In", checkoutBtn: "Checkout",
+      shiftBtn: "Shift Room", availBtn: "Check Availability",
+      statusBooked: "⏳ Awaiting Check-In", statusCheckedIn: "✅ Guest Checked In",
+      statusCheckedOut: "🏁 Checked Out",
+      checkAvailTitle: "Room Availability", searchAvail: "Search Availability",
+      roomsFound: (n) => `${n} room(s) found`,
+      available: "✓ Available", occupied: "✗ Occupied",
+      dirty: "⚠ Dirty", cleaning: "⚠ Cleaning in Progress",
+      dirtyWarn: "Please ask housekeeping to update room status before check-in.",
+      selectRoom2: "Select",
+      searchBooking: "Search Booking", searchMobile: "Mobile Number",
+      searchName: "Customer Name", searchBtn: "Search",
+      bookingsFound: (n) => `${n} booking(s) found`,
+      selectBooking: "✓ Select", printReceipt: "🖨 Print",
+      aadhar: "Aadhar", drivingLicense: "Driving License", govtId: "Govt ID",
+      twentyFourHour: "24 Hour", fixedSlot: "Fixed Slot",
+      threeHour: "3 Hour", sixHour: "6 Hour",
+    },
+  };
+  const t = L[language] ?? L.en;
 
+  const [rooms, setRooms]           = useState([]);
+  const [success, setSuccess]       = useState("");
+  const [error, setError]           = useState("");
   const [bookingNumber, setBookingNumber] = useState("");
+  const [bookingCreatedOverride, setBookingCreatedOverride] = useState(false);
+  const bookingCreated = !!bookingNumber || bookingCreatedOverride;
 
-  const [availability, setAvailability] = useState([]);
+  const [bookingStatus, setBookingStatus] = useState(""); // BOOKED | CHECKED_IN | CHECKED_OUT
+
+  // Availability modal state
+  const [availModal, setAvailModal]     = useState(false);
+  const [availFrom, setAvailFrom]       = useState(nowLocal());
+  const [availTo, setAvailTo]           = useState(nextDayCheckout(nowLocal()));
+  const [availResults, setAvailResults] = useState([]);
+  const [availLoading, setAvailLoading] = useState(false);
+  const [availError, setAvailError]     = useState("");
+
+  // ── Booking search state ──────────────────────────────────────────────────
+  const [searchModal, setSearchModal]     = useState(false);
+  const [searchQuery, setSearchQuery]     = useState({ mobile: "", name: "" });
   const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError]     = useState("");
+
+  const handleBookingSearch = async () => {
+    if (!searchQuery.mobile.trim() && !searchQuery.name.trim()) {
+      setSearchError("Please enter mobile number or customer name");
+      return;
+    }
+    setSearchError(""); setSearchLoading(true);
+    try {
+      const res = await searchBookings({
+        mobileNumber: searchQuery.mobile.trim() || undefined,
+        customerName: searchQuery.name.trim()   || undefined,
+      });
+      setSearchResults(res.data);
+      if (res.data.length === 0) setSearchError("No bookings found");
+    } catch { setSearchError("Search failed. Please try again."); }
+    finally { setSearchLoading(false); }
+  };
+
+  const toLocalDt = (v) => {
+    if (!v) return "";
+    if (Array.isArray(v)) {
+      const [yr, mo, d, h = 0, m = 0] = v;
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${yr}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(m)}`;
+    }
+    return String(v).slice(0, 16); // ISO string → "YYYY-MM-DDTHH:mm"
+  };
+
+  const handleSelectBooking = async (bk) => {
+    setBookingNumber(bk.bookingNumber);
+    setBookingStatus(bk.status);
+    setSearchModal(false);
+    setSearchResults([]);
+    setSearchQuery({ mobile: "", name: "" });
+    setSearchError("");
+
+    // Fetch full booking detail to populate the left form
+    try {
+      const res = await getBookingDetail(bk.bookingNumber);
+      const d = res.data;
+      setForm({
+        roomId:                d.roomId             ?? "",
+        customerName:          d.customerName        ?? "",
+        mobileNumber:          d.mobileNumber        ?? "",
+        idProofType:           d.idProofType         ?? "AADHAR",
+        idProofNumber:         d.idProofNumber       ?? "",
+        bookingType:           d.bookingType         ?? "TWENTY_FOUR_HOUR",
+        scheduledCheckIn:      toLocalDt(d.scheduledCheckIn),
+        scheduledCheckOut:     toLocalDt(d.scheduledCheckOut),
+        extraSurchargeAmount:  d.extraSurchargeAmount ?? 0,
+        extraChargeAmount:     d.extraChargeAmount   ?? 0,
+        securityDeposit:       d.securityDeposit     ?? 0,
+      });
+      // Lock the form since this is an existing booking
+      setBookingCreatedOverride(true);
+    } catch {
+      // Non-critical — booking number + status already set, form stays editable
+    }
+  };
+
+  // ── Block/Unblock modal state ────────────────────────────────────────────
+  const [blockModal, setBlockModal]         = useState(false);
+  const [blockMode, setBlockMode]           = useState("block"); // "block" | "unblock"
+  const [blockFrom, setBlockFrom]           = useState(todayNoon());
+  const [blockTo, setBlockTo]               = useState(nextDayCheckout(todayNoon()));
+  const [blockRoomIds, setBlockRoomIds]     = useState([]);  // [] = All
+  const [blockReason, setBlockReason]       = useState("");
+  const [blockLoading, setBlockLoading]     = useState(false);
+  const [blockResult, setBlockResult]       = useState(null); // RoomBlockResultDto
+  const [blockError, setBlockError]         = useState("");
+  const [unblockFrom, setUnblockFrom]       = useState(nowLocal());
+  const [unblockTo, setUnblockTo]           = useState(nextDayCheckout(nowLocal()));
+  // Track which rooms have active blocks (populated from availability check or after blocking)
+  const [activelyBlockedRoomIds, setActivelyBlockedRoomIds] = useState([]);
+
+  const handleBlock = async () => {
+    if (!blockFrom || !blockTo) { setBlockError("Please select dates"); return; }
+    if (new Date(blockTo) <= new Date(blockFrom)) { setBlockError("Block-to must be after block-from"); return; }
+    setBlockError(""); setBlockLoading(true);
+    try {
+      const res = await blockRooms({
+        roomIds: blockRoomIds.length > 0 ? blockRoomIds : null,
+        blockFrom, blockTo,
+        reason: blockReason || "Festival/Event",
+        blockedBy: auth.username,
+      });
+      setBlockResult(res.data);
+      // Mark newly blocked rooms
+      const newlyBlocked = (res.data.blockedCount > 0)
+        ? (blockRoomIds.length > 0 ? blockRoomIds : rooms.map(r => r.id))
+        : [];
+      setActivelyBlockedRoomIds(prev => [...new Set([...prev, ...newlyBlocked])]);
+    } catch (e) { setBlockError(e.response?.data?.message || "Block failed"); }
+    finally { setBlockLoading(false); }
+  };
+
+  const handleUnblock = async () => {
+    if (!unblockFrom || !unblockTo) { setBlockError("Please select unblock date range"); return; }
+    if (new Date(unblockTo) <= new Date(unblockFrom)) { setBlockError("Unblock-to must be after unblock-from"); return; }
+    setBlockError(""); setBlockLoading(true);
+    try {
+      await unblockRooms({
+        roomIds: blockRoomIds.length > 0 ? blockRoomIds : null,
+        unblockFrom, unblockTo,
+        unblockedBy: auth.username,
+      });
+      setBlockResult({ unblocked: true });
+      const unblocked = blockRoomIds.length > 0 ? blockRoomIds : rooms.map(r => r.id);
+      setActivelyBlockedRoomIds(prev => prev.filter(id => !unblocked.includes(id)));
+      await getRooms().then(setRooms);
+      setSuccess(language === "hi" ? "कमरे अनब्लॉक हो गए" : "Rooms unblocked successfully");
+    } catch (e) { setBlockError(e.response?.data?.message || "Unblock failed"); }
+    finally { setBlockLoading(false); }
+  };
+
+  const handleCancelConflict = async (bookingNumber) => {
+    try {
+      await cancelBooking({ bookingNumber, cancellationCharge: 0, remarks: "Cancelled due to room block", handledBy: auth.username });
+      setBlockResult(prev => ({
+        ...prev,
+        conflicts: prev.conflicts.filter(c => c.bookingNumber !== bookingNumber),
+        skippedCount: prev.skippedCount - 1,
+      }));
+      setSuccess("Booking " + bookingNumber + " cancelled");
+    } catch (e) { setError(e.response?.data?.message || "Cancel failed"); }
+  };
+
+  const handleCheckAvailability = async () => {
+    if (!availFrom || !availTo) { setAvailError("Please select both dates"); return; }
+    if (new Date(availTo) <= new Date(availFrom)) { setAvailError("Check-out must be after check-in"); return; }
+    setAvailError(""); setAvailLoading(true);
+    try {
+      const res = await getAvailability(availFrom, availTo);
+      setAvailResults(res.data);
+    } catch { setAvailError("Failed to fetch availability"); }
+    finally { setAvailLoading(false); }
+  };
+
+  const handleSelectRoom = (room) => {
+    setForm((prev) => ({ ...prev, roomId: room.roomId }));
+    setAvailModal(false);
+    setAvailResults([]);
+  };
 
   const [form, setForm] = useState({
-    roomId: "",
-    customerName: "",
-    mobileNumber: "",
-    idProofType: "AADHAR",
-    idProofNumber: "",
+    roomId: "", customerName: "", mobileNumber: "",
+    idProofType: "AADHAR", idProofNumber: "",
     bookingType: "TWENTY_FOUR_HOUR",
-    scheduledCheckIn: "",
-    scheduledCheckOut: "",
-    extraSurchargeAmount: 0,
-    extraChargeAmount: 0,
-    securityDeposit: 0,
+    scheduledCheckIn: todayNoon(),
+    scheduledCheckOut: nextDayCheckout(todayNoon()),
+    extraSurchargeAmount: 0, extraChargeAmount: 0, securityDeposit: 0,
   });
 
   const [grossAmount, setGrossAmount] = useState(0);
 
+  // Create button only enabled when all required fields are filled
+  const formReady =
+    !!form.roomId &&
+    form.customerName.trim().length > 0 &&
+    /^[0-9]{10}$/.test(form.mobileNumber) &&
+    form.idProofNumber.trim().length > 0 &&
+    !!form.scheduledCheckIn &&
+    !!form.scheduledCheckOut;
+
   useEffect(() => {
-    loadRooms();
+    getRooms().then(setRooms).catch(() => setError("Failed to load rooms"));
   }, []);
-
-  const loadRooms = async () => {
-    try {
-      const data = await getRooms();
-      setRooms(data);
-    } catch {
-      setError("Failed to load rooms");
-    }
-  };
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   const selectedRoom = rooms.find((r) => r.id === Number(form.roomId));
 
-  // -------- Calculate Gross --------
   useEffect(() => {
     if (!selectedRoom) return;
-
-    let base = 0;
-
-    switch (form.bookingType) {
-      case "TWENTY_FOUR_HOUR":
-        base = selectedRoom.baseRent24Hr || 0;
-        break;
-      case "FIXED_SLOT":
-        base = selectedRoom.baseRentFixed || 0;
-        break;
-      case "THREE_HOUR":
-        base = selectedRoom.baseRent3Hr || 0;
-        break;
-      case "SIX_HOUR":
-        base = selectedRoom.baseRent6Hr || 0;
-        break;
-      default:
-        base = 0;
-    }
-
-    const total =
-      Number(base) +
-      Number(form.extraSurchargeAmount || 0) +
-      Number(form.extraChargeAmount || 0);
-
-    setGrossAmount(total);
+    const base = selectedRoom.baseRent24Hr || 0;
+    setGrossAmount(Number(base) + Number(form.extraSurchargeAmount || 0) + Number(form.extraChargeAmount || 0));
   }, [form, selectedRoom]);
 
-  // ---------------- CREATE ----------------
-  const handleCreate = async () => {
-    try {
-      const res = await createBooking({
-        ...form,
-        createdBy: auth.username,
-      });
-
-      setBookingNumber(res.data);
-      setSuccess("Booking created: " + res.data);
-    } catch (e) {
-      setError(e.response?.data?.message || "Create failed");
-    }
+  const sanitize = (name, value) => {
+    if (name === "customerName")       return sanitizers.name(value);
+    if (name === "mobileNumber")       return sanitizers.mobile(value);
+    if (name === "idProofNumber")      return sanitizers.idProof(value);
+    if (name === "extraSurchargeAmount" || name === "extraChargeAmount" || name === "securityDeposit")
+                                       return sanitizers.number(value);
+    return value; // dates, selects — pass through unchanged
   };
 
-  // ---------------- CHECK-IN ----------------
+  const handleChange = (e) => {
+    if (bookingCreated) return;
+    const { name, value } = e.target;
+    const clean = sanitize(name, value);
+    setForm((prev) => {
+      const u = { ...prev, [name]: clean };
+      if (name === "scheduledCheckIn")           u.scheduledCheckOut = nextDayCheckout(clean);
+      if (name === "scheduledCheckOut" && clean) u.scheduledCheckOut = clean.slice(0, 11) + "10:00";
+      return u;
+    });
+  };
+
+  const validate = () => {
+    if (!form.roomId)                            { setError("Please select a room"); return false; }
+    if (!form.customerName.trim())               { setError("Please enter customer name"); return false; }
+    if (!/^[0-9]{10}$/.test(form.mobileNumber)) { setError("Enter a valid 10-digit mobile number"); return false; }
+    if (!form.idProofNumber.trim())              { setError("Please enter ID proof number"); return false; }
+    if (!form.scheduledCheckIn)                  { setError("Please select check-in time"); return false; }
+    if (!form.scheduledCheckOut)                 { setError("Please select check-out time"); return false; }
+    if (new Date(form.scheduledCheckOut) <= new Date(form.scheduledCheckIn)) {
+      setError("Check-out must be after check-in"); return false;
+    }
+    return true;
+  };
+
+  const handleReset = () => {
+    setForm({
+      roomId: "", customerName: "", mobileNumber: "",
+      idProofType: "AADHAR", idProofNumber: "",
+      bookingType: "TWENTY_FOUR_HOUR",
+      scheduledCheckIn: todayNoon(),
+      scheduledCheckOut: nextDayCheckout(todayNoon()),
+      extraSurchargeAmount: 0, extraChargeAmount: 0, securityDeposit: 0,
+    });
+    setGrossAmount(0);
+    setBookingNumber("");
+    setBookingStatus("");
+    setBookingCreatedOverride(false);
+    setError("");
+    setSuccess("");
+  };
+
+  const handleCreate = async () => {
+    setError("");
+    setBookingCreatedOverride(false);
+    if (!validate()) return;
+    try {
+      // Step 1: Create booking — returns booking number string
+      const res = await createBooking({ ...form, createdBy: auth.username });
+      const bkNum = res.data;
+      setBookingNumber(bkNum);
+      setBookingStatus("BOOKED");
+      setSuccess("Booking created: " + bkNum);
+
+      // Step 2: Fetch receipt PDF and open print dialog
+      const pdfRes = await printBookingReceipt(bkNum);
+      const blobUrl = URL.createObjectURL(new Blob([pdfRes.data], { type: "application/pdf" }));
+      const printWindow = window.open(blobUrl, "_blank");
+      if (printWindow) {
+        printWindow.addEventListener("load", () => {
+          printWindow.print();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        });
+      }
+    } catch (e) { setError(e.response?.data?.message || "Create failed"); }
+  };
+
   const handleCheckIn = async () => {
     try {
-      await checkInBooking({
-        bookingNumber,
-        handledBy: auth.username,
-      });
+      await checkInBooking({ bookingNumber, handledBy: auth.username });
+      setBookingStatus("CHECKED_IN");
       setSuccess("Checked-in successfully");
-    } catch (e) {
-      setError(e.response?.data?.message || "Check-in failed");
-    }
+    } catch (e) { setError(e.response?.data?.message || "Check-in failed"); }
   };
 
-  // ---------------- CHECKOUT ----------------
   const handleCheckout = async () => {
     try {
-      await checkoutBooking({
-        bookingNumber,
-        extraChargeAmount: form.extraChargeAmount,
-        deductionFromDeposit: 0,
-        remarks: "Normal checkout",
-        handledBy: auth.username,
-      });
+      await checkoutBooking({ bookingNumber, extraChargeAmount: form.extraChargeAmount, deductionFromDeposit: 0, remarks: "Normal checkout", handledBy: auth.username });
+      setBookingStatus("CHECKED_OUT");
       setSuccess("Checked-out successfully");
-    } catch (e) {
-      setError(e.response?.data?.message || "Checkout failed");
-    }
+    } catch (e) { setError(e.response?.data?.message || "Checkout failed"); }
   };
 
-  // ---------------- SHIFT ----------------
   const handleShift = async () => {
     try {
-      const res = await shiftRoom({
-        oldBookingNumber: bookingNumber,
-        newRoomId: form.roomId,
-        newScheduledCheckIn: form.scheduledCheckIn,
-        newScheduledCheckOut: form.scheduledCheckOut,
-        extraChargeAmount: form.extraChargeAmount,
-        deductionFromDeposit: 0,
-        handledBy: auth.username,
-      });
-      setBookingNumber(res.data);
-      setSuccess("Shifted to: " + res.data);
-    } catch (e) {
-      setError(e.response?.data?.message || "Shift failed");
-    }
+      const res = await shiftRoom({ oldBookingNumber: bookingNumber, newRoomId: form.roomId, newScheduledCheckIn: form.scheduledCheckIn, newScheduledCheckOut: form.scheduledCheckOut, extraChargeAmount: form.extraChargeAmount, deductionFromDeposit: 0, handledBy: auth.username });
+      setBookingNumber(res.data); setSuccess("Shifted to: " + res.data);
+    } catch (e) { setError(e.response?.data?.message || "Shift failed"); }
   };
 
-  // ---------------- AVAILABILITY ----------------
-  const handleAvailability = async () => {
-    try {
-      const res = await getAvailability(
-        form.scheduledCheckIn,
-        form.scheduledCheckOut
-      );
-      setAvailability(res.data);
-    } catch {
-      setError("Availability failed");
-    }
-  };
+
+
+  const minCheckIn  = nowLocal();
+  const minCheckOut = form.scheduledCheckIn
+    ? new Date(new Date(form.scheduledCheckIn).getTime() + 60000).toISOString().slice(0, 16)
+    : minCheckIn;
 
   return (
-    <Box sx={{ maxWidth: 1200, margin: "auto", p: 2 }}>
-      <Typography variant="h5" gutterBottom>
-        Bhakt Niwas – Room Booking
-      </Typography>
+    <Box sx={{ minHeight: "100vh", background: C.bg, p: { xs: 2, md: 3 }, fontFamily: "'Georgia', serif" }}>
 
-      {/* ---------------- BOOKING FORM ---------------- */}
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6">Create Booking</Typography>
-        <Divider sx={{ mb: 2 }} />
+      {/* Header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography sx={{ fontSize: "0.625rem", letterSpacing: 3, textTransform: "uppercase", color: C.accent, mb: 0.3 }}>
+          {t.pageTitle}
+        </Typography>
+        <Typography sx={{ fontSize: "1.5rem", fontWeight: 700, color: C.text }}>
+          {t.pageSubtitle}
+        </Typography>
+      </Box>
 
-        <Grid container spacing={2}>
-          <Grid item xs={4}>
-            <FormControl fullWidth>
-              <InputLabel>Room</InputLabel>
-              <Select
-                name="roomId"
-                value={form.roomId}
-                label="Room"
-                onChange={handleChange}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1.6fr 1fr" }, gap: 2.5, alignItems: "start" }}>
+
+        {/* ══ LEFT: Create Booking ══ */}
+        <Box sx={{ background: C.card, borderRadius: 3, border: `1px solid ${C.border}`, p: 3, boxShadow: "0 2px 10px rgba(139,100,60,0.07)" }}>
+
+          {/* Availability checker trigger */}
+          <Box sx={{ mb: 2.5 }}>
+            <button
+              onClick={() => { setAvailModal(true); setAvailResults([]); setAvailError(""); }}
+              style={{
+                padding: "8px 18px", background: "#fdf6ee",
+                border: `1.5px solid ${C.border}`, borderRadius: 8,
+                fontSize: "0.75rem", fontWeight: 600, color: C.textMuted,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}
+            >
+              <span style={{ fontSize: "0.9375rem" }}>📅</span> {t.availBtn}
+            </button>
+
+            {/* Block/Unblock Rooms button */}
+            <button
+              onClick={() => { setBlockModal(true); setBlockResult(null); setBlockError(""); setBlockRoomIds([]); setBlockReason(""); setBlockMode("block"); }}
+              style={{
+                padding: "8px 18px", background: "#fff5f5",
+                border: "1.5px solid #e8c0c0", borderRadius: 8,
+                fontSize: "0.75rem", fontWeight: 600, color: "#b03030",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#ffe8e8"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#fff5f5"; }}
+            >
+              <span style={{ fontSize: "0.9375rem" }}>🔒</span> {language === "hi" ? "कमरा ब्लॉक / अनब्लॉक" : "Block / Unblock Rooms"}
+            </button>
+          </Box>
+
+          {/* ── Block/Unblock Modal ── */}
+          {blockModal && (
+            <Box sx={{
+              position: "fixed", inset: 0, zIndex: 1400,
+              background: "rgba(45,31,15,0.5)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }} onClick={() => setBlockModal(false)}>
+              <Box onClick={(e) => e.stopPropagation()} sx={{
+                background: "#fff", borderRadius: 3, p: 3,
+                width: { xs: "96vw", sm: 760 }, maxHeight: "85vh",
+                overflow: "auto", boxShadow: "0 8px 40px rgba(45,31,15,0.3)",
+                border: "1px solid #e8ddd0",
+              }}>
+                {/* Header + mode tabs */}
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ width: 3, height: 18, background: "#b03030", borderRadius: 2 }} />
+                    <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#b03030" }}>
+                      {language === "hi" ? "कमरा ब्लॉक / अनब्लॉक" : "Block / Unblock Rooms"}
+                    </Typography>
+                  </Box>
+                  <button onClick={() => setBlockModal(false)} style={{ background: "none", border: "none", fontSize: "1.125rem", cursor: "pointer", color: C.textMuted }}>✕</button>
+                </Box>
+
+                {/* Mode toggle */}
+                <Box sx={{ display: "flex", gap: 1, mb: 2.5 }}>
+                  {["block", "unblock"].map(mode => (
+                    <button key={mode} onClick={() => { setBlockMode(mode); setBlockResult(null); setBlockError(""); }}
+                      style={{
+                        flex: 1, padding: "8px",
+                        background: blockMode === mode ? (mode === "block" ? "#b03030" : "#2d7a2d") : "#f5f5f5",
+                        color: blockMode === mode ? "#fff" : C.textMuted,
+                        border: "none", borderRadius: 6, fontSize: "0.75rem", fontWeight: 700, cursor: "pointer",
+                      }}>
+                      {mode === "block" ? (language === "hi" ? "🔒 ब्लॉक करें" : "🔒 Block") : (language === "hi" ? "🔓 अनब्लॉक करें" : "🔓 Unblock")}
+                    </button>
+                  ))}
+                </Box>
+
+                {blockMode === "block" && (
+                  <>
+                    {/* Date range */}
+                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
+                      <DateTimePicker label={language === "hi" ? "ब्लॉक से" : "Block From"}
+                        value={blockFrom} onChange={setBlockFrom} />
+                      <DateTimePicker label={language === "hi" ? "ब्लॉक तक" : "Block To"}
+                        value={blockTo} onChange={setBlockTo} />
+                    </Box>
+
+                    {/* Room selection */}
+                    <Box sx={{ mb: 2 }}>
+                      <FieldLabel>{language === "hi" ? "कमरे चुनें (खाली = सभी)" : "Select Rooms (empty = All)"}</FieldLabel>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 0.5 }}>
+                        {rooms.map(r => {
+                          const sel = blockRoomIds.includes(r.id);
+                          const isBlocked = activelyBlockedRoomIds.includes(r.id);
+                          return (
+                            <button key={r.id} onClick={() => setBlockRoomIds(prev => sel ? prev.filter(x => x !== r.id) : [...prev, r.id])}
+                              style={{
+                                padding: "5px 12px", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
+                                background: isBlocked ? "#fff0f0" : sel ? "#b03030" : "#f5f5f5",
+                                color: isBlocked ? "#b03030" : sel ? "#fff" : C.textMuted,
+                                border: `1px solid ${isBlocked ? "#e8c0c0" : sel ? "#b03030" : C.border}`,
+                              }}>
+                              {r.roomNumber} {isBlocked ? "🔒" : ""}
+                            </button>
+                          );
+                        })}
+                      </Box>
+                      <Typography sx={{ fontSize: "0.625rem", color: C.textMuted, mt: 0.5 }}>
+                        {blockRoomIds.length === 0 ? (language === "hi" ? "सभी कमरे ब्लॉक होंगे" : "All rooms will be blocked") : `${blockRoomIds.length} ${language === "hi" ? "कमरे चुने गए" : "room(s) selected"}`}
+                      </Typography>
+                    </Box>
+
+                    {/* Reason */}
+                    <Box sx={{ mb: 2 }}>
+                      <FieldLabel>{language === "hi" ? "कारण (वैकल्पिक)" : "Reason (optional)"}</FieldLabel>
+                      <input value={blockReason} onChange={(e) => setBlockReason(e.target.value.slice(0, 100))}
+                        placeholder={language === "hi" ? "उत्सव / रखरखाव..." : "Festival / Maintenance..."}
+                        style={{ ...inputBase(false), width: "100%", boxSizing: "border-box" }}
+                        onFocus={(e) => { e.target.style.borderColor = C.borderFocus; }}
+                        onBlur={(e) => { e.target.style.borderColor = C.border; }} />
+                    </Box>
+                  </>
+                )}
+
+                {blockMode === "unblock" && (
+                  <Box sx={{ mb: 2 }}>
+                    {/* Date range for unblock */}
+                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
+                      <DateTimePicker label={language === "hi" ? "अनब्लॉक से" : "Unblock From"}
+                        value={unblockFrom} onChange={setUnblockFrom} />
+                      <DateTimePicker label={language === "hi" ? "अनब्लॉक तक" : "Unblock To"}
+                        value={unblockTo} onChange={setUnblockTo} />
+                    </Box>
+
+                    <FieldLabel>{language === "hi" ? "कमरे चुनें (खाली = सभी ब्लॉक्ड)" : "Select Rooms (empty = all blocked)"}</FieldLabel>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 0.5 }}>
+                      {rooms.filter(r => activelyBlockedRoomIds.includes(r.id)).map(r => {
+                        const sel = blockRoomIds.includes(r.id);
+                        return (
+                          <button key={r.id} onClick={() => setBlockRoomIds(prev => sel ? prev.filter(x => x !== r.id) : [...prev, r.id])}
+                            style={{
+                              padding: "5px 12px", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
+                              background: sel ? "#2d7a2d" : "#f0faf0",
+                              color: sel ? "#fff" : "#2d7a2d",
+                              border: `1px solid ${sel ? "#2d7a2d" : "#b8ddb8"}`,
+                            }}>
+                            🔒 {r.roomNumber}
+                          </button>
+                        );
+                      })}
+                      {rooms.filter(r => activelyBlockedRoomIds.includes(r.id)).length === 0 && (
+                        <Typography sx={{ fontSize: "0.75rem", color: C.textMuted }}>{language === "hi" ? "कोई ब्लॉक्ड कमरा नहीं मिला" : "No blocked rooms found"}</Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+
+                {blockError && (
+                  <Box sx={{ mb: 1.5, p: 1.5, background: "#fff5f5", border: "1px solid #e8c0c0", borderRadius: 2 }}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "#b03030" }}>{blockError}</Typography>
+                  </Box>
+                )}
+
+                {/* Action button */}
+                {!blockResult && (
+                  <button onClick={blockMode === "block" ? handleBlock : handleUnblock} disabled={blockLoading} style={{
+                    width: "100%", padding: "10px", marginBottom: 16,
+                    background: blockLoading ? "#e8e0d8" : blockMode === "block" ? "#b03030" : "#2d7a2d",
+                    color: blockLoading ? "#aaa" : "#fff",
+                    border: "none", borderRadius: 8, fontSize: "0.8125rem", fontWeight: 700,
+                    cursor: blockLoading ? "not-allowed" : "pointer",
+                  }}>
+                    {blockLoading ? (language === "hi" ? "प्रक्रिया जारी..." : "Processing...") :
+                      blockMode === "block" ? (language === "hi" ? "🔒 कमरे ब्लॉक करें" : "🔒 Block Rooms") :
+                        (language === "hi" ? "🔓 कमरे अनब्लॉक करें" : "🔓 Unblock Rooms")}
+                  </button>
+                )}
+
+                {/* Result */}
+                {blockResult && !blockResult.unblocked && (
+                  <Box>
+                    <Box sx={{ p: 1.5, background: "#f0faf0", border: "1px solid #b8ddb8", borderRadius: 2, mb: 1.5 }}>
+                      <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "#2d7a2d" }}>
+                        ✅ {blockResult.blockedCount} {language === "hi" ? "कमरे ब्लॉक हुए" : "room(s) blocked"}
+                        {blockResult.skippedCount > 0 && ` · ⚠ ${blockResult.skippedCount} ${language === "hi" ? "में बुकिंग मिली" : "had conflicts"}`}
+                      </Typography>
+                    </Box>
+
+                    {blockResult.conflicts?.length > 0 && (
+                      <Box>
+                        <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "#b03030", letterSpacing: 1, textTransform: "uppercase", mb: 1 }}>
+                          {language === "hi" ? "मौजूदा बुकिंग — रद्द करें या छोड़ें" : "Active Bookings — Cancel or Skip"}
+                        </Typography>
+                        {blockResult.conflicts.map(c => (
+                          <Box key={c.bookingNumber} sx={{
+                            p: 1.5, mb: 1, borderRadius: 2,
+                            border: "1px solid #e8c0c0", background: "#fff8f8",
+                            display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                          }}>
+                            <Box>
+                              <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: C.text, fontFamily: "monospace" }}>{c.bookingNumber}</Typography>
+                              <Typography sx={{ fontSize: "0.75rem", color: C.textMuted }}>{language === "hi" ? "कक्ष" : "Room"} {c.roomNumber} · {c.customerName} · {c.mobileNumber}</Typography>
+                              <Typography sx={{ fontSize: "0.6875rem", color: C.textMuted }}>{c.scheduledCheckIn} → {c.scheduledCheckOut}</Typography>
+                              <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "#b03030" }}>{c.status}</Typography>
+                            </Box>
+                            <button onClick={() => handleCancelConflict(c.bookingNumber)} style={{
+                              padding: "6px 12px", marginLeft: 12, flexShrink: 0,
+                              background: "#b03030", color: "#fff",
+                              border: "none", borderRadius: 6, fontSize: "0.6875rem", fontWeight: 700, cursor: "pointer",
+                            }}>
+                              {language === "hi" ? "रद्द करें" : "Cancel"}
+                            </button>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+
+                    <button onClick={() => { setBlockResult(null); setBlockModal(false); getRooms().then(setRooms); }} style={{
+                      width: "100%", padding: "9px", marginTop: 8,
+                      background: C.accent, color: "#fff", border: "none", borderRadius: 8,
+                      fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
+                    }}>
+                      {language === "hi" ? "बंद करें" : "Close"}
+                    </button>
+                  </Box>
+                )}
+
+                {blockResult?.unblocked && (
+                  <Box sx={{ p: 1.5, background: "#f0faf0", border: "1px solid #b8ddb8", borderRadius: 2 }}>
+                    <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "#2d7a2d" }}>
+                      ✅ {language === "hi" ? "कमरे सफलतापूर्वक अनब्लॉक हो गए" : "Rooms unblocked successfully"}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
+
+          {/* ── Availability Modal ── */}
+          {availModal && (
+            <Box sx={{
+              position: "fixed", inset: 0, zIndex: 1300,
+              background: "rgba(45,31,15,0.45)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }} onClick={() => setAvailModal(false)}>
+              <Box onClick={(e) => e.stopPropagation()} sx={{
+                background: "#fff", borderRadius: 3, p: 3,
+                width: { xs: "96vw", sm: 720 }, maxHeight: "82vh",
+                overflow: "auto", boxShadow: "0 8px 40px rgba(45,31,15,0.25)",
+                border: `1px solid ${C.border}`,
+              }}>
+                {/* Modal header */}
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ width: 3, height: 18, background: C.accent, borderRadius: 2 }} />
+                    <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: C.accent }}>
+                      {t.checkAvailTitle}
+                    </Typography>
+                  </Box>
+                  <button onClick={() => setAvailModal(false)} style={{
+                    background: "none", border: "none", fontSize: "1.125rem",
+                    cursor: "pointer", color: C.textMuted, lineHeight: 1,
+                  }}>✕</button>
+                </Box>
+
+                {/* Date inputs */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
+                  <DateTimePicker label={t.checkIn} value={availFrom}
+                    onChange={(v) => setAvailFrom(v)} />
+                  <DateTimePicker label={language === "hi" ? "चेक-आउट" : "Check-Out"} value={availTo}
+                    onChange={(v) => setAvailTo(v ? v.slice(0, 11) + "10:00" : v)} noTime />
+                </Box>
+
+                {availError && (
+                  <Box sx={{ mb: 1.5, p: 1.5, background: "#fff5f5", border: "1px solid #e8c0c0", borderRadius: 2 }}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "#b03030" }}>{availError}</Typography>
+                  </Box>
+                )}
+
+                <button
+                  onClick={handleCheckAvailability}
+                  disabled={availLoading}
+                  style={{
+                    width: "100%", padding: "10px", mb: 2,
+                    background: availLoading ? "#e8e0d8" : `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`,
+                    color: availLoading ? "#aaa" : "#fff",
+                    border: "none", borderRadius: 8, fontSize: "0.8125rem", fontWeight: 700,
+                    cursor: availLoading ? "not-allowed" : "pointer",
+                    marginBottom: 16,
+                  }}
+                >
+                  {availLoading ? t.searching : t.searchAvail}
+                </button>
+
+                {/* Results */}
+                {availResults.length > 0 && (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: C.textMuted, letterSpacing: 1, textTransform: "uppercase", mb: 0.5 }}>
+                      {t.roomsFound(availResults.length)}
+                    </Typography>
+                    {availResults.map((room) => {
+                      const dirty = room.cleaningStatus === "DIRTY" || room.cleaningStatus === "CLEANING_IN_PROGRESS";
+                      const available = room.available;
+                      // isBlocked = not available due to a date-range block (room_block table)
+                      const isBlocked = !available && !!room.blockFrom;
+                      const isMaintenance = room.roomStatus === "MAINTENANCE";
+                      return (
+                        <Box key={room.roomId} sx={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          p: 1.5, borderRadius: 2,
+                          border: `1px solid ${isBlocked ? "#e8c0c0" : available ? (dirty ? "#f0d080" : "#b8ddb8") : "#e8c0c0"}`,
+                          background: isBlocked ? "#fff5f5" : available ? (dirty ? "#fffbf0" : "#f0faf0") : "#fff5f5",
+                        }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: C.text }}>
+                              {language === "hi" ? "कक्ष" : "Room"} {room.roomNumber} · {language === "hi" ? "ब्लॉक" : "Block"} {room.blockName}
+                            </Typography>
+                            <Box sx={{ display: "flex", gap: 1, mt: 0.3, flexWrap: "wrap" }}>
+                              {isBlocked ? (
+                                <Typography sx={{
+                                  fontSize: "0.625rem", fontWeight: 700, px: 1, py: 0.2, borderRadius: 1,
+                                  background: "#f0d0d0", color: "#b03030",
+                                }}>
+                                  🔒 {language === "hi" ? "ब्लॉक्ड" : "Blocked"}
+                                </Typography>
+                              ) : isMaintenance ? (
+                                <Typography sx={{
+                                  fontSize: "0.625rem", fontWeight: 700, px: 1, py: 0.2, borderRadius: 1,
+                                  background: "#f0e8d0", color: "#9a5020",
+                                }}>
+                                  🔧 {language === "hi" ? "रखरखाव" : "Maintenance"}
+                                </Typography>
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: "0.625rem", fontWeight: 700, px: 1, py: 0.2, borderRadius: 1,
+                                  background: available ? "#d0f0d0" : "#f0d0d0",
+                                  color: available ? "#2d7a2d" : "#b03030",
+                                }}>
+                                  {available ? t.available : t.occupied}
+                                </Typography>
+                              )}
+                              {!isBlocked && dirty && (
+                                <Typography sx={{
+                                  fontSize: "0.625rem", fontWeight: 700, px: 1, py: 0.2, borderRadius: 1,
+                                  background: "#fff0c0", color: "#9a7020",
+                                }}>
+                                  {room.cleaningStatus === "CLEANING_IN_PROGRESS" ? t.cleaning : t.dirty}
+                                </Typography>
+                              )}
+                            </Box>
+                            {/* Blocked message with who blocked and reason */}
+                            {isBlocked && (
+                              <Typography sx={{ fontSize: "0.6875rem", color: "#b03030", mt: 0.5, fontStyle: "italic" }}>
+                                {language === "hi"
+                                  ? `🔒 ${room.blockFrom || ""} से ${room.blockTo || ""} तक ब्लॉक्ड${room.blockReason ? ` — ${room.blockReason}` : ""}${room.blockedBy ? ` (${room.blockedBy} द्वारा)` : ""}`
+                                  : `🔒 Blocked ${room.blockFrom ? `from ${room.blockFrom}` : ""} ${room.blockTo ? `to ${room.blockTo}` : ""}${room.blockReason ? ` — ${room.blockReason}` : ""}${room.blockedBy ? ` (by ${room.blockedBy})` : ""}`}
+                              </Typography>
+                            )}
+                            {!isBlocked && available && dirty && (
+                              <Typography sx={{ fontSize: "0.6875rem", color: "#9a7020", mt: 0.5 }}>
+                                {t.dirtyWarn}
+                              </Typography>
+                            )}
+                          </Box>
+                          {available && (
+                            <button
+                              onClick={() => handleSelectRoom(room)}
+                              style={{
+                                padding: "7px 14px", marginLeft: 12, flexShrink: 0,
+                                background: dirty ? "#fff0c0" : `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`,
+                                color: dirty ? "#9a7020" : "#fff",
+                                border: `1px solid ${dirty ? "#f0d080" : "transparent"}`,
+                                borderRadius: 6, fontSize: "0.75rem", fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {t.selectRoom2}
+                            </button>
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
+
+          <SectionHead>{t.createBooking}</SectionHead>
+
+          {bookingCreated && (
+            <Box sx={{ background: "#f0faf0", border: "1px solid #b8ddb8", borderRadius: 2, p: 1.5, mb: 2.5, display: "flex", alignItems: "center", gap: 1.5 }}>
+              <span style={{ fontSize: "1.25rem" }}>✅</span>
+              <Box>
+                <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "#2d7a2d" }}>{t.bookingConfirmed}</Typography>
+                <Typography sx={{ fontSize: "0.875rem", color: "#2d7a2d", fontFamily: "monospace", letterSpacing: 1 }}>{bookingNumber}</Typography>
+              </Box>
+            </Box>
+          )}
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              <StyledSelect label="Room" name="roomId" value={form.roomId} onChange={handleChange} disabled={bookingCreated}>
+                <option value="">— Select Room —</option>
+                {rooms.map((r) => <option key={r.id} value={r.id}>{r.roomNumber} · Block {r.blockName}</option>)}
+              </StyledSelect>
+              <Field label={t.customerName} name="customerName" value={form.customerName} onChange={handleChange} readOnly={bookingCreated} placeholder="Full name" />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+              <Field label={t.mobile} name="mobileNumber" value={form.mobileNumber} onChange={handleChange} readOnly={bookingCreated} maxLength={10} placeholder="10 digits" />
+              <StyledSelect label={t.idProofType} name="idProofType" value={form.idProofType} onChange={handleChange} disabled={bookingCreated}>
+                <option value="AADHAR">{t.aadhar}</option>
+                <option value="DRIVING_LICENSE">{t.drivingLicense}</option>
+                <option value="GOVT_ID">{t.govtId}</option>
+              </StyledSelect>
+              <Field label={t.idProofNumber} name="idProofNumber" value={form.idProofNumber} onChange={handleChange} readOnly={bookingCreated} placeholder="ID number" />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+              <DateTimePicker label={t.checkIn} value={form.scheduledCheckIn}
+                onChange={(v) => handleChange({ target: { name: "scheduledCheckIn", value: v } })}
+                readOnly={bookingCreated} />
+              <DateTimePicker label={t.checkOut} value={form.scheduledCheckOut}
+                onChange={(v) => handleChange({ target: { name: "scheduledCheckOut", value: v.slice(0, 11) + "10:00" } })}
+                readOnly={bookingCreated} noTime />
+              <StyledSelect label={t.bookingType} name="bookingType" value={form.bookingType} onChange={handleChange} disabled>
+                <option value="TWENTY_FOUR_HOUR">{t.twentyFourHour}</option>
+                <option value="FIXED_SLOT">{t.fixedSlot}</option>
+                <option value="THREE_HOUR">{t.threeHour}</option>
+                <option value="SIX_HOUR">{t.sixHour}</option>
+              </StyledSelect>
+            </Box>
+
+            <Divider sx={{ borderColor: "#f0e8dc" }} />
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+              <Field label={t.surcharge} name="extraSurchargeAmount" value={form.extraSurchargeAmount} onChange={handleChange} type="number" readOnly={bookingCreated} />
+              <Field label={t.extraCharge} name="extraChargeAmount" value={form.extraChargeAmount} onChange={handleChange} type="number" readOnly={bookingCreated} />
+              <Field label={t.deposit} name="securityDeposit" value={form.securityDeposit} onChange={handleChange} type="number" readOnly={bookingCreated} />
+            </Box>
+
+            {/* Gross + Create */}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fdf6ee", borderRadius: 2, px: 2.5, py: 1.5, border: `1px solid ${C.border}` }}>
+              <Box>
+                <Typography sx={{ fontSize: "0.625rem", color: C.textMuted, letterSpacing: 1, textTransform: "uppercase" }}>{t.grossAmount}</Typography>
+                <Typography sx={{ fontSize: "1.5rem", fontWeight: 700, color: C.accent, fontFamily: "monospace" }}>
+                  ₹ {grossAmount.toLocaleString("en-IN")}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", gap: 1.5 }}>
+                <button
+                  onClick={handleCreate}
+                  disabled={bookingCreated || !formReady}
+                  style={{
+                    padding: "12px 28px",
+                    background: bookingCreated ? "#e8e0d8" : !formReady ? "#ede8e2" : `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`,
+                    color: bookingCreated || !formReady ? "#aaa" : "#fff",
+                    border: "none", borderRadius: 8,
+                    fontSize: "0.8125rem", fontWeight: 700, letterSpacing: 0.8,
+                    textTransform: "uppercase",
+                    cursor: bookingCreated || !formReady ? "not-allowed" : "pointer",
+                    boxShadow: bookingCreated || !formReady ? "none" : "0 4px 14px rgba(168,104,48,0.35)",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {bookingCreated ? t.createdBtn : t.createBtn}
+                </button>
+                <button
+                  onClick={handleReset}
+                  style={{
+                    padding: "12px 20px",
+                    background: "#fff", color: C.textMuted,
+                    border: `1.5px solid ${C.border}`,
+                    borderRadius: 8, fontSize: "0.8125rem", fontWeight: 600,
+                    cursor: "pointer", transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}
+                >
+                  {t.resetBtn}
+                </button>
+              </Box>
+            </Box>
+
+          </Box>
+        </Box>
+
+        {/* ══ RIGHT: Actions ══ */}
+        <Box sx={{ background: C.card, borderRadius: 3, border: `1px solid ${C.border}`, p: 3, boxShadow: "0 2px 10px rgba(139,100,60,0.07)", display: "flex", flexDirection: "column", gap: 2 }}>
+          <SectionHead>{t.actions}</SectionHead>
+
+          <Box>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
+              <FieldLabel>{t.bookingNumber}</FieldLabel>
+              <button
+                onClick={() => { setSearchModal(true); setSearchResults([]); setSearchError(""); setSearchQuery({ mobile: "", name: "" }); }}
+                style={{
+                  background: "none", border: "none", padding: "2px 6px",
+                  fontSize: "0.6875rem", fontWeight: 600, color: C.accent,
+                  cursor: "pointer", textDecoration: "underline",
+                }}
               >
-                {rooms.map((r) => (
-                  <MenuItem key={r.id} value={r.id}>
-                    {r.roomNumber} - {r.blockName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={4}>
-            <TextField
-              fullWidth
-              label="Customer Name"
-              name="customerName"
-              value={form.customerName}
-              onChange={handleChange}
+                {t.searchLink}
+              </button>
+            </Box>
+            <input
+              value={bookingNumber}
+              onChange={(e) => setBookingNumber(sanitizers.booking(e.target.value.toUpperCase()))}
+              placeholder="ROOM-2026-XXXXXXX"
+              style={{ ...inputBase(false), fontFamily: "'Courier New', monospace", letterSpacing: 1.5, fontSize: "0.8125rem" }}
+              onFocus={(e) => { e.target.style.borderColor = C.borderFocus; }}
+              onBlur={(e) => { e.target.style.borderColor = C.border; }}
             />
-          </Grid>
+          </Box>
 
-          <Grid item xs={4}>
-            <TextField
-              fullWidth
-              label="Mobile Number"
-              name="mobileNumber"
-              value={form.mobileNumber}
-              onChange={handleChange}
-            />
-          </Grid>
+          {/* ── Booking Search Modal ── */}
+          {searchModal && (
+            <Box sx={{
+              position: "fixed", inset: 0, zIndex: 1300,
+              background: "rgba(45,31,15,0.45)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }} onClick={() => setSearchModal(false)}>
+              <Box onClick={(e) => e.stopPropagation()} sx={{
+                background: "#fff", borderRadius: 3, p: 3,
+                width: { xs: "96vw", sm: 740 }, maxHeight: "82vh",
+                overflow: "auto", boxShadow: "0 8px 40px rgba(45,31,15,0.25)",
+                border: `1px solid ${C.border}`,
+              }}>
+                {/* Modal header */}
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ width: 3, height: 18, background: C.accent, borderRadius: 2 }} />
+                    <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: C.accent }}>
+                      {t.searchBooking}
+                    </Typography>
+                  </Box>
+                  <button onClick={() => setSearchModal(false)} style={{
+                    background: "none", border: "none", fontSize: "1.125rem",
+                    cursor: "pointer", color: C.textMuted, lineHeight: 1,
+                  }}>✕</button>
+                </Box>
 
-          <Grid item xs={4}>
-            <FormControl fullWidth>
-              <InputLabel>ID Proof Type</InputLabel>
-              <Select
-                name="idProofType"
-                value={form.idProofType}
-                label="ID Proof Type"
-                onChange={handleChange}
-              >
-                <MenuItem value="AADHAR">AADHAR</MenuItem>
-                <MenuItem value="DRIVING_LICENSE">
-                  DRIVING LICENSE
-                </MenuItem>
-                <MenuItem value="GOVT_ID">GOVT ID</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+                {/* Search inputs */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
+                  <Field label={t.mobile} name="smobile" value={searchQuery.mobile}
+                    onChange={(e) => setSearchQuery(q => ({ ...q, mobile: e.target.value.replace(/[^0-9]/g, "").slice(0, 10) }))}
+                    placeholder="10 digits" />
+                  <Field label={t.customerName} name="sname" value={searchQuery.name}
+                    onChange={(e) => setSearchQuery(q => ({ ...q, name: e.target.value.slice(0, 60) }))}
+                    placeholder="Full name" />
+                </Box>
 
-          <Grid item xs={4}>
-            <TextField
-              fullWidth
-              label="ID Proof Number"
-              name="idProofNumber"
-              value={form.idProofNumber}
-              onChange={handleChange}
-            />
-          </Grid>
+                {searchError && (
+                  <Box sx={{ mb: 1.5, p: 1.5, background: "#fff5f5", border: "1px solid #e8c0c0", borderRadius: 2 }}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "#b03030" }}>{searchError}</Typography>
+                  </Box>
+                )}
 
-          <Grid item xs={4}>
-            <FormControl fullWidth>
-              <InputLabel>Booking Type</InputLabel>
-              <Select
-                name="bookingType"
-                value={form.bookingType}
-                label="Booking Type"
-                onChange={handleChange}
-              >
-                <MenuItem value="TWENTY_FOUR_HOUR">24 Hour</MenuItem>
-                <MenuItem value="FIXED_SLOT">Fixed Slot</MenuItem>
-                <MenuItem value="THREE_HOUR">3 Hour</MenuItem>
-                <MenuItem value="SIX_HOUR">6 Hour</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+                <button
+                  onClick={handleBookingSearch}
+                  disabled={searchLoading}
+                  style={{
+                    width: "100%", padding: "10px", marginBottom: 16,
+                    background: searchLoading ? "#e8e0d8" : `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`,
+                    color: searchLoading ? "#aaa" : "#fff",
+                    border: "none", borderRadius: 8, fontSize: "0.8125rem", fontWeight: 700,
+                    cursor: searchLoading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {searchLoading ? t.searching : t.searchBtn}
+                </button>
 
-          <Grid item xs={6}>
-            <TextField
-              type="datetime-local"
-              fullWidth
-              label="Check-In"
-              name="scheduledCheckIn"
-              InputLabelProps={{ shrink: true }}
-              value={form.scheduledCheckIn}
-              onChange={handleChange}
-            />
-          </Grid>
+                {/* Results */}
+                {searchResults.length > 0 && (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: C.textMuted, letterSpacing: 1, textTransform: "uppercase", mb: 0.5 }}>
+                      {t.bookingsFound(searchResults.length)}
+                    </Typography>
+                    {searchResults.map((bk) => {
+                      const statusColor = bk.status === "BOOKED" ? "#9a7020" : bk.status === "CHECKED_IN" ? "#2d7a2d" : bk.status === "CHECKED_OUT" ? "#888" : "#b03030";
+                      const statusBg    = bk.status === "BOOKED" ? "#fffbf0" : bk.status === "CHECKED_IN" ? "#f0faf0" : "#f5f5f5";
+                      const fmtDt = (v) => {
+                        if (!v) return "";
+                        if (Array.isArray(v)) {
+                          const [yr, mo, d, h = 0, m = 0] = v;
+                          return new Date(yr, mo - 1, d, h, m).toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                        }
+                        return new Date(v).toLocaleString("en-IN");
+                      };
+                      return (
+                        <Box key={bk.bookingNumber} sx={{
+                          p: 1.5, borderRadius: 2,
+                          border: `1px solid ${C.border}`,
+                          background: "#fdf9f4",
+                        }}>
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                            <Box>
+                              <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: C.text, fontFamily: "monospace" }}>
+                                {bk.bookingNumber}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.75rem", color: C.textMuted, mt: 0.3 }}>
+                                {bk.customerName} · {bk.mobileNumber}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.6875rem", color: C.textMuted }}>
+                                Room {bk.roomNumber} · In: {fmtDt(bk.scheduledCheckIn)}
+                              </Typography>
+                              <Box sx={{ display: "inline-block", mt: 0.5, px: 1, py: 0.2, borderRadius: 1, background: statusBg }}>
+                                <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: statusColor }}>
+                                  {bk.status}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.8, ml: 1.5, flexShrink: 0 }}>
+                              {bk.status !== "CANCELLED" && (
+                                <button
+                                  onClick={() => handleSelectBooking(bk)}
+                                  style={{
+                                    padding: "6px 12px",
+                                    background: `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`,
+                                    color: "#fff", border: "none", borderRadius: 6,
+                                    fontSize: "0.6875rem", fontWeight: 700, cursor: "pointer",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {t.selectBooking}
+                                </button>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const pr = await printBookingReceipt(bk.bookingNumber);
+                                    const url = URL.createObjectURL(new Blob([pr.data], { type: "application/pdf" }));
+                                    const w = window.open(url, "_blank");
+                                    if (w) w.addEventListener("load", () => { w.print(); setTimeout(() => URL.revokeObjectURL(url), 60000); });
+                                  } catch { setError("Failed to print receipt"); }
+                                }}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#fdf6ee",
+                                  color: C.textMuted,
+                                  border: `1px solid ${C.border}`,
+                                  borderRadius: 6, fontSize: "0.6875rem", fontWeight: 700,
+                                  cursor: "pointer", whiteSpace: "nowrap",
+                                }}
+                              >
+                                {t.printReceipt}
+                              </button>
+                            </Box>
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
 
-          <Grid item xs={6}>
-            <TextField
-              type="datetime-local"
-              fullWidth
-              label="Check-Out"
-              name="scheduledCheckOut"
-              InputLabelProps={{ shrink: true }}
-              value={form.scheduledCheckOut}
-              onChange={handleChange}
-            />
-          </Grid>
+          <Divider sx={{ borderColor: "#f0e8dc" }} />
 
-          <Grid item xs={4}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Extra Surcharge"
-              name="extraSurchargeAmount"
-              value={form.extraSurchargeAmount}
-              onChange={handleChange}
-            />
-          </Grid>
+          <ActionBtn label={t.checkInBtn}  icon="🔑" onClick={handleCheckIn}
+            disabled={bookingStatus !== "BOOKED"} colorSet="green" />
+          <ActionBtn label={t.checkoutBtn}   icon="🚪" onClick={handleCheckout}
+            disabled={bookingStatus !== "CHECKED_IN"} colorSet="red" />
+          <ActionBtn label={t.shiftBtn} icon="🔄" onClick={handleShift}
+            disabled={bookingStatus !== "BOOKED" && bookingStatus !== "CHECKED_IN"} colorSet="blue" />
 
-          <Grid item xs={4}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Extra Charge"
-              name="extraChargeAmount"
-              value={form.extraChargeAmount}
-              onChange={handleChange}
-            />
-          </Grid>
+          {/* Status indicator */}
+          {bookingStatus && (
+            <Box sx={{
+              mt: 1, px: 2, py: 1, borderRadius: 2, textAlign: "center",
+              background: bookingStatus === "BOOKED" ? "#fffbf0" : bookingStatus === "CHECKED_IN" ? "#f0faf0" : "#f5f5f5",
+              border: `1px solid ${bookingStatus === "BOOKED" ? "#f0d080" : bookingStatus === "CHECKED_IN" ? "#b8ddb8" : "#e0e0e0"}`,
+            }}>
+              <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: 1,
+                color: bookingStatus === "BOOKED" ? "#9a7020" : bookingStatus === "CHECKED_IN" ? "#2d7a2d" : "#888",
+              }}>
+                {bookingStatus === "BOOKED" ? t.statusBooked
+                  : bookingStatus === "CHECKED_IN" ? t.statusCheckedIn
+                  : t.statusCheckedOut}
+              </Typography>
+            </Box>
+          )}
+        </Box>
 
-          <Grid item xs={4}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Security Deposit"
-              name="securityDeposit"
-              value={form.securityDeposit}
-              onChange={handleChange}
-            />
-          </Grid>
+      </Box>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle1">
-              Gross Amount: ₹ {grossAmount}
-            </Typography>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Button variant="contained" onClick={handleCreate}>
-              Create Booking
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* ---------------- ACTIONS ---------------- */}
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6">Actions</Typography>
-        <Divider sx={{ mb: 2 }} />
-
-        <TextField
-          fullWidth
-          label="Booking Number"
-          value={bookingNumber}
-          onChange={(e) => setBookingNumber(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-
-        <Grid container spacing={2}>
-          <Grid item>
-            <Button variant="contained" onClick={handleCheckIn}>
-              Check-In
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button variant="contained" color="error" onClick={handleCheckout}>
-              Checkout
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button variant="contained" color="secondary" onClick={handleShift}>
-              Shift Room
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button variant="outlined" onClick={handleAvailability}>
-              Availability
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={!!success}
-        autoHideDuration={4000}
-        onClose={() => setSuccess("")}
-      >
+      <Snackbar open={!!success} autoHideDuration={4000} onClose={() => setSuccess("")}>
         <Alert severity="success">{success}</Alert>
       </Snackbar>
+      {error && <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError("")}>{error}</Alert>}
 
-      {error && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      )}
     </Box>
   );
 }

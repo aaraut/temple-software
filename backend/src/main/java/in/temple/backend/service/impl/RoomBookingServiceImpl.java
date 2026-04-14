@@ -9,11 +9,15 @@ import in.temple.backend.model.enums.BookingStatus;
 import in.temple.backend.model.enums.CleaningStatus;
 import in.temple.backend.repository.RoomBookingAuditRepository;
 import in.temple.backend.repository.RoomBookingRepository;
+import in.temple.backend.repository.RoomAuditRepository;
+import in.temple.backend.repository.RoomBlockRepository;
 import in.temple.backend.repository.RoomRepository;
 import in.temple.backend.service.RoomBookingService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +28,7 @@ import java.time.Year;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomBookingServiceImpl implements RoomBookingService {
@@ -32,6 +37,16 @@ public class RoomBookingServiceImpl implements RoomBookingService {
     private final RoomRepository roomRepository;
     private final EntityManager entityManager;
     private final RoomBookingAuditRepository bookingAuditRepository;
+    private final RoomAuditRepository roomAuditRepository;
+    private final RoomBlockRepository roomBlockRepository;
+
+    /**
+     * Maximum number of days in advance a room can be booked.
+     * Configurable via application.properties: room.booking.max-advance-days=30
+     * Change the value in properties and restart — no code change needed.
+     */
+    @Value("${room.booking.max-advance-days:30}")
+    private int maxAdvanceBookingDays;
 
 
     @Override
@@ -57,8 +72,15 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             throw new NotFoundException("Room not found with id: " + request.getRoomId());
         }
 
-        if (!room.getStatus().name().equals("AVAILABLE")) {
-            throw new RuntimeException("Room not available for booking");
+        // Check room is not in MAINTENANCE
+        if (room.getStatus() == in.temple.backend.model.enums.RoomStatus.MAINTENANCE) {
+            throw new RuntimeException("Room is under maintenance");
+        }
+
+        // Check room_block table for date-range specific blocks
+        if (roomBlockRepository.isRoomBlockedForPeriod(room.getId(),
+                request.getScheduledCheckIn(), request.getScheduledCheckOut())) {
+            throw new RuntimeException("Room is blocked for this period — no bookings allowed");
         }
 
         // 3️⃣ Overlap check
@@ -71,6 +93,16 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
         if (overlap) {
             throw new RuntimeException("Room already booked for selected time");
+        }
+
+        // ✅ Advance booking limit check
+        LocalDateTime maxAllowedCheckIn = LocalDateTime.now().plusDays(maxAdvanceBookingDays);
+        if (request.getScheduledCheckIn().isAfter(maxAllowedCheckIn)) {
+            throw new RuntimeException(
+                    "Booking cannot be made more than " + maxAdvanceBookingDays +
+                            " days in advance. Earliest allowed check-in: " +
+                            maxAllowedCheckIn.toLocalDate()
+            );
         }
 
         // 4️⃣ Determine base amount based on booking type
@@ -115,17 +147,32 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 .build();
 
         RoomBooking saved = bookingRepository.save(booking);
+
+        String auditDetails = String.format(
+                "Room: %s (Block %s) | Customer: %s | Mobile: %s | ID: %s (%s) | " +
+                        "CheckIn: %s | CheckOut: %s | Type: %s | Base: %.2f | Surcharge: %.2f | " +
+                        "ExtraCharge: %.2f | Gross: %.2f | Deposit: %.2f",
+                room.getRoomNumber(), room.getBlockName(),
+                request.getCustomerName(), request.getMobileNumber(),
+                request.getIdProofNumber(), request.getIdProofType(),
+                request.getScheduledCheckIn(), request.getScheduledCheckOut(),
+                request.getBookingType(),
+                baseAmount, surcharge, extraCharge, grossAmount,
+                request.getSecurityDeposit() != null ? request.getSecurityDeposit() : BigDecimal.ZERO
+        );
+
         bookingAuditRepository.save(
                 RoomBookingAudit.builder()
                         .bookingId(saved.getId())
                         .action("CREATE")
-                        .details("Booking created for room: "
-                                + room.getRoomNumber()
-                                + ", From: " + request.getScheduledCheckIn()
-                                + ", To: " + request.getScheduledCheckOut())
+                        .details(auditDetails)
                         .performedBy(request.getCreatedBy())
                         .build()
         );
+
+        log.info("ROOM_BOOKING CREATE | bookingNumber={} | room={} | customer={} | by={}",
+                bookingNumber, room.getRoomNumber(), request.getCustomerName(), request.getCreatedBy());
+
         return bookingNumber;
     }
 
@@ -160,11 +207,18 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 RoomBookingAudit.builder()
                         .bookingId(booking.getId())
                         .action("CHECK_IN")
-                        .details("Guest checked in at: "
-                                + booking.getActualCheckInTime())
+                        .details(String.format("Guest checked in at: %s | Room: %s | Customer: %s | Mobile: %s",
+                                booking.getActualCheckInTime(),
+                                booking.getRoom().getRoomNumber(),
+                                booking.getCustomerName(),
+                                booking.getMobileNumber()))
                         .performedBy(request.getHandledBy())
                         .build()
         );
+
+        log.info("ROOM_BOOKING CHECK_IN | bookingNumber={} | room={} | customer={} | by={}",
+                booking.getBookingNumber(), booking.getRoom().getRoomNumber(),
+                booking.getCustomerName(), request.getHandledBy());
     }
 
     @Override
@@ -231,15 +285,22 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 RoomBookingAudit.builder()
                         .bookingId(booking.getId())
                         .action("CHECK_OUT")
-                        .details("Checkout completed. Deduction: "
-                                + deduction
-                                + ", ExtraCharge: "
-                                + extraCharge
-                                + ", Remarks: "
-                                + request.getRemarks())
+                        .details(String.format(
+                                "Checkout at: %s | Room: %s | Customer: %s | Mobile: %s | " +
+                                        "Deduction: %.2f | ExtraCharge: %.2f | NetPayable: %.2f | Remarks: %s",
+                                booking.getActualCheckOutTime(),
+                                room.getRoomNumber(),
+                                booking.getCustomerName(),
+                                booking.getMobileNumber(),
+                                deduction, extraCharge, booking.getNetPayableAmount(),
+                                request.getRemarks()))
                         .performedBy(request.getHandledBy())
                         .build()
         );
+
+        log.info("ROOM_BOOKING CHECK_OUT | bookingNumber={} | room={} | customer={} | netPayable={} | by={}",
+                booking.getBookingNumber(), room.getRoomNumber(),
+                booking.getCustomerName(), booking.getNetPayableAmount(), request.getHandledBy());
     }
 
     @Override
@@ -369,8 +430,8 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 RoomBookingAudit.builder()
                         .bookingId(oldBooking.getId())
                         .action("ROOM_SHIFTED")
-                        .details("Shifted to booking: "
-                                + newBookingNumber)
+                        .details(String.format("Shifted to booking: %s | New room: %s | by: %s",
+                                newBookingNumber, newRoom.getRoomNumber(), request.getHandledBy()))
                         .performedBy(request.getHandledBy())
                         .build()
         );
@@ -379,11 +440,17 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 RoomBookingAudit.builder()
                         .bookingId(newBooking.getId())
                         .action("CREATE_FROM_SHIFT")
-                        .details("Created from booking: "
-                                + oldBooking.getBookingNumber())
+                        .details(String.format("Created from booking: %s | Old room: %s | New room: %s",
+                                oldBooking.getBookingNumber(),
+                                oldBooking.getRoom().getRoomNumber(),
+                                newRoom.getRoomNumber()))
                         .performedBy(request.getHandledBy())
                         .build()
         );
+
+        log.info("ROOM_BOOKING SHIFT | old={} | new={} | oldRoom={} | newRoom={} | by={}",
+                oldBooking.getBookingNumber(), newBookingNumber,
+                oldBooking.getRoom().getRoomNumber(), newRoom.getRoomNumber(), request.getHandledBy());
 
         return newBookingNumber;
     }
@@ -421,12 +488,16 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                                     end
                             );
 
-                    // 3️⃣ Cleaning status check
-                    boolean cleaningBlocked =
-                            room.getCleaningStatus() == CleaningStatus.DIRTY
-                                    || room.getCleaningStatus() == CleaningStatus.CLEANING_IN_PROGRESS;
+                    // 3️⃣ Check room_block table for date-range specific blocks
+                    boolean blockedForPeriod = roomBlockRepository
+                            .isRoomBlockedForPeriod(room.getId(), start, end);
 
-                    boolean available = !occupied && !cleaningBlocked;
+                    // 4️⃣ MAINTENANCE rooms are never available
+                    // Note: BLOCKED status on Room entity is no longer used for date-range blocks.
+                    // Only room_block table determines availability for a given period.
+                    boolean available = !occupied
+                            && !blockedForPeriod
+                            && room.getStatus() != in.temple.backend.model.enums.RoomStatus.MAINTENANCE;
 
                     return buildDto(room, available);
 
@@ -436,6 +507,46 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
     private RoomAvailabilityDto buildDto(Room room, boolean available) {
 
+        String blockedBy = null;
+        String blockReason = null;
+        String blockFrom = null;
+        String blockTo = null;
+
+        if (!available) {
+            // Try room_block table first (accurate date-range source)
+            var latestBlock = roomBlockRepository.findLatestActiveBlock(room.getId()).orElse(null);
+            if (latestBlock != null) {
+                blockedBy  = latestBlock.getBlockedBy();
+                blockReason = latestBlock.getReason();
+                java.time.format.DateTimeFormatter fmt =
+                        java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+                blockFrom = latestBlock.getBlockFrom() != null ? latestBlock.getBlockFrom().format(fmt) : null;
+                blockTo   = latestBlock.getBlockTo()   != null ? latestBlock.getBlockTo().format(fmt)   : null;
+            } else {
+                // Fallback: parse from audit log
+                var blockAudit = roomAuditRepository.findLatestBlockAudit(room.getId()).orElse(null);
+                if (blockAudit != null) {
+                    blockedBy = blockAudit.getPerformedBy();
+                    String details = blockAudit.getDetails();
+                    if (details != null) {
+                        if (details.contains("from ") && details.contains(" to ")) {
+                            int fromIdx = details.indexOf("from ") + 5;
+                            int toIdx   = details.indexOf(" to ");
+                            blockFrom = details.substring(fromIdx, toIdx).trim();
+                        }
+                        if (details.contains(" to ") && details.contains(". Reason:")) {
+                            int toIdx     = details.indexOf(" to ") + 4;
+                            int reasonIdx = details.indexOf(". Reason:");
+                            blockTo = details.substring(toIdx, reasonIdx).trim();
+                        }
+                        if (details.contains("Reason: ")) {
+                            blockReason = details.substring(details.indexOf("Reason: ") + 8).trim();
+                        }
+                    }
+                }
+            }
+        }
+
         return RoomAvailabilityDto.builder()
                 .roomId(room.getId())
                 .roomNumber(room.getRoomNumber())
@@ -443,6 +554,10 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 .roomStatus(room.getStatus())
                 .cleaningStatus(room.getCleaningStatus())
                 .available(available)
+                .blockedBy(blockedBy)
+                .blockReason(blockReason)
+                .blockFrom(blockFrom)
+                .blockTo(blockTo)
                 .build();
     }
 
@@ -514,13 +629,20 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 RoomBookingAudit.builder()
                         .bookingId(booking.getId())
                         .action("CANCELLED")
-                        .details("Booking cancelled. Charge: "
-                                + cancellationCharge
-                                + ", Remarks: "
-                                + request.getRemarks())
+                        .details(String.format(
+                                "Booking cancelled | Room: %s | Customer: %s | Mobile: %s | Charge: %.2f | Remarks: %s",
+                                booking.getRoom().getRoomNumber(),
+                                booking.getCustomerName(),
+                                booking.getMobileNumber(),
+                                cancellationCharge,
+                                request.getRemarks()))
                         .performedBy(request.getHandledBy())
                         .build()
         );
+
+        log.info("ROOM_BOOKING CANCEL | bookingNumber={} | room={} | customer={} | charge={} | by={}",
+                booking.getBookingNumber(), booking.getRoom().getRoomNumber(),
+                booking.getCustomerName(), cancellationCharge, request.getHandledBy());
     }
 
     @Override
@@ -603,6 +725,275 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             return new BigDecimal((java.math.BigInteger) value);
 
         return BigDecimal.ZERO;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RoomBookingDetailDto getBookingDetail(String bookingNumber) {
+        RoomBooking b = bookingRepository.findByBookingNumber(bookingNumber)
+                .orElseThrow(() -> new NotFoundException("Booking not found: " + bookingNumber));
+
+        return RoomBookingDetailDto.builder()
+                .bookingNumber(b.getBookingNumber())
+                .roomId(b.getRoom().getId())
+                .roomNumber(b.getRoom().getRoomNumber())
+                .blockName(b.getRoom().getBlockName())
+                .customerName(b.getCustomerName())
+                .mobileNumber(b.getMobileNumber())
+                .idProofType(b.getIdProofType())
+                .idProofNumber(b.getIdProofNumber())
+                .bookingType(b.getBookingType())
+                .status(b.getStatus())
+                .scheduledCheckIn(b.getScheduledCheckIn())
+                .scheduledCheckOut(b.getScheduledCheckOut())
+                .actualCheckInTime(b.getActualCheckInTime())
+                .actualCheckOutTime(b.getActualCheckOutTime())
+                .baseAmount(b.getBaseAmount())
+                .extraSurchargeAmount(b.getExtraSurchargeAmount())
+                .extraChargeAmount(b.getExtraChargeAmount())
+                .grossAmount(b.getGrossAmount())
+                .securityDeposit(b.getSecurityDeposit())
+                .netPayableAmount(b.getNetPayableAmount())
+                .createdBy(b.getCreatedBy())
+                .createdAt(b.getCreatedAt())
+                .build();
+    }
+
+    // =========================================================================
+    // CREATE BOOKING AND RETURN RECEIPT PDF
+    // =========================================================================
+
+    @Override
+    @Transactional
+    public byte[] printBookingReceipt(String bookingNumber) {
+        RoomBooking booking = bookingRepository.findByBookingNumber(bookingNumber)
+                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingNumber));
+
+        byte[] pdf = generateBookingReceiptPdf(booking);
+
+        bookingAuditRepository.save(
+                RoomBookingAudit.builder()
+                        .bookingId(booking.getId())
+                        .action("RECEIPT_PRINTED")
+                        .details(String.format(
+                                "Receipt printed | Room: %s | Customer: %s | Status: %s",
+                                booking.getRoom().getRoomNumber(),
+                                booking.getCustomerName(),
+                                booking.getStatus()))
+                        .performedBy(booking.getCreatedBy())
+                        .build()
+        );
+
+        log.info("ROOM_BOOKING RECEIPT_PRINTED | bookingNumber={} | room={} | customer={}",
+                bookingNumber, booking.getRoom().getRoomNumber(), booking.getCustomerName());
+
+        return pdf;
+    }
+
+    private byte[] generateBookingReceiptPdf(RoomBooking booking) {
+        try {
+            // AM/PM datetime formatter
+            java.time.format.DateTimeFormatter dtFmt =
+                    java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a");
+
+            String checkIn   = booking.getScheduledCheckIn()  != null ? booking.getScheduledCheckIn().format(dtFmt)  : "";
+            String checkOut  = booking.getScheduledCheckOut() != null ? booking.getScheduledCheckOut().format(dtFmt)  : "";
+            String createdOn = booking.getCreatedAt()         != null ? booking.getCreatedAt().format(dtFmt)          : "";
+
+            Room room = booking.getRoom();
+            String roomInfo = "कक्ष " + room.getRoomNumber() + " - ब्लॉक " + room.getBlockName();
+
+            String grossAmt   = String.format("%,.0f", booking.getGrossAmount()    != null ? booking.getGrossAmount()    : java.math.BigDecimal.ZERO);
+            String depositAmt = String.format("%,.0f", booking.getSecurityDeposit() != null ? booking.getSecurityDeposit() : java.math.BigDecimal.ZERO);
+
+            // ── Font ──────────────────────────────────────────────────────────
+            java.io.InputStream fontStream = getClass().getClassLoader()
+                    .getResourceAsStream("fonts/NotoSansDevanagari-Regular.ttf");
+            if (fontStream == null)
+                throw new RuntimeException("NotoSansDevanagari-Regular.ttf not found");
+
+            java.awt.Font baseFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, fontStream);
+            fontStream.close();
+
+            final int SCALE  = 2;
+            final int W      = 420 * SCALE;
+            final int H      = 595 * SCALE;
+            final int M      = 36  * SCALE;   // left/right margin
+            final int RIGHT  = W - M;          // right edge
+            final int LINE_H = 22  * SCALE;
+
+            java.awt.Font fNormal = baseFont.deriveFont(12.0f * SCALE);
+            java.awt.Font fBold   = baseFont.deriveFont(java.awt.Font.BOLD, 13.0f * SCALE);
+            java.awt.Font fTitle  = baseFont.deriveFont(java.awt.Font.BOLD, 16.0f * SCALE);
+            java.awt.Font fSmall  = baseFont.deriveFont(10.5f * SCALE);
+            java.awt.Font fTiny   = baseFont.deriveFont(9.5f * SCALE);
+
+            // ── Canvas ────────────────────────────────────────────────────────
+            java.awt.image.BufferedImage img =
+                    new java.awt.image.BufferedImage(W, H, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = img.createGraphics();
+
+            g.setColor(java.awt.Color.WHITE);
+            g.fillRect(0, 0, W, H);
+            g.setColor(java.awt.Color.BLACK);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setRenderingHint(java.awt.RenderingHints.KEY_FRACTIONALMETRICS,
+                    java.awt.RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+
+            java.awt.font.FontRenderContext frc = g.getFontRenderContext();
+
+            // helper — draw right-aligned text ending at x
+            java.util.function.Consumer<Object[]> drawRight = (args) -> {
+                String text = (String) args[0];
+                int rx      = (int)   args[1];
+                int ry      = (int)   args[2];
+                java.awt.Font f = (java.awt.Font) args[3];
+                java.awt.font.TextLayout tl = new java.awt.font.TextLayout(text, f, frc);
+                int tw = (int) tl.getBounds().getWidth();
+                tl.draw(g, rx - tw, ry);
+            };
+
+            int y = 90 * SCALE;
+
+            // ── Title ─────────────────────────────────────────────────────────
+            java.awt.font.TextLayout titleLayout =
+                    new java.awt.font.TextLayout("भक्त निवास बुकिंग रसीद", fTitle, frc);
+            int titleW = (int) titleLayout.getBounds().getWidth();
+            int titleX = (W - titleW) / 2;
+            titleLayout.draw(g, titleX, y);
+            int titleBottom = y + (int) titleLayout.getDescent() + 2 * SCALE;
+            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
+            g.drawLine(titleX, titleBottom, titleX + titleW, titleBottom);
+            y += (int) titleLayout.getBounds().getHeight() + 18 * SCALE;
+
+            // ── Booking number & date ─────────────────────────────────────────
+            drawBookingLine(g, "रसीद क्रमांक: " + booking.getBookingNumber(), M, y, fNormal, frc);
+            drawBookingLine(g, "दिनांक: " + createdOn, M + 200 * SCALE, y, fNormal, frc);
+            y += LINE_H + 8 * SCALE;
+
+            // ── Customer ──────────────────────────────────────────────────────
+            drawBookingLine(g, "अतिथि नाम: " + booking.getCustomerName(), M, y, fBold, frc);
+            y += LINE_H + 4 * SCALE;
+            drawBookingLine(g, "मोबाइल: " + booking.getMobileNumber(), M, y, fNormal, frc);
+            drawBookingLine(g, "पहचान पत्र (" + booking.getIdProofType().name() + "): " + booking.getIdProofNumber(), M + 190 * SCALE, y, fNormal, frc);
+            y += LINE_H + 4 * SCALE;
+
+            // ── Horizontal rule ───────────────────────────────────────────────
+            g.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
+            g.drawLine(M, y, RIGHT, y);
+            y += 12 * SCALE;
+
+            // ── Room details ──────────────────────────────────────────────────
+            drawBookingLine(g, roomInfo, M, y, fBold, frc);
+            y += LINE_H + 6 * SCALE;
+
+            // Check-in and check-out on ONE line
+            drawBookingLine(g, "चेक-इन: " + checkIn, M, y, fNormal, frc);
+            drawBookingLine(g, "चेक-आउट: " + checkOut, M + 190 * SCALE, y, fNormal, frc);
+            y += LINE_H + 4 * SCALE;
+
+            // ── Horizontal rule ───────────────────────────────────────────────
+            g.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
+            g.drawLine(M, y, RIGHT, y);
+            y += 12 * SCALE;
+
+            // ── Amount table — left label, right-aligned amount ───────────────
+            // col2X is the right edge for amounts — same as RIGHT
+            drawBookingLine(g, "बेस किराया:", M, y, fNormal, frc);
+            drawRight.accept(new Object[]{"₹ " + String.format("%,.0f", booking.getBaseAmount() != null ? booking.getBaseAmount() : java.math.BigDecimal.ZERO), RIGHT, y, fNormal});
+            y += LINE_H;
+
+            if (booking.getExtraSurchargeAmount() != null && booking.getExtraSurchargeAmount().signum() > 0) {
+                drawBookingLine(g, "अतिरिक्त सरचार्ज:", M, y, fNormal, frc);
+                drawRight.accept(new Object[]{"₹ " + String.format("%,.0f", booking.getExtraSurchargeAmount()), RIGHT, y, fNormal});
+                y += LINE_H;
+            }
+
+            if (booking.getExtraChargeAmount() != null && booking.getExtraChargeAmount().signum() > 0) {
+                drawBookingLine(g, "अतिरिक्त शुल्क:", M, y, fNormal, frc);
+                drawRight.accept(new Object[]{"₹ " + String.format("%,.0f", booking.getExtraChargeAmount()), RIGHT, y, fNormal});
+                y += LINE_H;
+            }
+
+            y += 6 * SCALE;
+            // Subtotal rule — full width M to RIGHT
+            g.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
+            g.drawLine(M, y, RIGHT, y);
+            y += 18 * SCALE;
+
+            drawBookingLine(g, "कुल राशि:", M, y, fBold, frc);
+            drawRight.accept(new Object[]{"₹ " + grossAmt + " /-", RIGHT, y, fBold});
+            y += LINE_H;
+
+            drawBookingLine(g, "जमानत राशि:", M, y, fNormal, frc);
+            drawRight.accept(new Object[]{"₹ " + depositAmt + " /-", RIGHT, y, fNormal});
+            y += LINE_H + 4 * SCALE;
+
+            // ── Horizontal rule ───────────────────────────────────────────────
+            g.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
+            g.drawLine(M, y, RIGHT, y);
+            y += 12 * SCALE;
+
+            // ── Signatory ─────────────────────────────────────────────────────
+            drawBookingLine(g, "प्राप्तकर्ता:", M, y, fNormal, frc);
+            y += (int)(LINE_H * 1.5);
+            drawBookingLine(g, booking.getCreatedBy(), M, y, fNormal, frc); y += LINE_H;
+            drawBookingLine(g, "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
+            drawBookingLine(g, "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
+            y += LINE_H + 14 * SCALE;
+
+            // ── Terms & Conditions (below signatory, no HR above/below) ──────
+            drawBookingLine(g, "नियम एवं शर्तें:", M, y, fBold, frc);
+            y += LINE_H + 2 * SCALE;
+            drawBookingLine(g, "1. बुकिंग किसी भी परिस्थिति में रद्द नहीं होगी और कोई धनवापसी नहीं दी जाएगी।", M, y, fTiny, frc);
+            y += (int)(LINE_H * 0.95);
+            drawBookingLine(g, "2. देर से चेक-आउट किसी भी स्थिति में स्वीकार्य नहीं है।", M, y, fTiny, frc);
+            y += (int)(LINE_H * 0.95);
+            drawBookingLine(g, "   प्रातः 10 बजे तक कक्ष खाली न करने पर पूर्ण दिन का शुल्क देय होगा।", M, y, fTiny, frc);
+            y += LINE_H + 12 * SCALE;
+
+            // ── Footer ────────────────────────────────────────────────────────
+            String footer = "कृपया चेक-आउट के समय यह रसीद प्रस्तुत करें।";
+            java.awt.font.TextLayout tl = new java.awt.font.TextLayout(footer, fSmall, frc);
+            int fx = (int)((W - tl.getBounds().getWidth()) / 2);
+            drawBookingLine(g, footer, fx, y, fSmall, frc);
+            y += LINE_H;
+            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
+            g.drawLine(M, y, RIGHT, y);
+
+            g.dispose();
+
+            // ── JPEG → PDF ────────────────────────────────────────────────────
+            java.io.ByteArrayOutputStream imgOut = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "JPEG", imgOut);
+
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            com.lowagie.text.Document document =
+                    new com.lowagie.text.Document(com.lowagie.text.PageSize.A5, 0, 0, 0, 0);
+            com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
+            document.open();
+            com.lowagie.text.Image pdfImg =
+                    com.lowagie.text.Image.getInstance(imgOut.toByteArray());
+            pdfImg.scaleToFit(com.lowagie.text.PageSize.A5.getWidth(),
+                    com.lowagie.text.PageSize.A5.getHeight());
+            pdfImg.setAbsolutePosition(0, 0);
+            document.add(pdfImg);
+            document.close();
+
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            log.error("ROOM_BOOKING PDF_ERROR | bookingNumber={} | error={}",
+                    booking.getBookingNumber(), e.getMessage(), e);
+            throw new RuntimeException("Failed to generate room booking receipt PDF", e);
+        }
+    }
+
+    private static void drawBookingLine(java.awt.Graphics2D g, String text, int x, int y,
+                                        java.awt.Font font, java.awt.font.FontRenderContext frc) {
+        if (text == null || text.isEmpty()) return;
+        new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
     }
 
 }

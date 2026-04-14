@@ -1,6 +1,8 @@
 package in.temple.backend.controller;
 
 import in.temple.backend.dto.CleaningStatusUpdateDto;
+import in.temple.backend.dto.RoomBlockRequestDto;
+import in.temple.backend.dto.RoomBlockResultDto;
 import in.temple.backend.dto.RoomCreateRequestDto;
 import in.temple.backend.dto.RoomResponseDto;
 import in.temple.backend.service.RoomService;
@@ -47,5 +49,21 @@ public class RoomController {
         roomService.deleteRoom(id, deletedBy);
     }
 
+    @PostMapping("/block")
+    public RoomBlockResultDto blockRooms(@RequestBody RoomBlockRequestDto request) {
+        return roomService.blockRooms(request);
+    }
+
+    @PostMapping("/unblock")
+    public void unblockRooms(@RequestBody RoomBlockRequestDto request) {
+        roomService.unblockRooms(request);
+    }
+
+    @GetMapping("/blocks")
+    public java.util.List<in.temple.backend.dto.RoomBlockDto> getActiveBlocks(
+            @org.springframework.web.bind.annotation.RequestParam String month) {
+        // month = "2026-04"
+        return roomService.getActiveBlocksForMonth(month);
+    }
 
 }

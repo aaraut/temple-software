@@ -9,6 +9,10 @@ public interface RoomBookingService {
 
     String createBooking(RoomBookingCreateRequestDto request);
 
+    byte[] printBookingReceipt(String bookingNumber);
+
+    RoomBookingDetailDto getBookingDetail(String bookingNumber);
+
     void checkIn(RoomCheckInRequestDto request);
 
     void checkout(RoomCheckoutRequestDto request);

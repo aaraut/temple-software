@@ -30,7 +30,12 @@ const labels = {
     qty: "मात्रा",
     rate: "दर",
     total: "योग",
-    autoFilled: "✔ पिछले दान रिकॉर्ड से भरा गया"
+    autoFilled: "✔ पिछले दान रिकॉर्ड से भरा गया",
+    calculatedTotal: "गणना की गई कुल राशि",
+    chargedAmount: "देय राशि",
+    depositAmount: "जमानत राशि",
+    saveAndPrint: "सेव और प्रिंट करें",
+    reset: "रद्द करें"
   },
   en: {
     titleBartan: "Bartan Rental",
@@ -43,7 +48,12 @@ const labels = {
     qty: "Quantity",
     rate: "Rate",
     total: "Total",
-    autoFilled: "✔ Auto-filled from previous donation record"
+    autoFilled: "✔ Auto-filled from previous donation record",
+    calculatedTotal: "Calculated Total",
+    chargedAmount: "Charged Amount",
+    depositAmount: "Deposit Amount",
+    saveAndPrint: "Save & Print",
+    reset: "Reset"
   }
 };
 
@@ -285,7 +295,7 @@ export default function RentalIssueForm({
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>
             <TextField
-              label="Calculated Total"
+              label={t.calculatedTotal}
               value={calculatedTotal}
               fullWidth
               size="small"
@@ -295,7 +305,7 @@ export default function RentalIssueForm({
 
           <Grid item xs={12} md={4}>
             <TextField
-              label="Charged Amount"
+              label={t.chargedAmount}
               value={chargedAmount}
               size="small"
               fullWidth
@@ -305,7 +315,7 @@ export default function RentalIssueForm({
 
           <Grid item xs={12} md={4}>
             <TextField
-              label="Deposit Amount"
+              label={t.depositAmount}
               value={depositAmount}
               size="small"
               fullWidth
@@ -318,16 +328,14 @@ export default function RentalIssueForm({
       {/* Submit */}
       <Box sx={{ mt: 3 }}>
         <Button variant="contained" color="primary" onClick={handleSubmit}>
-          Save & Print
+          {t.saveAndPrint}
         </Button>
         <Button
           variant="contained"
           color="secondary"
           onClick={handleReset}
           style={{ marginLeft: 20 }}
-        >
-          Reset
-        </Button>
+        >{t.reset}</Button>
       </Box>
     </Paper>
   );

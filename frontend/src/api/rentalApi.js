@@ -37,6 +37,22 @@ export async function createRentalAndPrint(payload, username) {
 }
 
 /**
+ * Search rentals by mobile number
+ */
+export async function searchRentalsByMobile(mobile) {
+  const resp = await axiosClient.get(`/rentals/search/mobile`, { params: { mobile } });
+  return resp.data;
+}
+
+/**
+ * Search rentals by customer name (partial match)
+ */
+export async function searchRentalsByName(name) {
+  const resp = await axiosClient.get(`/rentals/search/name`, { params: { name } });
+  return resp.data;
+}
+
+/**
  * Get rental by receipt
  */
 export async function getRentalByReceipt(receiptNumber) {
@@ -67,6 +83,16 @@ export async function returnRentalAndPrint(payload, username) {
     {
       responseType: "blob"   // 🔥 PDF blob
     }
+  );
+  return resp.data;
+}
+/**
+ * Reprint original rental receipt by receipt number
+ */
+export async function reprintRentalReceipt(receiptNumber) {
+  const resp = await axiosClient.get(
+    `/rentals/${encodeURIComponent(receiptNumber)}/print`,
+    { responseType: "blob" }
   );
   return resp.data;
 }
