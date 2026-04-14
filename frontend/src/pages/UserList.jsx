@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listUsers, createUser, updateUser, resetUserPassword, unlockUser } from "../api/userApi";
+import { listUsers, createUser, updateUser, resetUserPassword, unlockUser, toggleUserStatus } from "../api/userApi";
 import { useAuth } from "../context/AuthContext";
 
 // ─── Palette ────────────────────────────────────────────────────────────────
@@ -40,6 +40,9 @@ const L = {
     colStatus: "Status", colActions: "Actions",
     yes: "Active", no: "Inactive", locked: "Locked",
     edit: "Edit", resetPwd: "Reset Password", unlock: "Unlock",
+    deactivate: "Deactivate", activate: "Activate",
+    confirmDeactivate: (name) => `Deactivate user "${name}"? They will not be able to login.`,
+    confirmActivate: (name) => `Re-activate user "${name}"?`,
     unlockConfirm: (u) => `Unlock user "${u}"?`,
     successCreated: "User created successfully",
     successReset: "Password reset successfully",
@@ -54,7 +57,7 @@ const L = {
     fullName: "पूरा नाम", phone: "फोन नंबर", dob: "जन्म तिथि",
     day: "दिन", month: "माह", year: "वर्ष",
     aadhaar: "आधार के अंतिम 4 अंक",
-    create: "यूज़र बनाएं", cancel: "रद्द करें", save: "बदलाव सहेजें",
+    create: "यूज़र बनाएं", cancel: "रद्द करें", save: "सेव",
     resetBtn: "पासवर्ड रीसेट", confirmReset: "नया पासवर्ड सेट करें",
     tempPwd: "अस्थायी पासवर्ड",
     errorRequired: "यूज़रनेम, पासवर्ड और भूमिका आवश्यक हैं",
@@ -65,7 +68,10 @@ const L = {
     colNo: "#", colUser: "यूज़र", colRole: "भूमिका",
     colStatus: "स्थिति", colActions: "कार्य",
     yes: "सक्रिय", no: "निष्क्रिय", locked: "लॉक्ड",
-    edit: "संपादित करें", resetPwd: "पासवर्ड रीसेट", unlock: "अनलॉक",
+    edit: "एडिट", resetPwd: "पासवर्ड रीसेट", unlock: "अनलॉक",
+    deactivate: "निष्क्रिय करें", activate: "सक्रिय करें",
+    confirmDeactivate: (name) => `"${name}" को निष्क्रिय करें? वे लॉगिन नहीं कर पाएंगे।`,
+    confirmActivate: (name) => `"${name}" को सक्रिय करें?`,
     unlockConfirm: (u) => `यूज़र "${u}" को अनलॉक करें?`,
     successCreated: "यूज़र सफलतापूर्वक बनाया गया",
     successReset: "पासवर्ड सफलतापूर्वक रीसेट हुआ",
@@ -472,6 +478,18 @@ export default function UserList() {
     showToast(t.successUnlock(u.username)); load();
   };
 
+  const handleToggleStatus = async (u) => {
+    const msg = u.active
+      ? t.confirmDeactivate(u.name || u.username)
+      : t.confirmActivate(u.name || u.username);
+    if (!window.confirm(msg)) return;
+    try {
+      await toggleUserStatus(u.id, !u.active);
+      showToast(u.active ? (t.deactivate + " ✓") : (t.activate + " ✓"));
+      load();
+    } catch (e) { showToast(e?.response?.data?.message || "Failed", "error"); }
+  };
+
   if (!isAdmin) return (
     <div style={{ padding: "3rem", textAlign: "center", color: C.muted }}>{t.unauthorized}</div>
   );
@@ -595,6 +613,14 @@ export default function UserList() {
                       {auth.role === "SUPER_ADMIN" && u.accountLocked && (
                         <IconBtn onClick={() => handleUnlock(u)} color={C.green} bg={C.greenBg} title={t.unlock}>
                           🔓 {t.unlock}
+                        </IconBtn>
+                      )}
+                      {(auth.role === "SUPER_ADMIN" || auth.role === "ADMIN") && u.username !== auth.username && (
+                        <IconBtn onClick={() => handleToggleStatus(u)}
+                          color={u.active ? C.red : C.green}
+                          bg={u.active ? C.redBg : C.greenBg}
+                          title={u.active ? t.deactivate : t.activate}>
+                          {u.active ? "🚫 " + t.deactivate : "✅ " + t.activate}
                         </IconBtn>
                       )}
                     </div>

@@ -27,3 +27,7 @@ export async function unlockUser(id) {
   return resp.data;
 }
 
+export async function toggleUserStatus(id, active) {
+  const resp = await axiosClient.patch(`/admin/users/${id}/status?active=${active}`);
+  return resp.data;
+}

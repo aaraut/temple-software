@@ -66,7 +66,12 @@ const L = {
 /* ─── helpers ────────────────────────────────────────────────── */
 const fmt = (v) => Number(v || 0).toLocaleString("en-IN");
 const fmtDate = (s) => { if (!s) return ""; const [y, m, d] = s.split("-"); return `${d}/${m}/${y}`; };
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+};
 
 /* colour palette per donation-purpose index */
 const CARD_ACCENTS = [
@@ -406,7 +411,7 @@ export default function CollectionDashboard() {
                 <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Typography sx={{ fontSize: "0.72rem", color: mut, fontWeight: 600 }}>{t.reportDate}:</Typography>
                     <input type="date" value={printDate} max={today()}
-                        onChange={e => setPrintDate(e.target.value)}
+                        onChange={e => setPrintDate(e.target.value)} 
                         style={{ padding: "0.42rem 0.6rem", border: `1.5px solid ${brd}`, borderRadius: 9, fontSize: "0.78rem", color: txt, background: "#fdf9f4", fontFamily: "inherit", outline: "none" }} />
                 </Box>
 
@@ -535,7 +540,7 @@ export default function CollectionDashboard() {
                         {[
                             { icon: "🙏", label: language === "hi" ? "दान करें"    : "New Donation",      path: "/donation",       color: "#E07B54", bg: "#fff5f0" },
                             { icon: "🍳", label: language === "hi" ? "बर्तन किराया"     : "Bartan Rental",     path: "/rentals/bartan",        color: "#3A86FF", bg: "#f0f5ff" },
-                            { icon: "🛏️", label: language === "hi" ? "बिछायत किराया"   : "Bichayat Rental",   path: "/rentals/bichayat",      color: "#8338EC", bg: "#f5f0ff" },
+                            { icon: "🛏️", label: language === "hi" ? "बिछायत किराया"   : "Bichayat Rental",   path: "/rentals/bichayat",      color: "#8338EC", bg: "#f5f0ff" }, 
                             { icon: "↩️", label: language === "hi" ? "किराया वापसी"     : "Rental Return",     path: "/rentals/return",        color: "#FB5607", bg: "#fff3ee" },
                             { icon: "🏠", label: language === "hi" ? "भक्त निवास"       : "Room Booking",      path: "/rooms/bookings",        color: "#FF6B35", bg: "#fff4f0" },
                             { icon: "📊", label: language === "hi" ? "रिपोर्ट"           : "Reports",            path: "/reports/admin-summary", color: "#2d7a2d", bg: "#f0fff0" },

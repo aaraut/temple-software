@@ -1,6 +1,10 @@
 Things pending
 SEARCH RECEIPT ON HOME PAGE DOES NOT SEARCH BY RECEIPT NUMBER MAKE IT
 
+// step to reset db of server once
+scp C:\temple\minimal_reset.sql adminuser@100.122.78.33:/tmp/minimal_reset.sql
+docker exec -i temple_postgres psql -U temple templedb < /tmp/minimal_reset.sql
+
 add @PreAuthorize("hasRole('ADMIN')") to changestatus api
 Donation report UI api are also pending
 inventory update audit does not show username in json
