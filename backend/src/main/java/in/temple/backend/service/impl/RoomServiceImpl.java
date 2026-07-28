@@ -35,6 +35,7 @@ public class RoomServiceImpl implements RoomService {
     private final RoomAuditRepository roomAuditRepository;
     private final RoomBookingRepository bookingRepository;
     private final RoomBlockRepository roomBlockRepository;
+    private final BhaktniwasBlockRepository bhaktniwasBlockRepository;
 
 
 
@@ -51,10 +52,15 @@ public class RoomServiceImpl implements RoomService {
                         new NotFoundException("Room category not found with id: " + request.getCategoryId())
                 );
 
+        BhaktniwasBlock bhaktniwasBlock = bhaktniwasBlockRepository.findById(request.getBhaktniwasBlockId())
+                .orElseThrow(() ->
+                        new NotFoundException("Bhaktniwas block not found with id: " + request.getBhaktniwasBlockId())
+                );
+
         Room room = Room.builder()
                 .roomNumber(request.getRoomNumber())
                 .category(category)
-                .blockName(request.getBlockName())
+                .bhaktniwasBlock(bhaktniwasBlock)
                 .floor(request.getFloor())
                 .maxOccupancy(request.getMaxOccupancy())
                 .baseRent24Hr(request.getBaseRent24Hr())
@@ -62,6 +68,8 @@ public class RoomServiceImpl implements RoomService {
                 .baseRent3Hr(request.getBaseRent3Hr())
                 .baseRent6Hr(request.getBaseRent6Hr())
                 .defaultSecurityDeposit(request.getDefaultSecurityDeposit())
+                .allowExtraPerson(request.getAllowExtraPerson())
+                .extraPersonCost(request.getExtraPersonCost())
                 .remarks(request.getRemarks())
                 .isActive(true)
                 .build();
@@ -95,7 +103,8 @@ public class RoomServiceImpl implements RoomService {
                 .id(room.getId())
                 .roomNumber(room.getRoomNumber())
                 .categoryId(room.getCategory().getId())
-                .blockName(room.getBlockName())
+                .bhaktniwasBlockId(room.getBhaktniwasBlock().getId())
+                .blockName(room.getBhaktniwasBlock().getDisplayName())
                 .floor(room.getFloor())
                 .maxOccupancy(room.getMaxOccupancy())
                 .baseRent24Hr(room.getBaseRent24Hr())
@@ -103,6 +112,8 @@ public class RoomServiceImpl implements RoomService {
                 .baseRent3Hr(room.getBaseRent3Hr())
                 .baseRent6Hr(room.getBaseRent6Hr())
                 .defaultSecurityDeposit(room.getDefaultSecurityDeposit())
+                .allowExtraPerson(room.getAllowExtraPerson())
+                .extraPersonCost(room.getExtraPersonCost())
                 .remarks(room.getRemarks())
                 .status(room.getStatus())
                 .cleaningStatus(room.getCleaningStatus())
@@ -124,9 +135,14 @@ public class RoomServiceImpl implements RoomService {
                         new NotFoundException("Room category not found with id: " + request.getCategoryId())
                 );
 
+        BhaktniwasBlock bhaktniwasBlock = bhaktniwasBlockRepository.findById(request.getBhaktniwasBlockId())
+                .orElseThrow(() ->
+                        new NotFoundException("Bhaktniwas block not found with id: " + request.getBhaktniwasBlockId())
+                );
+
         room.setRoomNumber(request.getRoomNumber());
         room.setCategory(category);
-        room.setBlockName(request.getBlockName());
+        room.setBhaktniwasBlock(bhaktniwasBlock);
         room.setFloor(request.getFloor());
         room.setMaxOccupancy(request.getMaxOccupancy());
         room.setBaseRent24Hr(request.getBaseRent24Hr());
@@ -134,6 +150,8 @@ public class RoomServiceImpl implements RoomService {
         room.setBaseRent3Hr(request.getBaseRent3Hr());
         room.setBaseRent6Hr(request.getBaseRent6Hr());
         room.setDefaultSecurityDeposit(request.getDefaultSecurityDeposit());
+        if (request.getAllowExtraPerson() != null) room.setAllowExtraPerson(request.getAllowExtraPerson());
+        if (request.getExtraPersonCost() != null) room.setExtraPersonCost(request.getExtraPersonCost());
         room.setRemarks(request.getRemarks());
 
         roomRepository.save(room);
@@ -231,7 +249,7 @@ public class RoomServiceImpl implements RoomService {
                                 RoomBlockResultDto.ConflictDto.builder()
                                         .roomId(room.getId())
                                         .roomNumber(room.getRoomNumber())
-                                        .blockName(room.getBlockName())
+                                        .blockName(room.getBhaktniwasBlock().getDisplayName())
                                         .bookingNumber(b.getBookingNumber())
                                         .customerName(b.getCustomerName())
                                         .mobileNumber(b.getMobileNumber())

@@ -1,11 +1,9 @@
 package in.temple.backend.dto;
 
-import in.temple.backend.model.enums.BookingType;
 import in.temple.backend.model.enums.IdProofType;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -22,13 +20,9 @@ public class RoomBookingCreateRequestDto {
     private IdProofType idProofType;
     private String idProofNumber;
 
-    private BookingType bookingType;
+    private Integer numPersons;
 
-    private LocalDateTime scheduledCheckIn;
-    private LocalDateTime scheduledCheckOut;
-
-    private BigDecimal extraSurchargeAmount;
-    private BigDecimal extraChargeAmount;
+    private BigDecimal extraChargeAmount;   // UI label: "Extra Amount"
 
     private BigDecimal securityDeposit;
 

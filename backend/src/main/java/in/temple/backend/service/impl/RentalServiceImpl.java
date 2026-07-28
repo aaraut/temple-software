@@ -226,7 +226,8 @@ public class RentalServiceImpl implements RentalService {
     @Transactional
     public byte[] createRentalAndReturnReceiptPdf(
             RentalIssueRequestDto request,
-            String username
+            String username,
+            String language
     ) {
 
         request.setCreatedBy(username);
@@ -244,14 +245,15 @@ public class RentalServiceImpl implements RentalService {
                 rentalItemRepository.findByRentalId(rental.getId());
 
         // 3️⃣ Generate PDF
-        return generateRentalReceiptPdf(rental, items);
+        return generateRentalReceiptPdf(rental, items, language);
     }
 
     @Override
     @Transactional
     public byte[] returnRentalAndPrintReceipt(
             RentalReturnRequestDto request,
-            String username
+            String username,
+            String language
     ) {
         request.setHandledBy(username);
 
@@ -266,30 +268,35 @@ public class RentalServiceImpl implements RentalService {
         List<RentalItem> items = rentalItemRepository.findByRentalId(rental.getId());
 
         // 3️⃣ Generate return receipt PDF
-        return generateRentalReturnReceiptPdf(rental, items, request);
+        return generateRentalReturnReceiptPdf(rental, items, request, language);
     }
 
     private byte[] generateRentalReturnReceiptPdf(
             Rental rental,
             List<RentalItem> items,
-            RentalReturnRequestDto request
+            RentalReturnRequestDto request,
+            String language
     ) {
+        boolean en = "en".equalsIgnoreCase(language);
         try {
 
             java.time.format.DateTimeFormatter formatter =
                     java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-            String categoryLabel = rental.getCategory() != null &&
-                    rental.getCategory().name().equalsIgnoreCase("BICHAYAT")
-                    ? "बिछायत" : "बर्तन";
+            boolean isBichayat = rental.getCategory() != null &&
+                    rental.getCategory().name().equalsIgnoreCase("BICHAYAT");
+            String categoryLabel = en
+                    ? (isBichayat ? "Bichayat" : "Bartan")
+                    : (isBichayat ? "बिछायत" : "बर्तन");
 
             String address = rental.getAddress() != null ? rental.getAddress() : "";
             String fineAmt = (request.getFineAmount() != null && request.getFineAmount() > 0)
-                    ? String.format("%,.0f", request.getFineAmount()) : "शून्य";
+                    ? String.format("%,.0f", request.getFineAmount()) : (en ? "Nil" : "शून्य");
             String depositAmt = rental.getDepositAmount() != null
                     ? String.format("%,.0f", rental.getDepositAmount()) : "0";
-            String statusLabel = rental.getStatus() == RentalStatus.CLOSED
-                    ? "पूर्ण वापसी" : "आंशिक वापसी";
+            String statusLabel = en
+                    ? (rental.getStatus() == RentalStatus.CLOSED ? "Full Return" : "Partial Return")
+                    : (rental.getStatus() == RentalStatus.CLOSED ? "पूर्ण वापसी" : "आंशिक वापसी");
             String returnDate = java.time.LocalDateTime.now().format(formatter);
             String remarks = (request.getRemarks() != null && !request.getRemarks().isBlank())
                     ? request.getRemarks() : "";
@@ -304,7 +311,7 @@ public class RentalServiceImpl implements RentalService {
                     java.awt.Font.TRUETYPE_FONT, fontStream);
             fontStream.close();
 
-            final int SCALE  = 2;
+            final int SCALE  = 3;
             final int W      = 420 * SCALE;
             final int H      = 595 * SCALE;
             final int M      = 36  * SCALE;
@@ -331,10 +338,11 @@ public class RentalServiceImpl implements RentalService {
 
             java.awt.font.FontRenderContext frc = g.getFontRenderContext();
 
+            final int CONTENT_W = W - 2 * M;
             int y = 90 * SCALE;
 
             // Title
-            String titleText = categoryLabel + " वापसी रसीद";
+            String titleText = categoryLabel + (en ? " Return Receipt" : " वापसी रसीद");
             java.awt.font.TextLayout titleLayout =
                     new java.awt.font.TextLayout(titleText, fTitle, frc);
             int titleW = (int) titleLayout.getBounds().getWidth();
@@ -345,22 +353,24 @@ public class RentalServiceImpl implements RentalService {
             g.drawLine(titleX, titleBottom, titleX + titleW, titleBottom);
             y += (int) titleLayout.getBounds().getHeight() + 18 * SCALE;
 
-            // मूल रसीद क्रमांक & वापसी दिनांक
-            drawRentalLine(g, "मूल रसीद: " + rental.getReceiptNumber(), M, y, fNormal, frc);
-            drawRentalLine(g, "वापसी दिनांक: " + returnDate, M + 190 * SCALE, y, fNormal, frc);
+            // Original receipt no. & return date
+            drawRentalLine(g, (en ? "Original Receipt: " : "मूल रसीद: ") + rental.getReceiptNumber(), M, y, fNormal, frc);
+            drawRentalLine(g, (en ? "Return Date: " : "वापसी दिनांक: ") + returnDate, M + 190 * SCALE, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
             // Customer
-            drawRentalLine(g, "श्रीमान/श्रीमती " + rental.getCustomerName() + " जी द्वारा वापसी", M, y, fNormal, frc);
-            y += LINE_H + 4 * SCALE;
+            String customerLine = en
+                    ? "Returned by Mr./Mrs. " + rental.getCustomerName()
+                    : "श्रीमान/श्रीमती " + rental.getCustomerName() + " जी द्वारा वापसी";
+            y = drawRentalWrapped(g, customerLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            y += 4 * SCALE;
 
-            drawRentalLine(g, "पता: " + address, M, y, fNormal, frc);
-            y += LINE_H;
-            drawRentalLine(g, "मोबाइल: " + rental.getMobile(), M, y, fNormal, frc);
+            y = drawRentalWrapped(g, (en ? "Address: " : "पता: ") + address, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            drawRentalLine(g, (en ? "Mobile: " : "मोबाइल: ") + rental.getMobile(), M, y, fNormal, frc);
             y += LINE_H + 4 * SCALE;
 
             // Status badge
-            drawRentalLine(g, "स्थिति: " + statusLabel, M, y, fBold, frc);
+            drawRentalLine(g, (en ? "Status: " : "स्थिति: ") + statusLabel, M, y, fBold, frc);
             y += LINE_H + 10 * SCALE;
 
             // ── Items table ───────────────────────────────────────────────────────
@@ -385,10 +395,10 @@ public class RentalServiceImpl implements RentalService {
             g.drawLine(col3X, tableTop, col3X, tableTop + LINE_H + 4 * SCALE);
             g.drawLine(col4X, tableTop, col4X, tableTop + LINE_H + 4 * SCALE);
 
-            drawRentalLine(g, "वस्तु का नाम", col1X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            drawRentalLine(g, "जारी",          col2X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            drawRentalLine(g, "वापस",          col3X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            drawRentalLine(g, "शेष",           col4X + PAD, y + 2 * SCALE, fSmallBold, frc);
+            drawRentalLine(g, en ? "Item Name" : "वस्तु का नाम", col1X + PAD, y + 2 * SCALE, fSmallBold, frc);
+            drawRentalLine(g, en ? "Issued"    : "जारी",          col2X + PAD, y + 2 * SCALE, fSmallBold, frc);
+            drawRentalLine(g, en ? "Returned"  : "वापस",          col3X + PAD, y + 2 * SCALE, fSmallBold, frc);
+            drawRentalLine(g, en ? "Remaining" : "शेष",           col4X + PAD, y + 2 * SCALE, fSmallBold, frc);
             y += LINE_H + 4 * SCALE;
 
             for (RentalItem item : items) {
@@ -412,26 +422,28 @@ public class RentalServiceImpl implements RentalService {
             y += 10 * SCALE;
 
             // Fine, Deposit, Remarks
-            drawRentalLine(g, "जुर्माना राशि: ₹ " + fineAmt + " /-", M, y, fBold, frc);
+            drawRentalLine(g, (en ? "Fine Amount: Rs. " : "जुर्माना राशि: ₹ ") + fineAmt + " /-", M, y, fBold, frc);
             y += LINE_H + 4 * SCALE;
-            drawRentalLine(g, "जमानत राशि: ₹ " + depositAmt + " /-", M, y, fNormal, frc);
+            drawRentalLine(g, (en ? "Deposit: Rs. " : "जमानत राशि: ₹ ") + depositAmt + " /-", M, y, fNormal, frc);
             y += LINE_H + 4 * SCALE;
             if (!remarks.isEmpty()) {
-                drawRentalLine(g, "टिप्पणी: " + remarks, M, y, fSmall, frc);
-                y += LINE_H + 4 * SCALE;
+                y = drawRentalWrapped(g, (en ? "Remarks: " : "टिप्पणी: ") + remarks, M, y, CONTENT_W, fSmall, frc, LINE_H);
+                y += 4 * SCALE;
             }
             y += LINE_H;
 
             // Signatory
-            drawRentalLine(g, "प्राप्तकर्ता:", M, y, fNormal, frc);
+            drawRentalLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
             y += (int)(LINE_H * 1.5);
-            drawRentalLine(g, "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc);
+            drawRentalLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc);
             y += LINE_H;
-            drawRentalLine(g, "(हनुमान लोक) जामसावली",               M, y, fNormal, frc);
+            drawRentalLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
             y += LINE_H * 2;
 
             // Footer
-            String footer = "धन्यवाद — आपके सहयोग के लिए आभार।";
+            String footer = en
+                    ? "Thank you for your cooperation."
+                    : "धन्यवाद — आपके सहयोग के लिए आभार।";
             java.awt.font.TextLayout ftl =
                     new java.awt.font.TextLayout(footer, fSmall, frc);
             int fx = (int)((W - ftl.getBounds().getWidth()) / 2);
@@ -442,9 +454,9 @@ public class RentalServiceImpl implements RentalService {
             g.drawLine(M, y, W - M, y);
             g.dispose();
 
-            // JPEG → PDF
+            // PNG (lossless) → PDF
             ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "JPEG", imgOut);
+            javax.imageio.ImageIO.write(img, "png", imgOut);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             com.lowagie.text.Document document =
@@ -469,8 +481,10 @@ public class RentalServiceImpl implements RentalService {
 
     private byte[] generateRentalReceiptPdf(
             Rental rental,
-            List<RentalItem> items
+            List<RentalItem> items,
+            String language
     ) {
+        boolean en = "en".equalsIgnoreCase(language);
 
         try {
 
@@ -478,9 +492,11 @@ public class RentalServiceImpl implements RentalService {
             java.time.format.DateTimeFormatter formatter =
                     java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-            String categoryLabel = rental.getCategory() != null &&
-                    rental.getCategory().name().equalsIgnoreCase("BICHAYAT")
-                    ? "बिछायत" : "बर्तन";
+            boolean isBichayat = rental.getCategory() != null &&
+                    rental.getCategory().name().equalsIgnoreCase("BICHAYAT");
+            String categoryLabel = en
+                    ? (isBichayat ? "Bichayat" : "Bartan")
+                    : (isBichayat ? "बिछायत" : "बर्तन");
 
             String address    = rental.getAddress() != null ? rental.getAddress() : "";
             String chargedAmt = rental.getChargedAmount() != null
@@ -499,9 +515,9 @@ public class RentalServiceImpl implements RentalService {
             fontStream.close();
 
             // ── 3. Coordinate system ──────────────────────────────────────────────
-            // A5 = 420 × 595 pt. Render at SCALE=2 → 840 × 1190 px.
+            // A5 = 420 × 595 pt. Render at SCALE=3 → 1260 × 1785 px (~216 DPI).
             // All layout constants are in POINTS; multiply by SCALE for pixels.
-            final int SCALE  = 2;
+            final int SCALE  = 3;
             final int W      = 420 * SCALE;   // 840 px
             final int H      = 595 * SCALE;   // 1190 px
             final int M      = 36  * SCALE;   // left/right margin
@@ -533,11 +549,13 @@ public class RentalServiceImpl implements RentalService {
 
             java.awt.font.FontRenderContext frc = g.getFontRenderContext();
 
+            final int CONTENT_W = W - 2 * M;
+
             // ── Top gap for pre-printed letterhead ───────────────────────────────
             int y = 60 * SCALE;
 
             // ── Title (centred + underlined) ──────────────────────────────────────
-            String titleText = categoryLabel + " किराया रसीद";
+            String titleText = categoryLabel + (en ? " Rental Receipt" : " किराया रसीद");
             java.awt.font.TextLayout titleLayout =
                     new java.awt.font.TextLayout(titleText, fTitle, frc);
             int titleW = (int) titleLayout.getBounds().getWidth();
@@ -548,20 +566,23 @@ public class RentalServiceImpl implements RentalService {
             g.drawLine(titleX, titleBottom, titleX + titleW, titleBottom);
             y += (int) titleLayout.getBounds().getHeight() + 10 * SCALE;
 
-            // ── रसीद क्रमांक  |  दिनांक (same line, right-aligned) ──────────────
-            drawRentalLine(g, "रसीद क्रमांक: " + rental.getReceiptNumber(), M, y, fNormal, frc);
-            String dateStr = "दिनांक: " + rental.getCreatedAt().format(formatter);
+            // ── Receipt no. | Date (same line, right-aligned) ────────────────────
+            drawRentalLine(g, (en ? "Receipt No: " : "रसीद क्रमांक: ") + rental.getReceiptNumber(), M, y, fNormal, frc);
+            String dateStr = (en ? "Date: " : "दिनांक: ") + rental.getCreatedAt().format(formatter);
             int dateW = (int) new java.awt.font.TextLayout(dateStr, fNormal, frc).getBounds().getWidth();
             drawRentalLine(g, dateStr, W - M - dateW, y, fNormal, frc);
             y += LINE_H + 4 * SCALE;
 
             // ── Customer name ─────────────────────────────────────────────────────
-            drawRentalLine(g, "श्रीमान/श्रीमती " + rental.getCustomerName() + " जी को जारी", M, y, fNormal, frc);
-            y += LINE_H + 4 * SCALE;
+            String customerLine = en
+                    ? "Issued to Mr./Mrs. " + rental.getCustomerName()
+                    : "श्रीमान/श्रीमती " + rental.getCustomerName() + " जी को जारी";
+            y = drawRentalWrapped(g, customerLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            y += 4 * SCALE;
 
-            // ── पता  |  मोबाइल (same line) ───────────────────────────────────────
-            drawRentalLine(g, "पता: " + address, M, y, fNormal, frc);
-            String mobStr = "मोबाइल: " + rental.getMobile();
+            // ── Address | Mobile (same line) ─────────────────────────────────────
+            drawRentalLine(g, (en ? "Address: " : "पता: ") + address, M, y, fNormal, frc);
+            String mobStr = (en ? "Mobile: " : "मोबाइल: ") + rental.getMobile();
             int mobW = (int) new java.awt.font.TextLayout(mobStr, fNormal, frc).getBounds().getWidth();
             drawRentalLine(g, mobStr, W - M - mobW, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
@@ -588,9 +609,9 @@ public class RentalServiceImpl implements RentalService {
             g.drawLine(col3X, hdrTop, col3X, hdrTop + hdrH);
 
             int textY = hdrTop + (int)(hdrH * 0.72);   // baseline inside row
-            drawRentalLine(g, "वस्तु का नाम", col1X + PAD, textY, fTableHdr, frc);
-            drawRentalLine(g, "मात्रा",        col2X + PAD, textY, fTableHdr, frc);
-            drawRentalLine(g, "दर (₹)",        col3X + PAD, textY, fTableHdr, frc);
+            drawRentalLine(g, en ? "Item Name"  : "वस्तु का नाम", col1X + PAD, textY, fTableHdr, frc);
+            drawRentalLine(g, en ? "Qty"        : "मात्रा",        col2X + PAD, textY, fTableHdr, frc);
+            drawRentalLine(g, en ? "Rate (Rs.)" : "दर (₹)",        col3X + PAD, textY, fTableHdr, frc);
             y += hdrH;
 
             // Data rows
@@ -611,23 +632,25 @@ public class RentalServiceImpl implements RentalService {
 
             y += 6 * SCALE;
 
-            // ── कुल किराया राशि  |  जमानत राशि (same line) ──────────────────────
-            drawRentalLine(g, "कुल किराया राशि: ₹ " + chargedAmt + " /-", M, y, fBold, frc);
-            String depStr = "जमानत राशि: ₹ " + depositAmt + " /-";
+            // ── Total rent  |  Deposit (same line) ───────────────────────────────
+            drawRentalLine(g, (en ? "Total Rent: Rs. " : "कुल किराया राशि: ₹ ") + chargedAmt + " /-", M, y, fBold, frc);
+            String depStr = (en ? "Deposit: Rs. " : "जमानत राशि: ₹ ") + depositAmt + " /-";
             int depW = (int) new java.awt.font.TextLayout(depStr, fNormal, frc).getBounds().getWidth();
             drawRentalLine(g, depStr, W - M - depW, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
             // ── Signatory ─────────────────────────────────────────────────────────
-            drawRentalLine(g, "प्राप्तकर्ता:",                          M, y, fNormal, frc);
+            drawRentalLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
             y += LINE_H;
-            drawRentalLine(g, "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc);
+            drawRentalLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc);
             y += LINE_H;
-            drawRentalLine(g, "(हनुमान लोक) जामसावली",                M, y, fNormal, frc);
+            drawRentalLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
             // ── Footer (centred) ──────────────────────────────────────────────────
-            String footer = "वस्तुएँ समय पर वापस करें। क्षति पर जुर्माना लागू होगा।";
+            String footer = en
+                    ? "Please return items on time. Fine applicable for damage."
+                    : "वस्तुएँ समय पर वापस करें। क्षति पर जुर्माना लागू होगा।";
             java.awt.font.TextLayout ftl =
                     new java.awt.font.TextLayout(footer, fTableBody, frc);
             int fx = (int)((W - ftl.getBounds().getWidth()) / 2);
@@ -640,11 +663,11 @@ public class RentalServiceImpl implements RentalService {
 
             g.dispose();
 
-            // ── 5. Encode BufferedImage → JPEG ────────────────────────────────────
+            // ── 5. Encode BufferedImage → PNG (lossless) ──────────────────────────
             ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "JPEG", imgOut);
+            javax.imageio.ImageIO.write(img, "png", imgOut);
 
-            // ── 6. Embed JPEG in A5 PDF via OpenPDF ──────────────────────────────
+            // ── 6. Embed PNG in A5 PDF via OpenPDF ────────────────────────────────
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             com.lowagie.text.Document document =
                     new com.lowagie.text.Document(
@@ -674,6 +697,30 @@ public class RentalServiceImpl implements RentalService {
                                        java.awt.font.FontRenderContext frc) {
         if (text == null || text.isEmpty()) return;
         new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
+    }
+
+    /**
+     * Draw text wrapped at word boundaries to fit maxWidth, instead of running
+     * past the bitmap edge and getting silently clipped on print. Returns the
+     * y position ready for the next line after the wrapped block.
+     */
+    private static int drawRentalWrapped(java.awt.Graphics2D g, String text, int x, int y, int maxWidth,
+                                          java.awt.Font font,
+                                          java.awt.font.FontRenderContext frc, int lineHeight) {
+        if (text == null || text.isEmpty()) return y;
+
+        java.text.AttributedString attrText = new java.text.AttributedString(text);
+        attrText.addAttribute(java.awt.font.TextAttribute.FONT, font);
+        java.awt.font.LineBreakMeasurer measurer =
+                new java.awt.font.LineBreakMeasurer(attrText.getIterator(), frc);
+
+        int curY = y;
+        while (measurer.getPosition() < text.length()) {
+            java.awt.font.TextLayout layout = measurer.nextLayout(maxWidth);
+            layout.draw(g, x, curY);
+            curY += lineHeight;
+        }
+        return curY;
     }
 
     @Override
@@ -707,11 +754,11 @@ public class RentalServiceImpl implements RentalService {
     }
 
     @Override
-    public byte[] reprintReceipt(String receiptNumber) {
+    public byte[] reprintReceipt(String receiptNumber, String language) {
         Rental rental = rentalRepository.findByReceiptNumber(receiptNumber)
                 .orElseThrow(() -> new RuntimeException("Rental not found: " + receiptNumber));
         List<RentalItem> items = rentalItemRepository.findByRentalId(rental.getId());
-        return generateRentalReceiptPdf(rental, items);
+        return generateRentalReceiptPdf(rental, items, language);
     }
 
 }

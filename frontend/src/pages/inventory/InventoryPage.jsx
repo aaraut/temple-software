@@ -51,10 +51,10 @@ const L = {
   en: {
     BARTAN: "Bartan Inventory", BICHAYAT: "Bichayat Inventory",
     addTitle: "Add New Item", editTitle: "Editing",
-    name: "Material Name", unit: "Unit", rate: "Rate (₹)", stock: "Stock",
+    name: "Material Name (Hindi)", nameEn: "Material Name (English)", unit: "Unit", rate: "Rate (₹)", stock: "Stock",
     addBtn: "Add Item", updateBtn: "Save", cancel: "Cancel",
     search: "Search...", listTitle: "Items",
-    colNo: "#", colName: "Name", colUnit: "Unit", colRate: "Rate",
+    colNo: "#", colName: "Name (Hindi)", colNameEn: "Name (English)", colUnit: "Unit", colRate: "Rate",
     colStock: "Stock", colAction: "Action",
     edit: "Edit", noItems: "No items found", loading: "Loading...",
     added: "Item added", updated: "Item updated", failed: "Failed to save",
@@ -68,14 +68,14 @@ const L = {
   },
   hi: {
     BARTAN: "बर्तन सूची", BICHAYAT: "बिछायत सूची",
-    addTitle: "नई सामग्री जोड़ें", editTitle: "संपादन",
-    name: "सामग्री का नाम", unit: "इकाई", rate: "दर (₹)", stock: "स्टॉक",
-    addBtn: "जोड़ें", updateBtn: "सेव", cancel: "रद्द करें",
+    addTitle: "नई सामग्री जोड़ें", editTitle: "एडिट",
+    name: "सामग्री का नाम (हिंदी)", nameEn: "सामग्री का नाम (English)", unit: "इकाई", rate: "दर (₹)", stock: "स्टॉक",
+    addBtn: "जोड़ें", updateBtn: "सेव", cancel: "कैंसिल",
     search: "खोजें...", listTitle: "सामग्री",
-    colNo: "#", colName: "नाम", colUnit: "इकाई", colRate: "दर",
+    colNo: "#", colName: "नाम (हिंदी)", colNameEn: "नाम (English)", colUnit: "इकाई", colRate: "दर",
     colStock: "स्टॉक", colAction: "कार्य",
     edit: "एडिट", noItems: "कोई सामग्री नहीं मिली", loading: "लोड हो रहा है...",
-    added: "सामग्री जोड़ी गई", updated: "सामग्री अपडेट हुई", failed: "सामग्री सहेजने में त्रुटि",
+    added: "सामग्री जोड़ी गई", updated: "सामग्री अपडेट हुई", failed: "सामग्री सेव करने में त्रुटि",
     dupWarn: "मिलती-जुलती सामग्री मिली",
     dupSub: "इस नाम की सामग्री पहले से मौजूद है। आप क्या करना चाहते हैं?",
     dupAddNew: "नई एंट्री जोड़ें",
@@ -86,7 +86,7 @@ const L = {
   },
 };
 
-const emptyForm = { id: null, materialNameHi: "", unit: "NOS", rate: "", totalStock: "" };
+const emptyForm = { id: null, materialNameHi: "", materialNameEn: "", unit: "NOS", rate: "", totalStock: "" };
 
 export default function InventoryPage() {
   const location = useLocation();
@@ -178,10 +178,13 @@ export default function InventoryPage() {
     startEdit(item);
   };
 
-  const filtered = useMemo(() =>
-    items.filter(i => i.materialNameHi?.toLowerCase().includes(search.toLowerCase())),
-    [items, search]
-  );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return items.filter(i =>
+      i.materialNameHi?.toLowerCase().includes(q) ||
+      i.materialNameEn?.toLowerCase().includes(q)
+    );
+  }, [items, search]);
 
   const ready = form.materialNameHi.trim() && form.unit.trim();
   const tableDisabled = !!editingItem;
@@ -247,9 +250,15 @@ export default function InventoryPage() {
         <div style={{ padding: "1rem 1.2rem" }}>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
             <Field label={t.name}>
-              <div style={{ minWidth: 200, flex: 2 }}>
+              <div style={{ minWidth: 160, flex: 2 }}>
                 <Inp value={form.materialNameHi} autoFocus maxLength={80}
                   onChange={e => set("materialNameHi", e.target.value)} placeholder={t.name} />
+              </div>
+            </Field>
+            <Field label={t.nameEn}>
+              <div style={{ minWidth: 160, flex: 2 }}>
+                <Inp value={form.materialNameEn} maxLength={80}
+                  onChange={e => set("materialNameEn", e.target.value)} placeholder={t.nameEn} />
               </div>
             </Field>
             <Field label={t.unit}>
@@ -358,6 +367,7 @@ export default function InventoryPage() {
                   {[
                     { label: t.colNo,     align: "center", w: 40  },
                     { label: t.colName,   align: "left",   w: "auto" },
+                    { label: t.colNameEn, align: "left",   w: "auto" },
                     { label: t.colUnit,   align: "center", w: 70  },
                     { label: t.colRate,   align: "right",  w: 90  },
                     { label: t.colStock,  align: "right",  w: 80  },
@@ -390,6 +400,11 @@ export default function InventoryPage() {
                       <td style={{ padding: "0.5rem 0.75rem" }}>
                         <span style={{ fontSize: "0.83rem", fontWeight: isEditing ? 800 : 600, color: isEditing ? C.accentDk : C.text }}>
                           {item.materialNameHi}
+                        </span>
+                      </td>
+                      <td style={{ padding: "0.5rem 0.75rem" }}>
+                        <span style={{ fontSize: "0.83rem", color: C.muted }}>
+                          {item.materialNameEn || "—"}
                         </span>
                       </td>
                       <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
@@ -513,7 +528,7 @@ export default function InventoryPage() {
                 onMouseEnter={e => { e.currentTarget.style.borderColor = C.muted; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; }}
               >
-                ✕ {language === "hi" ? "रद्द करें" : "Cancel"}
+                ✕ {language === "hi" ? "कैंसिल" : "Cancel"}
               </button>
               <button onClick={doSave} style={{
                 padding: "0.55rem 1.2rem",

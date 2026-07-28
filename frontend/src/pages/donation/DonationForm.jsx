@@ -243,7 +243,7 @@ export default function DonationForm() {
         gotraId: requiresGotra ? form.gotraId : null,
       };
 
-      const blob = await createDonationAndPrint(payload, auth.username);
+      const blob = await createDonationAndPrint(payload, auth.username, language);
 
       const blobUrl = URL.createObjectURL(blob);
 
@@ -273,13 +273,15 @@ export default function DonationForm() {
 
   const labels = {
     hi: {
-      title: "दान प्रविष्टि",
+      title: "दान एंट्री",
       name: "नाम",
       address: "पता",
       mobile: "मोबाइल नंबर",
       purpose: "दान का उद्देश्य",
       amount: "राशि",
       gotra: "गोत्र",
+      saveAndPrint: "सेव और प्रिंट करें",
+      reset: "रीसेट करें",
     },
     en: {
       title: "Donation Entry",
@@ -289,6 +291,8 @@ export default function DonationForm() {
       purpose: "Purpose",
       amount: "Amount",
       gotra: "Gotra",
+      saveAndPrint: "Save & Print",
+      reset: "Reset",
     },
   };
 
@@ -408,10 +412,10 @@ export default function DonationForm() {
           {/* ACTION BUTTONS */}
           <Box mt={3} display="flex" gap={2}>
             <Button variant="contained" fullWidth onClick={handleSaveAndPrint}>
-              Save & Print
+              {t.saveAndPrint}
             </Button>
             <Button variant="outlined" fullWidth onClick={handleReset}>
-              Reset
+              {t.reset}
             </Button>
           </Box>
 

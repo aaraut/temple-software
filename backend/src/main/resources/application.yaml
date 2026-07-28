@@ -20,6 +20,10 @@ spring:
     init:
       mode: never   # no auto .sql scripts for now
 
+  flyway:
+    baseline-on-migrate: true   # existing schema was created by ddl-auto:update, not Flyway —
+    baseline-version: 0         # treat it as "version 0" so V1__... can apply on top of it
+
 logging:
   level:
     org.springframework: INFO

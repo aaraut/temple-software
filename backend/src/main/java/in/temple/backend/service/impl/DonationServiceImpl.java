@@ -508,7 +508,9 @@ public class DonationServiceImpl implements DonationService {
         );
     }
     // install on ubuntu sudo apt install chromium-browser
-    private byte[] generateReceiptPdf(Donation donation) {
+    private byte[] generateReceiptPdf(Donation donation, String language) {
+
+        boolean en = "en".equalsIgnoreCase(language);
 
         try {
 
@@ -517,14 +519,21 @@ public class DonationServiceImpl implements DonationService {
                     java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
             String formattedAmount = String.format("%,.0f", donation.getAmount());
-            String amountInWords   = in.temple.backend.util.HindiNumberUtil.convert(donation.getAmount());
-            String purposeHi       = donation.getPurposeNameHi() != null
-                    ? donation.getPurposeNameHi() : donation.getPurposeNameEn();
+            String amountInWords   = en
+                    ? in.temple.backend.util.HindiNumberUtil.convertEnglish(donation.getAmount())
+                    : in.temple.backend.util.HindiNumberUtil.convert(donation.getAmount());
+            String purposeText     = en
+                    ? (donation.getPurposeNameEn() != null ? donation.getPurposeNameEn() : donation.getPurposeNameHi())
+                    : (donation.getPurposeNameHi() != null ? donation.getPurposeNameHi() : donation.getPurposeNameEn());
             String address         = donation.getAddress() != null ? donation.getAddress() : "";
 
             // Gotra — only present for Abhishek-type purposes
-            String gotraHi = (donation.getGotraNameHi() != null && !donation.getGotraNameHi().isBlank())
-                    ? donation.getGotraNameHi() : "";
+            String gotra = en
+                    ? ((donation.getGotraNameEn() != null && !donation.getGotraNameEn().isBlank())
+                        ? donation.getGotraNameEn()
+                        : (donation.getGotraNameHi() != null ? donation.getGotraNameHi() : ""))
+                    : ((donation.getGotraNameHi() != null && !donation.getGotraNameHi().isBlank())
+                        ? donation.getGotraNameHi() : "");
 
             // Cashier name from the user who created this donation
             String cashierName = "";
@@ -555,7 +564,9 @@ public class DonationServiceImpl implements DonationService {
             // All layout values are in POINTS; multiply by SCALE for actual pixels.
             // IMPORTANT: deriveFont(float) sets SIZE in points.
             //            deriveFont(int)   sets STYLE (bold/italic) — DO NOT use for size.
-            final int SCALE  = 2;
+            // SCALE=3 → ~216 DPI equivalent; kept above 2 so printers with
+            // real 300+ DPI don't have to upscale a soft/blurry source bitmap.
+            final int SCALE  = 3;
             final int W      = 420 * SCALE;   // 840 px
             final int H      = 595 * SCALE;   // 1190 px
             final int M      = 36  * SCALE;   // 36 pt margin
@@ -585,8 +596,9 @@ public class DonationServiceImpl implements DonationService {
             int y = 90 * SCALE;
 
             // Title — centred + underlined
+            String title = en ? "Donation Receipt" : "दान रसीद";
             java.awt.font.TextLayout titleLayout =
-                    new java.awt.font.TextLayout("दान रसीद", fTitle, frc);
+                    new java.awt.font.TextLayout(title, fTitle, frc);
             int titleW = (int) titleLayout.getBounds().getWidth();
             int titleX = (W - titleW) / 2;
             titleLayout.draw(g, titleX, y);
@@ -595,47 +607,60 @@ public class DonationServiceImpl implements DonationService {
             g.drawLine(titleX, titleBottom, titleX + titleW, titleBottom);
             y += (int) titleLayout.getBounds().getHeight() + 18 * SCALE;
 
-            // रसीद क्रमांक & दिनांक
-            drawLine(g, "रसीद क्रमांक: " + donation.getReceiptNumber(), M, y, fNormal, frc);
-            drawLine(g, "दिनांक: " + donation.getCreatedAt().format(formatter), M + 200 * SCALE, y, fNormal, frc);
+            // Receipt number & date
+            drawLine(g, (en ? "Receipt No: " : "रसीद क्रमांक: ") + donation.getReceiptNumber(), M, y, fNormal, frc);
+            drawLine(g, (en ? "Date: " : "दिनांक: ") + donation.getCreatedAt().format(formatter), M + 200 * SCALE, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
+            // Content width available between the left/right margins — anything
+            // wider than this must wrap, otherwise Graphics2D silently clips it
+            // at the bitmap edge and the printed receipt shows cut-off text.
+            final int CONTENT_W = W - 2 * M;
+
             // Donor
-            drawLine(g, "श्रीमान/श्रीमती " + donation.getDonorName() + " जी से सादर प्राप्त", M, y, fNormal, frc);
-            y += LINE_H + 4 * SCALE;
+            String donorLine = en
+                    ? "Received with thanks from Mr./Mrs. " + donation.getDonorName()
+                    : "श्रीमान/श्रीमती " + donation.getDonorName() + " जी से सादर प्राप्त";
+            y = drawWrapped(g, donorLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            y += 4 * SCALE;
 
             // Address & mobile on separate lines
-            drawLine(g, "पता: " + address, M, y, fNormal, frc);
-            y += LINE_H;
-            drawLine(g, "मोबाइल: " + donation.getMobile(), M, y, fNormal, frc);
+            y = drawWrapped(g, (en ? "Address: " : "पता: ") + address, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            drawLine(g, (en ? "Mobile: " : "मोबाइल: ") + donation.getMobile(), M, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
             // Gotra — only when present
-            if (!gotraHi.isEmpty()) {
-                drawLine(g, "गोत्र: " + gotraHi, M, y, fNormal, frc);
-                y += LINE_H;
+            if (!gotra.isEmpty()) {
+                y = drawWrapped(g, (en ? "Gotra: " : "गोत्र: ") + gotra, M, y, CONTENT_W, fNormal, frc, LINE_H);
             }
 
-            // Amount line — bold, all on one line: ₹ amount (words) नकद
-            drawLine(g, "राशि: ₹ " + formattedAmount + " /- (शब्दों में: " + amountInWords + ") नकद", M, y, fBold, frc);
-            y += LINE_H + 8 * SCALE;
+            // Amount line — bold; wraps if the amount-in-words runs long
+            // (English number words are noticeably longer than Hindi ones)
+            String amountLine = en
+                    ? "Amount: Rs. " + formattedAmount + "/- (in words: " + amountInWords + ") Cash"
+                    : "राशि: ₹ " + formattedAmount + " /- (शब्दों में: " + amountInWords + ") नकद";
+            y = drawWrapped(g, amountLine, M, y, CONTENT_W, fBold, frc, LINE_H);
+            y += 8 * SCALE;
 
             // Purpose on two lines
-            drawLine(g, "उद्देश्य:", M, y, fNormal, frc);
+            drawLine(g, en ? "Purpose:" : "उद्देश्य:", M, y, fNormal, frc);
             y += LINE_H;
-            drawLine(g, purposeHi + " हेतु दान राशि", M, y, fNormal, frc);
-            y += LINE_H * 2;
+            y = drawWrapped(g, en ? (purposeText + " Donation") : (purposeText + " हेतु दान राशि"),
+                    M, y, CONTENT_W, fNormal, frc, LINE_H);
+            y += LINE_H;
 
             // Signatory block
-            drawLine(g, "प्राप्तकर्ता:", M, y, fNormal, frc);
+            drawLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
             y += (int)(LINE_H * 1.5);
-            drawLine(g, cashierName,                             M, y, fNormal, frc); y += LINE_H;
-            drawLine(g, "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
-            drawLine(g, "(हनुमान लोक) जामसावली",               M, y, fNormal, frc);
+            drawLine(g, cashierName, M, y, fNormal, frc); y += LINE_H;
+            drawLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
+            drawLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
             y += LINE_H * 2;
 
             // Footer — centred
-            String footer = "आपका सहयोग मंदिर विकास हेतु अमूल्य है।";
+            String footer = en
+                    ? "Your contribution is invaluable for temple development."
+                    : "आपका सहयोग मंदिर विकास हेतु अमूल्य है।";
             java.awt.font.TextLayout tl =
                     new java.awt.font.TextLayout(footer, fNormal, frc);
             int fx = (int)((W - tl.getBounds().getWidth()) / 2);
@@ -648,9 +673,10 @@ public class DonationServiceImpl implements DonationService {
 
             g.dispose();
 
-            // ── 5. Encode BufferedImage → JPEG ────────────────────────────────────
+            // ── 5. Encode BufferedImage → PNG (lossless — JPEG's compression
+            // artifacts show up as visible ringing/haloing around text edges) ──
             ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "JPEG", imgOut);
+            javax.imageio.ImageIO.write(img, "png", imgOut);
 
             // ── 6. Embed JPEG in A5 PDF via OpenPDF ──────────────────────────────
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -688,12 +714,38 @@ public class DonationServiceImpl implements DonationService {
         new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
     }
 
+    /**
+     * Draw text wrapped at word boundaries to fit maxWidth, instead of running
+     * past the bitmap edge and getting silently clipped (the cause of the
+     * "content cut off" print issue). Returns the y position ready for the
+     * next line after the wrapped block.
+     */
+    private static int drawWrapped(java.awt.Graphics2D g, String text, int x, int y, int maxWidth,
+                                    java.awt.Font font,
+                                    java.awt.font.FontRenderContext frc, int lineHeight) {
+        if (text == null || text.isEmpty()) return y;
+
+        java.text.AttributedString attrText = new java.text.AttributedString(text);
+        attrText.addAttribute(java.awt.font.TextAttribute.FONT, font);
+        java.awt.font.LineBreakMeasurer measurer =
+                new java.awt.font.LineBreakMeasurer(attrText.getIterator(), frc);
+
+        int curY = y;
+        while (measurer.getPosition() < text.length()) {
+            java.awt.font.TextLayout layout = measurer.nextLayout(maxWidth);
+            layout.draw(g, x, curY);
+            curY += lineHeight;
+        }
+        return curY;
+    }
+
 
     @Override
     @Transactional
     public byte[] createDonationAndReturnReceiptPdf(
             DonationRequestDto req,
-            String username) {
+            String username,
+            String language) {
 
         // Step 1: Save donation (sequence consumed here)
         DonationResponseDto response =
@@ -705,7 +757,7 @@ public class DonationServiceImpl implements DonationService {
                         new IllegalStateException("Donation not found"));
 
         // Step 3: Generate printable receipt
-        return generateReceiptPdf(donation);
+        return generateReceiptPdf(donation, language);
     }
 
 
@@ -728,11 +780,11 @@ public class DonationServiceImpl implements DonationService {
         return cell;
     }
     @Override
-    public byte[] generateReceiptPdfById(Long id) {
+    public byte[] generateReceiptPdfById(Long id, String language) {
         Donation donation = donationRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Donation not found"));
 
-        return generateReceiptPdf(donation); // you already have this method
+        return generateReceiptPdf(donation, language);
     }
 
     private DonationListItemDto convertToListItemDto(Donation donation) {

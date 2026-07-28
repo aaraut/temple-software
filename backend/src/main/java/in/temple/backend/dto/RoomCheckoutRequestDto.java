@@ -13,8 +13,9 @@ public class RoomCheckoutRequestDto {
 
     private String bookingNumber;
 
-    private BigDecimal extraChargeAmount;      // optional update
-    private BigDecimal deductionFromDeposit;   // damage / missing
+    private BigDecimal extraChargeAmount;      // UI label: "Extra Amount"
+    private BigDecimal deductionFromDeposit;   // UI label: "Penalty / Deduction"; can exceed deposit
+    private String penaltyReason;              // required server-side when deductionFromDeposit > 0
 
     private String remarks;
 

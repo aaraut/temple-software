@@ -5,24 +5,29 @@ import in.temple.backend.error.NotFoundException;
 import in.temple.backend.model.Room;
 import in.temple.backend.model.RoomBooking;
 import in.temple.backend.model.RoomBookingAudit;
+import in.temple.backend.model.User;
 import in.temple.backend.model.enums.BookingStatus;
+import in.temple.backend.model.enums.BookingType;
 import in.temple.backend.model.enums.CleaningStatus;
+import in.temple.backend.model.enums.PricingType;
 import in.temple.backend.repository.RoomBookingAuditRepository;
 import in.temple.backend.repository.RoomBookingRepository;
 import in.temple.backend.repository.RoomAuditRepository;
 import in.temple.backend.repository.RoomBlockRepository;
 import in.temple.backend.repository.RoomRepository;
+import in.temple.backend.service.AppConfigService;
+import in.temple.backend.service.AuthContextService;
 import in.temple.backend.service.RoomBookingService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.List;
@@ -39,29 +44,17 @@ public class RoomBookingServiceImpl implements RoomBookingService {
     private final RoomBookingAuditRepository bookingAuditRepository;
     private final RoomAuditRepository roomAuditRepository;
     private final RoomBlockRepository roomBlockRepository;
+    private final AppConfigService appConfigService;
+    private final AuthContextService authContextService;
 
-    /**
-     * Maximum number of days in advance a room can be booked.
-     * Configurable via application.properties: room.booking.max-advance-days=30
-     * Change the value in properties and restart — no code change needed.
-     */
-    @Value("${room.booking.max-advance-days:30}")
-    private int maxAdvanceBookingDays;
+    private static final int PERSON_COUNT_BASE_PERSONS = 2;
 
 
     @Override
     @Transactional
     public String createBooking(RoomBookingCreateRequestDto request) {
 
-        // 1️⃣ Generate booking number (like rental)
-        Long seq = ((Number) entityManager
-                .createNativeQuery("SELECT nextval('room_booking_seq')")
-                .getSingleResult()).longValue();
-
-        String bookingNumber = "ROOM-" + Year.now().getValue()
-                + "-" + String.format("%07d", seq);
-
-        // 2️⃣ Lock room row (pessimistic)
+        // 1️⃣ Lock room row (pessimistic)
         Room room = entityManager.find(
                 Room.class,
                 request.getRoomId(),
@@ -77,54 +70,48 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             throw new RuntimeException("Room is under maintenance");
         }
 
-        // Check room_block table for date-range specific blocks
+        // Room must not already have an active occupant — same-day re-use after checkout is fine,
+        // but a room can't hold two independent bookings at once
+        if (bookingRepository.existsByRoomIdAndStatus(room.getId(), BookingStatus.CHECKED_IN)) {
+            throw new RuntimeException("Room is currently occupied — checkout the current guest before booking again");
+        }
+
+        // 2️⃣ Day-cycle: booking always belongs to "now", per the configured cutover hour
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate bookingDate = computeBookingDate(now);
+        LocalDateTime scheduledCheckOut = computeScheduledCheckOut(bookingDate);
+
+        // Check room_block table for date-range specific blocks covering the booking day
         if (roomBlockRepository.isRoomBlockedForPeriod(room.getId(),
-                request.getScheduledCheckIn(), request.getScheduledCheckOut())) {
+                bookingDate.atStartOfDay(), bookingDate.plusDays(1).atStartOfDay())) {
             throw new RuntimeException("Room is blocked for this period — no bookings allowed");
         }
 
-        // 3️⃣ Overlap check
-        boolean overlap = bookingRepository.existsOverlappingBooking(
-                room.getId(),
-                List.of(BookingStatus.BOOKED, BookingStatus.CHECKED_IN),
-                request.getScheduledCheckIn(),
-                request.getScheduledCheckOut()
-        );
-
-        if (overlap) {
-            throw new RuntimeException("Room already booked for selected time");
-        }
-
-        // ✅ Advance booking limit check
-        LocalDateTime maxAllowedCheckIn = LocalDateTime.now().plusDays(maxAdvanceBookingDays);
-        if (request.getScheduledCheckIn().isAfter(maxAllowedCheckIn)) {
+        // 3️⃣ Occupancy validation — a room's maxOccupancy already encodes the NA-strict rule
+        int numPersons = request.getNumPersons() == null ? 1 : request.getNumPersons();
+        if (room.getMaxOccupancy() != null && numPersons > room.getMaxOccupancy()) {
             throw new RuntimeException(
-                    "Booking cannot be made more than " + maxAdvanceBookingDays +
-                            " days in advance. Earliest allowed check-in: " +
-                            maxAllowedCheckIn.toLocalDate()
+                    "Number of persons (" + numPersons + ") exceeds this room's max occupancy ("
+                            + room.getMaxOccupancy() + ")"
             );
         }
 
-        // 4️⃣ Determine base amount based on booking type
-        BigDecimal baseAmount;
-
-        switch (request.getBookingType()) {
-            case TWENTY_FOUR_HOUR -> baseAmount = room.getBaseRent24Hr();
-            case FIXED_SLOT -> baseAmount = room.getBaseRentFixed();
-            case THREE_HOUR -> baseAmount = room.getBaseRent3Hr();
-            case SIX_HOUR -> baseAmount = room.getBaseRent6Hr();
-            default -> throw new RuntimeException("Invalid booking type");
-        }
-
-        BigDecimal surcharge = request.getExtraSurchargeAmount() == null
-                ? BigDecimal.ZERO : request.getExtraSurchargeAmount();
+        // 4️⃣ Base amount — FIXED per category, or PERSON_COUNT (base covers 2 persons + extra-person cost)
+        BigDecimal baseAmount = calculateBaseAmount(room, numPersons);
 
         BigDecimal extraCharge = request.getExtraChargeAmount() == null
                 ? BigDecimal.ZERO : request.getExtraChargeAmount();
 
-        BigDecimal grossAmount = baseAmount
-                .add(surcharge)
-                .add(extraCharge);
+        BigDecimal securityDeposit = request.getSecurityDeposit() == null
+                ? BigDecimal.ZERO : request.getSecurityDeposit();
+
+        BigDecimal grossAmount = baseAmount.add(extraCharge);
+
+        // 5️⃣ No cap on bookings per room per day — slotNumber is just a display-order counter
+        long existingCount = bookingRepository.countByRoomIdAndBookingDate(room.getId(), bookingDate);
+        int slotNumber = (int) existingCount + 1;
+
+        String bookingNumber = generateBookingNumber(request.getCreatedBy());
 
         RoomBooking booking = RoomBooking.builder()
                 .bookingNumber(bookingNumber)
@@ -133,16 +120,20 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 .mobileNumber(request.getMobileNumber())
                 .idProofType(request.getIdProofType())
                 .idProofNumber(request.getIdProofNumber())
-                .bookingType(request.getBookingType())
-                .scheduledCheckIn(request.getScheduledCheckIn())
-                .scheduledCheckOut(request.getScheduledCheckOut())
+                .bookingType(BookingType.TWENTY_FOUR_HOUR)
+                .numPersons(numPersons)
+                .bookingDate(bookingDate)
+                .slotNumber(slotNumber)
+                .scheduledCheckIn(now)
+                .scheduledCheckOut(scheduledCheckOut)
+                .actualCheckInTime(now)
                 .baseAmount(baseAmount)
-                .extraSurchargeAmount(surcharge)
+                .extraSurchargeAmount(BigDecimal.ZERO)
                 .extraChargeAmount(extraCharge)
                 .grossAmount(grossAmount)
-                .securityDeposit(request.getSecurityDeposit())
+                .securityDeposit(securityDeposit)
                 .netPayableAmount(grossAmount)
-                .status(BookingStatus.BOOKED)
+                .status(BookingStatus.CHECKED_IN)
                 .createdBy(request.getCreatedBy())
                 .build();
 
@@ -150,15 +141,13 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
         String auditDetails = String.format(
                 "Room: %s (Block %s) | Customer: %s | Mobile: %s | ID: %s (%s) | " +
-                        "CheckIn: %s | CheckOut: %s | Type: %s | Base: %.2f | Surcharge: %.2f | " +
+                        "Persons: %d | BookingDate: %s | Slot: %d | Base: %.2f | " +
                         "ExtraCharge: %.2f | Gross: %.2f | Deposit: %.2f",
-                room.getRoomNumber(), room.getBlockName(),
+                room.getRoomNumber(), room.getBhaktniwasBlock().getDisplayName(),
                 request.getCustomerName(), request.getMobileNumber(),
                 request.getIdProofNumber(), request.getIdProofType(),
-                request.getScheduledCheckIn(), request.getScheduledCheckOut(),
-                request.getBookingType(),
-                baseAmount, surcharge, extraCharge, grossAmount,
-                request.getSecurityDeposit() != null ? request.getSecurityDeposit() : BigDecimal.ZERO
+                numPersons, bookingDate, slotNumber,
+                baseAmount, extraCharge, grossAmount, securityDeposit
         );
 
         bookingAuditRepository.save(
@@ -174,6 +163,51 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 bookingNumber, room.getRoomNumber(), request.getCustomerName(), request.getCreatedBy());
 
         return bookingNumber;
+    }
+
+    private LocalDate computeBookingDate(LocalDateTime checkInTime) {
+        int dayStartHour = appConfigService.getInt("dayStartHour", 6);
+        LocalDate date = checkInTime.toLocalDate();
+        return checkInTime.getHour() >= dayStartHour ? date : date.minusDays(1);
+    }
+
+    private LocalDateTime computeScheduledCheckOut(LocalDate bookingDate) {
+        int dayStartHour = appConfigService.getInt("dayStartHour", 6);
+        return bookingDate.plusDays(1).atTime(dayStartHour, 0);
+    }
+
+    private BigDecimal calculateBaseAmount(Room room, int numPersons) {
+        if (room.getCategory().getPricingType() == PricingType.PERSON_COUNT) {
+            int extraPersons = Math.max(0, numPersons - PERSON_COUNT_BASE_PERSONS);
+            BigDecimal extraCost = room.getExtraPersonCost() == null
+                    ? BigDecimal.ZERO : room.getExtraPersonCost();
+            return room.getBaseRent24Hr().add(extraCost.multiply(BigDecimal.valueOf(extraPersons)));
+        }
+        return room.getBaseRent24Hr();
+    }
+
+    private String generateBookingNumber(String username) {
+        Long seq = ((Number) entityManager
+                .createNativeQuery("SELECT nextval('room_booking_seq')")
+                .getSingleResult()).longValue();
+
+        return "BN-" + initialsOf(username) + "-" + Year.now().getValue()
+                + "-" + String.format("%07d", seq);
+    }
+
+    private String initialsOf(String username) {
+        try {
+            User user = authContextService.getLoggedInUser(username);
+            String name = user.getName();
+            if (name == null || name.isBlank()) return "X";
+            String[] parts = name.trim().split("\\s+");
+            if (parts.length == 1) {
+                return parts[0].substring(0, 1).toUpperCase();
+            }
+            return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)).toUpperCase();
+        } catch (Exception e) {
+            return "X";
+        }
     }
 
     @Override
@@ -244,7 +278,7 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             );
         }
 
-        // 1️⃣ Update extra charge if provided
+        // 1️⃣ Update extra charge if provided ("Extra Amount")
         BigDecimal extraCharge = request.getExtraChargeAmount() == null
                 ? booking.getExtraChargeAmount()
                 : request.getExtraChargeAmount();
@@ -252,35 +286,40 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         booking.setExtraChargeAmount(extraCharge);
 
         // 2️⃣ Recalculate gross amount
-        BigDecimal gross = booking.getBaseAmount()
-                .add(booking.getExtraSurchargeAmount())
-                .add(extraCharge);
+        BigDecimal gross = booking.getBaseAmount().add(extraCharge);
 
         booking.setGrossAmount(gross);
-        booking.setNetPayableAmount(gross);
 
-        // 3️⃣ Apply deposit deduction
+        // 3️⃣ Penalty / deduction — CAN exceed deposit; reason required whenever > 0
         BigDecimal deduction = request.getDeductionFromDeposit() == null
                 ? BigDecimal.ZERO
                 : request.getDeductionFromDeposit();
 
-        if (deduction.compareTo(booking.getSecurityDeposit()) > 0) {
-            throw new RuntimeException("Deduction cannot exceed deposit");
+        if (deduction.signum() > 0 &&
+                (request.getPenaltyReason() == null || request.getPenaltyReason().isBlank())) {
+            throw new RuntimeException("Reason for Penalty / Deduction is required");
         }
 
         booking.setDeductionFromDeposit(deduction);
+        booking.setPenaltyReason(deduction.signum() > 0 ? request.getPenaltyReason() : null);
 
-        // 4️⃣ Update checkout time
+        // 4️⃣ Net cash to collect = Base + Extra Amount + Penalty − Deposit Collected
+        BigDecimal deposit = booking.getSecurityDeposit() == null
+                ? BigDecimal.ZERO : booking.getSecurityDeposit();
+        BigDecimal netPayable = gross.add(deduction).subtract(deposit);
+        booking.setNetPayableAmount(netPayable);
+
+        // 5️⃣ Update checkout time
         booking.setActualCheckOutTime(LocalDateTime.now());
         booking.setStatus(BookingStatus.CHECKED_OUT);
 
-        // 5️⃣ Mark room as DIRTY
+        // 6️⃣ Mark room as DIRTY
         Room room = booking.getRoom();
         room.setCleaningStatus(
                 in.temple.backend.model.enums.CleaningStatus.DIRTY
         );
 
-        // 6️⃣ Audit entry
+        // 7️⃣ Audit entry
         bookingAuditRepository.save(
                 RoomBookingAudit.builder()
                         .bookingId(booking.getId())
@@ -333,19 +372,24 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             throw new NotFoundException("New room not found");
         }
 
-        // 3️⃣ Overlap check for new room
-        boolean overlap = bookingRepository.existsOverlappingBooking(
-                newRoom.getId(),
-                List.of(BookingStatus.BOOKED, BookingStatus.CHECKED_IN),
-                request.getNewScheduledCheckIn(),
-                request.getNewScheduledCheckOut()
-        );
-
-        if (overlap) {
-            throw new RuntimeException("New room already booked for selected time");
+        if (newRoom.getStatus() == in.temple.backend.model.enums.RoomStatus.MAINTENANCE) {
+            throw new RuntimeException("Target room is under maintenance");
         }
 
-        // 4️⃣ Settle old booking (manual adjustments)
+        if (bookingRepository.existsByRoomIdAndStatus(newRoom.getId(), BookingStatus.CHECKED_IN)) {
+            throw new RuntimeException("Target room is currently occupied");
+        }
+
+        // 3️⃣ Occupancy validation on target room (NA-strict rule via maxOccupancy)
+        int numPersons = oldBooking.getNumPersons() == null ? 1 : oldBooking.getNumPersons();
+        if (newRoom.getMaxOccupancy() != null && numPersons > newRoom.getMaxOccupancy()) {
+            throw new RuntimeException(
+                    "Number of persons (" + numPersons + ") exceeds target room's max occupancy ("
+                            + newRoom.getMaxOccupancy() + ")"
+            );
+        }
+
+        // 4️⃣ Settle old booking (manual adjustments) — no overlap/time check; no cap on bookings per room per day
         BigDecimal extraCharge = request.getExtraChargeAmount() == null
                 ? oldBooking.getExtraChargeAmount()
                 : request.getExtraChargeAmount();
@@ -354,18 +398,15 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 ? BigDecimal.ZERO
                 : request.getDeductionFromDeposit();
 
-        if (deduction.compareTo(oldBooking.getSecurityDeposit()) > 0) {
-            throw new RuntimeException("Deduction exceeds deposit");
-        }
-
         oldBooking.setExtraChargeAmount(extraCharge);
 
-        BigDecimal gross = oldBooking.getBaseAmount()
-                .add(oldBooking.getExtraSurchargeAmount())
-                .add(extraCharge);
+        BigDecimal gross = oldBooking.getBaseAmount().add(extraCharge);
+
+        BigDecimal oldDeposit = oldBooking.getSecurityDeposit() == null
+                ? BigDecimal.ZERO : oldBooking.getSecurityDeposit();
 
         oldBooking.setGrossAmount(gross);
-        oldBooking.setNetPayableAmount(gross);
+        oldBooking.setNetPayableAmount(gross.add(deduction).subtract(oldDeposit));
         oldBooking.setDeductionFromDeposit(deduction);
 
         oldBooking.setActualCheckOutTime(LocalDateTime.now());
@@ -377,28 +418,24 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                         in.temple.backend.model.enums.CleaningStatus.DIRTY
                 );
 
-        // 5️⃣ Carry forward remaining deposit
-        BigDecimal carryForwardDeposit =
-                oldBooking.getSecurityDeposit().subtract(deduction);
-
-        // 6️⃣ Create new booking
-        Long seq = ((Number) entityManager
-                .createNativeQuery("SELECT nextval('room_booking_seq')")
-                .getSingleResult()).longValue();
-
-        String newBookingNumber = "ROOM-"
-                + java.time.Year.now().getValue()
-                + "-" + String.format("%07d", seq);
-
-        BigDecimal baseAmount;
-
-        switch (oldBooking.getBookingType()) {
-            case TWENTY_FOUR_HOUR -> baseAmount = newRoom.getBaseRent24Hr();
-            case FIXED_SLOT -> baseAmount = newRoom.getBaseRentFixed();
-            case THREE_HOUR -> baseAmount = newRoom.getBaseRent3Hr();
-            case SIX_HOUR -> baseAmount = newRoom.getBaseRent6Hr();
-            default -> throw new RuntimeException("Invalid booking type");
+        // 5️⃣ Carry forward remaining deposit, if any
+        BigDecimal carryForwardDeposit = oldDeposit.subtract(deduction);
+        if (carryForwardDeposit.signum() <= 0) {
+            carryForwardDeposit = BigDecimal.ZERO;
         }
+
+        // 6️⃣ Create new booking — same day-cycle window as the booking being shifted
+        LocalDate bookingDate = oldBooking.getBookingDate() != null
+                ? oldBooking.getBookingDate() : computeBookingDate(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime scheduledCheckOut = computeScheduledCheckOut(bookingDate);
+
+        long existingCount = bookingRepository.countByRoomIdAndBookingDate(newRoom.getId(), bookingDate);
+        int slotNumber = (int) existingCount + 1;
+
+        String newBookingNumber = generateBookingNumber(request.getHandledBy());
+
+        BigDecimal baseAmount = calculateBaseAmount(newRoom, numPersons);
 
         RoomBooking newBooking = RoomBooking.builder()
                 .bookingNumber(newBookingNumber)
@@ -407,16 +444,20 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 .mobileNumber(oldBooking.getMobileNumber())
                 .idProofType(oldBooking.getIdProofType())
                 .idProofNumber(oldBooking.getIdProofNumber())
-                .bookingType(oldBooking.getBookingType())
-                .scheduledCheckIn(request.getNewScheduledCheckIn())
-                .scheduledCheckOut(request.getNewScheduledCheckOut())
+                .bookingType(BookingType.TWENTY_FOUR_HOUR)
+                .numPersons(numPersons)
+                .bookingDate(bookingDate)
+                .slotNumber(slotNumber)
+                .scheduledCheckIn(now)
+                .scheduledCheckOut(scheduledCheckOut)
+                .actualCheckInTime(now)
                 .baseAmount(baseAmount)
                 .extraSurchargeAmount(BigDecimal.ZERO)
                 .extraChargeAmount(BigDecimal.ZERO)
                 .grossAmount(baseAmount)
                 .securityDeposit(carryForwardDeposit)
                 .netPayableAmount(baseAmount)
-                .status(BookingStatus.BOOKED)
+                .status(BookingStatus.CHECKED_IN)
                 .shiftedFromBookingId(oldBooking.getId())
                 .createdBy(request.getHandledBy())
                 .build();
@@ -550,7 +591,8 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         return RoomAvailabilityDto.builder()
                 .roomId(room.getId())
                 .roomNumber(room.getRoomNumber())
-                .blockName(room.getBlockName())
+                .bhaktniwasBlockId(room.getBhaktniwasBlock().getId())
+                .blockName(room.getBhaktniwasBlock().getDisplayName())
                 .roomStatus(room.getStatus())
                 .cleaningStatus(room.getCleaningStatus())
                 .available(available)
@@ -729,6 +771,125 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<DailySheetRoomDto> getDailySheet(Long bhaktniwasBlockId, LocalDate date) {
+
+        List<Room> rooms = roomRepository
+                .findByBhaktniwasBlock_IdAndIsActiveTrueOrderByRoomNumberAsc(bhaktniwasBlockId);
+
+        LocalDateTime dayStart = date.atStartOfDay();
+        LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+
+        return rooms.stream().map(room -> {
+
+            boolean maintenance = room.getStatus() == in.temple.backend.model.enums.RoomStatus.MAINTENANCE;
+
+            var activeBlock = roomBlockRepository
+                    .findActiveBlocksForPeriod(room.getId(), dayStart, dayEnd)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            boolean blocked = activeBlock != null;
+
+            List<RoomBooking> bookings = bookingRepository
+                    .findByRoomIdAndBookingDateOrderByActualCheckInTimeAsc(room.getId(), date);
+
+            List<SlotDto> slots = new java.util.ArrayList<>();
+
+            // Pending checkout carryover — a still-CHECKED_IN booking from an earlier bookingDate
+            // must stay visible (flagged) on today's sheet until it's actually checked out.
+            bookingRepository.findByRoomIdAndStatus(room.getId(), BookingStatus.CHECKED_IN).stream()
+                    .filter(b -> b.getBookingDate() != null && b.getBookingDate().isBefore(date))
+                    .findFirst()
+                    .ifPresent(b -> slots.add(SlotDto.builder()
+                            .slotNumber(0)
+                            .status(b.getStatus().name())
+                            .bookingNumber(b.getBookingNumber())
+                            .guestName(b.getCustomerName())
+                            .checkInTime(b.getActualCheckInTime())
+                            .pending(true)
+                            .build()));
+
+            int slotNo = 0;
+            for (RoomBooking b : bookings) {
+                slotNo++;
+                slots.add(SlotDto.builder()
+                        .slotNumber(slotNo)
+                        .status(b.getStatus().name())
+                        .bookingNumber(b.getBookingNumber())
+                        .guestName(b.getCustomerName())
+                        .checkInTime(b.getActualCheckInTime())
+                        .build());
+            }
+
+            // "Occupied + 1" rule — no trailing available slot when blocked/under maintenance
+            if (!blocked && !maintenance) {
+                slots.add(SlotDto.builder()
+                        .slotNumber(slotNo + 1)
+                        .status("AVAILABLE")
+                        .build());
+            }
+
+            return DailySheetRoomDto.builder()
+                    .roomId(room.getId())
+                    .roomNumber(room.getRoomNumber())
+                    .categoryName(room.getCategory().getName())
+                    .cleaningStatus(room.getCleaningStatus() != null ? room.getCleaningStatus().name() : null)
+                    .maxOccupancy(room.getMaxOccupancy())
+                    .baseRent24Hr(room.getBaseRent24Hr())
+                    .pricingType(room.getCategory().getPricingType() != null
+                            ? room.getCategory().getPricingType().name() : null)
+                    .extraPersonCost(room.getExtraPersonCost())
+                    .blocked(blocked)
+                    .blockedBy(activeBlock != null ? activeBlock.getBlockedBy() : null)
+                    .blockReason(activeBlock != null ? activeBlock.getReason() : null)
+                    .maintenance(maintenance)
+                    .slots(slots)
+                    .build();
+        }).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserCollectionReportDto getUserCollectionReport(String username, LocalDate date) {
+
+        List<RoomBooking> bookings = bookingRepository.findByCreatedByAndBookingDate(username, date);
+
+        List<UserCollectionRowDto> rows = bookings.stream()
+                .map(b -> UserCollectionRowDto.builder()
+                        .roomNumber(b.getRoom().getRoomNumber())
+                        .bookingNumber(b.getBookingNumber())
+                        .customerName(b.getCustomerName())
+                        .numPersons(b.getNumPersons())
+                        .checkIn(b.getActualCheckInTime())
+                        .checkOut(b.getActualCheckOutTime())
+                        .baseAmount(b.getBaseAmount())
+                        .extraAmount(b.getExtraChargeAmount())
+                        .penalty(b.getDeductionFromDeposit())
+                        .netPayableAmount(b.getNetPayableAmount())
+                        .status(b.getStatus())
+                        .build())
+                .toList();
+
+        int totalPersons = bookings.stream()
+                .mapToInt(b -> b.getNumPersons() == null ? 0 : b.getNumPersons())
+                .sum();
+
+        BigDecimal totalAmount = bookings.stream()
+                .map(b -> b.getGrossAmount() == null ? BigDecimal.ZERO : b.getGrossAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return UserCollectionReportDto.builder()
+                .username(username)
+                .date(date)
+                .totalBookings(bookings.size())
+                .totalPersons(totalPersons)
+                .totalAmount(totalAmount)
+                .rows(rows)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public RoomBookingDetailDto getBookingDetail(String bookingNumber) {
         RoomBooking b = bookingRepository.findByBookingNumber(bookingNumber)
                 .orElseThrow(() -> new NotFoundException("Booking not found: " + bookingNumber));
@@ -737,11 +898,13 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 .bookingNumber(b.getBookingNumber())
                 .roomId(b.getRoom().getId())
                 .roomNumber(b.getRoom().getRoomNumber())
-                .blockName(b.getRoom().getBlockName())
+                .bhaktniwasBlockId(b.getRoom().getBhaktniwasBlock().getId())
+                .blockName(b.getRoom().getBhaktniwasBlock().getDisplayName())
                 .customerName(b.getCustomerName())
                 .mobileNumber(b.getMobileNumber())
                 .idProofType(b.getIdProofType())
                 .idProofNumber(b.getIdProofNumber())
+                .numPersons(b.getNumPersons())
                 .bookingType(b.getBookingType())
                 .status(b.getStatus())
                 .scheduledCheckIn(b.getScheduledCheckIn())
@@ -765,11 +928,11 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
     @Override
     @Transactional
-    public byte[] printBookingReceipt(String bookingNumber) {
+    public byte[] printBookingReceipt(String bookingNumber, String language) {
         RoomBooking booking = bookingRepository.findByBookingNumber(bookingNumber)
                 .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingNumber));
 
-        byte[] pdf = generateBookingReceiptPdf(booking);
+        byte[] pdf = generateBookingReceiptPdf(booking, language);
 
         bookingAuditRepository.save(
                 RoomBookingAudit.builder()
@@ -790,7 +953,8 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         return pdf;
     }
 
-    private byte[] generateBookingReceiptPdf(RoomBooking booking) {
+    private byte[] generateBookingReceiptPdf(RoomBooking booking, String language) {
+        boolean en = "en".equalsIgnoreCase(language);
         try {
             // AM/PM datetime formatter
             java.time.format.DateTimeFormatter dtFmt =
@@ -801,7 +965,9 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             String createdOn = booking.getCreatedAt()         != null ? booking.getCreatedAt().format(dtFmt)          : "";
 
             Room room = booking.getRoom();
-            String roomInfo = "कक्ष " + room.getRoomNumber() + " - ब्लॉक " + room.getBlockName();
+            String roomInfo = en
+                    ? "Room " + room.getRoomNumber() + " - Block " + room.getBhaktniwasBlock().getDisplayName()
+                    : "कक्ष " + room.getRoomNumber() + " - ब्लॉक " + room.getBhaktniwasBlock().getDisplayName();
 
             String grossAmt   = String.format("%,.0f", booking.getGrossAmount()    != null ? booking.getGrossAmount()    : java.math.BigDecimal.ZERO);
             String depositAmt = String.format("%,.0f", booking.getSecurityDeposit() != null ? booking.getSecurityDeposit() : java.math.BigDecimal.ZERO);
@@ -815,7 +981,7 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             java.awt.Font baseFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, fontStream);
             fontStream.close();
 
-            final int SCALE  = 2;
+            final int SCALE  = 3;
             final int W      = 420 * SCALE;
             final int H      = 595 * SCALE;
             final int M      = 36  * SCALE;   // left/right margin
@@ -854,11 +1020,13 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                 tl.draw(g, rx - tw, ry);
             };
 
+            final int CONTENT_W = W - 2 * M;
             int y = 90 * SCALE;
 
             // ── Title ─────────────────────────────────────────────────────────
+            String title = en ? "Bhakt Niwas Booking Receipt" : "भक्त निवास बुकिंग रसीद";
             java.awt.font.TextLayout titleLayout =
-                    new java.awt.font.TextLayout("भक्त निवास बुकिंग रसीद", fTitle, frc);
+                    new java.awt.font.TextLayout(title, fTitle, frc);
             int titleW = (int) titleLayout.getBounds().getWidth();
             int titleX = (W - titleW) / 2;
             titleLayout.draw(g, titleX, y);
@@ -868,15 +1036,16 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             y += (int) titleLayout.getBounds().getHeight() + 18 * SCALE;
 
             // ── Booking number & date ─────────────────────────────────────────
-            drawBookingLine(g, "रसीद क्रमांक: " + booking.getBookingNumber(), M, y, fNormal, frc);
-            drawBookingLine(g, "दिनांक: " + createdOn, M + 200 * SCALE, y, fNormal, frc);
+            drawBookingLine(g, (en ? "Receipt No: " : "रसीद क्रमांक: ") + booking.getBookingNumber(), M, y, fNormal, frc);
+            drawBookingLine(g, (en ? "Date: " : "दिनांक: ") + createdOn, M + 200 * SCALE, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
             // ── Customer ──────────────────────────────────────────────────────
-            drawBookingLine(g, "अतिथि नाम: " + booking.getCustomerName(), M, y, fBold, frc);
-            y += LINE_H + 4 * SCALE;
-            drawBookingLine(g, "मोबाइल: " + booking.getMobileNumber(), M, y, fNormal, frc);
-            drawBookingLine(g, "पहचान पत्र (" + booking.getIdProofType().name() + "): " + booking.getIdProofNumber(), M + 190 * SCALE, y, fNormal, frc);
+            y = drawBookingWrapped(g, (en ? "Guest Name: " : "अतिथि नाम: ") + booking.getCustomerName(),
+                    M, y, CONTENT_W, fBold, frc, LINE_H);
+            y += 4 * SCALE;
+            drawBookingLine(g, (en ? "Mobile: " : "मोबाइल: ") + booking.getMobileNumber(), M, y, fNormal, frc);
+            drawBookingLine(g, (en ? "ID Proof (" : "पहचान पत्र (") + booking.getIdProofType().name() + "): " + booking.getIdProofNumber(), M + 190 * SCALE, y, fNormal, frc);
             y += LINE_H + 4 * SCALE;
 
             // ── Horizontal rule ───────────────────────────────────────────────
@@ -885,12 +1054,12 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             y += 12 * SCALE;
 
             // ── Room details ──────────────────────────────────────────────────
-            drawBookingLine(g, roomInfo, M, y, fBold, frc);
-            y += LINE_H + 6 * SCALE;
+            y = drawBookingWrapped(g, roomInfo, M, y, CONTENT_W, fBold, frc, LINE_H);
+            y += 6 * SCALE;
 
             // Check-in and check-out on ONE line
-            drawBookingLine(g, "चेक-इन: " + checkIn, M, y, fNormal, frc);
-            drawBookingLine(g, "चेक-आउट: " + checkOut, M + 190 * SCALE, y, fNormal, frc);
+            drawBookingLine(g, (en ? "Check-in: " : "चेक-इन: ") + checkIn, M, y, fNormal, frc);
+            drawBookingLine(g, (en ? "Check-out: " : "चेक-आउट: ") + checkOut, M + 190 * SCALE, y, fNormal, frc);
             y += LINE_H + 4 * SCALE;
 
             // ── Horizontal rule ───────────────────────────────────────────────
@@ -900,18 +1069,18 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
             // ── Amount table — left label, right-aligned amount ───────────────
             // col2X is the right edge for amounts — same as RIGHT
-            drawBookingLine(g, "बेस किराया:", M, y, fNormal, frc);
+            drawBookingLine(g, en ? "Base Rent:" : "बेस किराया:", M, y, fNormal, frc);
             drawRight.accept(new Object[]{"₹ " + String.format("%,.0f", booking.getBaseAmount() != null ? booking.getBaseAmount() : java.math.BigDecimal.ZERO), RIGHT, y, fNormal});
             y += LINE_H;
 
             if (booking.getExtraSurchargeAmount() != null && booking.getExtraSurchargeAmount().signum() > 0) {
-                drawBookingLine(g, "अतिरिक्त सरचार्ज:", M, y, fNormal, frc);
+                drawBookingLine(g, en ? "Extra Surcharge:" : "अतिरिक्त सरचार्ज:", M, y, fNormal, frc);
                 drawRight.accept(new Object[]{"₹ " + String.format("%,.0f", booking.getExtraSurchargeAmount()), RIGHT, y, fNormal});
                 y += LINE_H;
             }
 
             if (booking.getExtraChargeAmount() != null && booking.getExtraChargeAmount().signum() > 0) {
-                drawBookingLine(g, "अतिरिक्त शुल्क:", M, y, fNormal, frc);
+                drawBookingLine(g, en ? "Extra Charge:" : "अतिरिक्त शुल्क:", M, y, fNormal, frc);
                 drawRight.accept(new Object[]{"₹ " + String.format("%,.0f", booking.getExtraChargeAmount()), RIGHT, y, fNormal});
                 y += LINE_H;
             }
@@ -922,11 +1091,11 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             g.drawLine(M, y, RIGHT, y);
             y += 18 * SCALE;
 
-            drawBookingLine(g, "कुल राशि:", M, y, fBold, frc);
+            drawBookingLine(g, en ? "Total Amount:" : "कुल राशि:", M, y, fBold, frc);
             drawRight.accept(new Object[]{"₹ " + grossAmt + " /-", RIGHT, y, fBold});
             y += LINE_H;
 
-            drawBookingLine(g, "जमानत राशि:", M, y, fNormal, frc);
+            drawBookingLine(g, en ? "Security Deposit:" : "जमानत राशि:", M, y, fNormal, frc);
             drawRight.accept(new Object[]{"₹ " + depositAmt + " /-", RIGHT, y, fNormal});
             y += LINE_H + 4 * SCALE;
 
@@ -936,25 +1105,34 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             y += 12 * SCALE;
 
             // ── Signatory ─────────────────────────────────────────────────────
-            drawBookingLine(g, "प्राप्तकर्ता:", M, y, fNormal, frc);
+            drawBookingLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
             y += (int)(LINE_H * 1.5);
             drawBookingLine(g, booking.getCreatedBy(), M, y, fNormal, frc); y += LINE_H;
-            drawBookingLine(g, "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
-            drawBookingLine(g, "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
+            drawBookingLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
+            drawBookingLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
             y += LINE_H + 14 * SCALE;
 
             // ── Terms & Conditions (below signatory, no HR above/below) ──────
-            drawBookingLine(g, "नियम एवं शर्तें:", M, y, fBold, frc);
+            drawBookingLine(g, en ? "Terms & Conditions:" : "नियम एवं शर्तें:", M, y, fBold, frc);
             y += LINE_H + 2 * SCALE;
-            drawBookingLine(g, "1. बुकिंग किसी भी परिस्थिति में रद्द नहीं होगी और कोई धनवापसी नहीं दी जाएगी।", M, y, fTiny, frc);
-            y += (int)(LINE_H * 0.95);
-            drawBookingLine(g, "2. देर से चेक-आउट किसी भी स्थिति में स्वीकार्य नहीं है।", M, y, fTiny, frc);
-            y += (int)(LINE_H * 0.95);
-            drawBookingLine(g, "   प्रातः 10 बजे तक कक्ष खाली न करने पर पूर्ण दिन का शुल्क देय होगा।", M, y, fTiny, frc);
-            y += LINE_H + 12 * SCALE;
+            y = drawBookingWrapped(g, en
+                    ? "1. Booking is non-cancellable and non-refundable under any circumstances."
+                    : "1. बुकिंग किसी भी परिस्थिति में रद्द नहीं होगी और कोई धनवापसी नहीं दी जाएगी।",
+                    M, y, CONTENT_W, fTiny, frc, (int)(LINE_H * 0.95));
+            y = drawBookingWrapped(g, en
+                    ? "2. Late check-out is not acceptable under any circumstances."
+                    : "2. देर से चेक-आउट किसी भी स्थिति में स्वीकार्य नहीं है।",
+                    M, y, CONTENT_W, fTiny, frc, (int)(LINE_H * 0.95));
+            y = drawBookingWrapped(g, en
+                    ? "   Full day's charge will apply if the room is not vacated by 10 AM."
+                    : "   प्रातः 10 बजे तक कक्ष खाली न करने पर पूर्ण दिन का शुल्क देय होगा।",
+                    M, y, CONTENT_W, fTiny, frc, (int)(LINE_H * 0.95));
+            y += LINE_H + 12 * SCALE - (int)(LINE_H * 0.95);
 
             // ── Footer ────────────────────────────────────────────────────────
-            String footer = "कृपया चेक-आउट के समय यह रसीद प्रस्तुत करें।";
+            String footer = en
+                    ? "Please present this receipt at the time of check-out."
+                    : "कृपया चेक-आउट के समय यह रसीद प्रस्तुत करें।";
             java.awt.font.TextLayout tl = new java.awt.font.TextLayout(footer, fSmall, frc);
             int fx = (int)((W - tl.getBounds().getWidth()) / 2);
             drawBookingLine(g, footer, fx, y, fSmall, frc);
@@ -964,9 +1142,9 @@ public class RoomBookingServiceImpl implements RoomBookingService {
 
             g.dispose();
 
-            // ── JPEG → PDF ────────────────────────────────────────────────────
+            // ── PNG (lossless) → PDF ─────────────────────────────────────────────
             java.io.ByteArrayOutputStream imgOut = new java.io.ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "JPEG", imgOut);
+            javax.imageio.ImageIO.write(img, "png", imgOut);
 
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             com.lowagie.text.Document document =
@@ -994,6 +1172,30 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                                         java.awt.Font font, java.awt.font.FontRenderContext frc) {
         if (text == null || text.isEmpty()) return;
         new java.awt.font.TextLayout(text, font, frc).draw(g, x, y);
+    }
+
+    /**
+     * Draw text wrapped at word boundaries to fit maxWidth, instead of running
+     * past the bitmap edge and getting silently clipped on print. Returns the
+     * y position ready for the next line after the wrapped block.
+     */
+    private static int drawBookingWrapped(java.awt.Graphics2D g, String text, int x, int y, int maxWidth,
+                                           java.awt.Font font,
+                                           java.awt.font.FontRenderContext frc, int lineHeight) {
+        if (text == null || text.isEmpty()) return y;
+
+        java.text.AttributedString attrText = new java.text.AttributedString(text);
+        attrText.addAttribute(java.awt.font.TextAttribute.FONT, font);
+        java.awt.font.LineBreakMeasurer measurer =
+                new java.awt.font.LineBreakMeasurer(attrText.getIterator(), frc);
+
+        int curY = y;
+        while (measurer.getPosition() < text.length()) {
+            java.awt.font.TextLayout layout = measurer.nextLayout(maxWidth);
+            layout.draw(g, x, curY);
+            curY += lineHeight;
+        }
+        return curY;
     }
 
 }

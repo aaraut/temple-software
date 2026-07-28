@@ -37,6 +37,9 @@ public class RoomCategoryController {
         existing.setName(category.getName());
         existing.setDescription(category.getDescription());
         existing.setIsActive(category.getIsActive());
+        if (category.getPricingType() != null) {
+            existing.setPricingType(category.getPricingType());
+        }
 
         return repository.save(existing);
     }

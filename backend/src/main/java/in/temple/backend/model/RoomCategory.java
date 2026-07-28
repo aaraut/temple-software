@@ -1,5 +1,6 @@
 package in.temple.backend.model;
 
+import in.temple.backend.model.enums.PricingType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,4 +24,14 @@ public class RoomCategory {
 
     @Column(nullable = false)
     private Boolean isActive = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pricing_type", nullable = false, length = 20)
+    private PricingType pricingType;
+
+    @PrePersist
+    public void prePersist() {
+        if (pricingType == null) pricingType = PricingType.FIXED;
+        if (isActive == null) isActive = true;
+    }
 }

@@ -22,8 +22,11 @@ import MyRentalEntriesPage from "./pages/reports/MyRentalEntriesPage";
 import RentalDetailPage from "./pages/rental/RentalDetailPage";
 import "./styles/print.css";
 import RoomPage from "./pages/room/RoomInventoryPage";
+import RoomCategoryPage from "./pages/room/RoomCategoryPage";
 import RoomBookingPage from "./pages/room/RoomBookingPage";
 import BhaktNiwasPage from "./pages/bhaktniwas/BhaktNiwasPage";
+import RoomGridPage from "./pages/bhaktniwas/RoomGridPage";
+import BookingSearchPage from "./pages/bhaktniwas/BookingSearchPage";
 import DonationPurposePage from "./pages/master/DonationPurposePage";
 import CollectionDashboard from "./pages/dashboard/CollectionDashboard";
 import DonationDetails from "./pages/reports/DonationDetails";
@@ -130,6 +133,26 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/bhakt-niwas/:blockId"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RoomGridPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bhakt-niwas-search"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <BookingSearchPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
 
 
         <Route
@@ -148,6 +171,16 @@ function App() {
             <ProtectedRoute>
               <ProtectedLayout>
                 <RoomPage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory/room-categories"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <RoomCategoryPage />
               </ProtectedLayout>
             </ProtectedRoute>
           }

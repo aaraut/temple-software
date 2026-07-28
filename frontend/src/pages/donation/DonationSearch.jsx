@@ -99,7 +99,7 @@ export default function DonationSearch() {
 
   const handlePrint = async (row) => {
     try {
-      const response = await printDonation(row.id);
+      const response = await printDonation(row.id, language);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
       window.open(url);
     } catch { showToast(language === "hi" ? "प्रिंट में त्रुटि" : "Print failed", "error"); }

@@ -46,8 +46,9 @@ export const getRevenueReport = (username, start, end) =>
     params: { username, start, end },
   });
 /* ---------- PRINT RECEIPT ---------- */
-export const printBookingReceipt = (bookingNumber) =>
+export const printBookingReceipt = (bookingNumber, language = "hi") =>
   axiosClient.get(`/room-bookings/${encodeURIComponent(bookingNumber)}/print`, {
+    params: { language },
     responseType: "blob",
   });
 

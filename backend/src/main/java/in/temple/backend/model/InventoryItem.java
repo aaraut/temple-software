@@ -32,6 +32,9 @@ public class InventoryItem {
     @Column(name = "material_name_hi", nullable = false)
     private String materialNameHi;
 
+    @Column(name = "material_name_en")
+    private String materialNameEn;
+
     @Column(nullable = false)
     private String unit;
 

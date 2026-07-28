@@ -65,9 +65,9 @@ export default function DonationDetails() {
       print: "प्रिंट",
       update: "अपडेट",
       disable: "डिलीट",
-      confirmTitle: "डिलीट की पुष्टि करें",
+      confirmTitle: "डिलीट कन्फर्म करें",
       confirmMsg: "क्या आप इस दान को डिलीट करना चाहते हैं?",
-      cancel: "रद्द करें",
+      cancel: "कैंसिल",
       confirm: "हाँ, डिलीट करें",
     },
     en: {
@@ -130,7 +130,7 @@ export default function DonationDetails() {
   };
 
   const handlePrint = async (row) => {
-    const response = await printDonation(row.id);
+    const response = await printDonation(row.id, language);
     const url = window.URL.createObjectURL(
       new Blob([response.data], { type: "application/pdf" })
     );

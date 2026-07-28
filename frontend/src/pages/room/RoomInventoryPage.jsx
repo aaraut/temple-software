@@ -6,6 +6,8 @@ import {
   Select,
   InputLabel,
   FormControl,
+  FormControlLabel,
+  Switch,
   Snackbar,
   Alert,
   Grid,
@@ -24,12 +26,25 @@ import {
   createRoom,
   updateRoom,
   getRoomCategories,
-  getAmenities,
+  getBhaktniwasBlocks,
   updateCleaningStatus,
   deleteRoom
 } from "../../api/roomApi";
 
 import { useAuth } from "../../context/AuthContext";
+
+const emptyForm = {
+  roomNumber: "",
+  categoryId: "",
+  bhaktniwasBlockId: "",
+  floor: "",
+  maxOccupancy: "",
+  baseRent24Hr: "",
+  defaultSecurityDeposit: "",
+  allowExtraPerson: false,
+  extraPersonCost: "",
+  remarks: "",
+};
 
 export default function RoomInventoryPage() {
   const { auth, language } = useAuth();
@@ -44,15 +59,14 @@ export default function RoomInventoryPage() {
       block: "Block",
       floor: "Floor",
       maxOccupancy: "Max Occupancy",
-      rent24: "24Hr Rent",
-      rentFixed: "Fixed Rent",
-      rent3: "3Hr Rent",
-      rent6: "6Hr Rent",
+      baseRent: "Base Rent (Per Day)",
       deposit: "Security Deposit",
+      allowExtraPerson: "Allow Extra Person",
+      extraPersonCost: "Extra Person Cost",
       remarks: "Remarks",
-      amenities: "Amenities",
       existingRooms: "Existing Rooms",
       room: "Room",
+      category2: "Category",
       status: "Status",
       cleaning: "Cleaning",
       action: "Action",
@@ -62,27 +76,26 @@ export default function RoomInventoryPage() {
     },
     hi: {
       title: "कमरा सूची प्रबंधन",
-      editRoom: "कमरा संपादित करें",
+      editRoom: "कमरा एडिट करें",
       createRoom: "नया कमरा बनाएं",
       roomNumber: "कमरा नंबर",
       category: "श्रेणी",
       block: "ब्लॉक",
       floor: "मंजिल",
       maxOccupancy: "अधिकतम क्षमता",
-      rent24: "24 घंटे किराया",
-      rentFixed: "निश्चित किराया",
-      rent3: "3 घंटे किराया",
-      rent6: "6 घंटे किराया",
+      baseRent: "मूल किराया (प्रति दिन)",
       deposit: "सुरक्षा जमा",
+      allowExtraPerson: "अतिरिक्त व्यक्ति की अनुमति",
+      extraPersonCost: "अतिरिक्त व्यक्ति शुल्क",
       remarks: "टिप्पणी",
-      amenities: "सुविधाएं",
       existingRooms: "मौजूदा कमरे",
       room: "कमरा",
+      category2: "श्रेणी",
       status: "स्थिति",
       cleaning: "सफाई",
       action: "कार्य",
-      edit: "संपादित करें",
-      delete: "हटाएं",
+      edit: "एडिट",
+      delete: "डिलीट",
       updateRoom: "कमरा अपडेट करें",
     },
   };
@@ -90,25 +103,12 @@ export default function RoomInventoryPage() {
 
   const [rooms, setRooms] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [amenities, setAmenities] = useState([]);
+  const [blocks, setBlocks] = useState([]);
   const [editingId, setEditingId] = useState(null);
 
   const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({
-    roomNumber: "",
-    categoryId: "",
-    blockName: "",
-    floor: "",
-    maxOccupancy: "",
-    baseRent24Hr: "",
-    baseRentFixed: "",
-    baseRent3Hr: "",
-    baseRent6Hr: "",
-    defaultSecurityDeposit: "",
-    remarks: "",
-    amenities: [],
-  });
+  const [form, setForm] = useState(emptyForm);
 
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -116,15 +116,15 @@ export default function RoomInventoryPage() {
   // ---------------- Load Data ----------------
 
   const loadAll = async () => {
-    const [roomData, catData, amenityData] = await Promise.all([
+    const [roomData, catData, blockData] = await Promise.all([
       getRooms(),
       getRoomCategories(),
-      getAmenities(),
+      getBhaktniwasBlocks(),
     ]);
 
     setRooms(roomData);
     setCategories(catData);
-    setAmenities(amenityData);
+    setBlocks(blockData);
   };
 
   useEffect(() => {
@@ -146,34 +146,8 @@ export default function RoomInventoryPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleAmenityChange = (amenityId, quantity) => {
-    const updated = [...form.amenities];
-    const index = updated.findIndex((a) => a.amenityId === amenityId);
-
-    if (index > -1) {
-      updated[index].quantity = quantity;
-    } else {
-      updated.push({ amenityId, quantity });
-    }
-
-    setForm({ ...form, amenities: updated });
-  };
-
   const resetForm = () => {
-    setForm({
-      roomNumber: "",
-      categoryId: "",
-      blockName: "",
-      floor: "",
-      maxOccupancy: "",
-      baseRent24Hr: "",
-      baseRentFixed: "",
-      baseRent3Hr: "",
-      baseRent6Hr: "",
-      defaultSecurityDeposit: "",
-      remarks: "",
-      amenities: [],
-    });
+    setForm(emptyForm);
     setEditingId(null);
   };
 
@@ -201,16 +175,14 @@ export default function RoomInventoryPage() {
     setForm({
       roomNumber: room.roomNumber,
       categoryId: room.categoryId || "",
-      blockName: room.blockName || "",
+      bhaktniwasBlockId: room.bhaktniwasBlockId || "",
       floor: room.floor || "",
       maxOccupancy: room.maxOccupancy || "",
       baseRent24Hr: room.baseRent24Hr || "",
-      baseRentFixed: room.baseRentFixed || "",
-      baseRent3Hr: room.baseRent3Hr || "",
-      baseRent6Hr: room.baseRent6Hr || "",
       defaultSecurityDeposit: room.defaultSecurityDeposit || "",
+      allowExtraPerson: !!room.allowExtraPerson,
+      extraPersonCost: room.extraPersonCost || "",
       remarks: room.remarks || "",
-      amenities: [],
     });
 
     setEditingId(room.id);
@@ -229,7 +201,8 @@ export default function RoomInventoryPage() {
     }
   };
 
-  
+  const categoryName = (categoryId) =>
+    categories.find((c) => c.id === categoryId)?.name || "-";
 
   if (loading) return <p>{language === "hi" ? "लोड हो रहा है..." : "Loading..."}</p>;
 
@@ -274,14 +247,28 @@ export default function RoomInventoryPage() {
             </FormControl>
           </Grid>
 
+          <Grid item xs={6}>
+            <FormControl fullWidth sx={{ minWidth: 200 }}>
+              <InputLabel>{t.block}</InputLabel>
+              <Select
+                name="bhaktniwasBlockId"
+                value={form.bhaktniwasBlockId}
+                label={t.block}
+                onChange={handleChange}
+              >
+                {blocks.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
           {[
-            { label: t.block, name: "blockName" },
             { label: t.floor, name: "floor" },
             { label: t.maxOccupancy, name: "maxOccupancy", type: "number" },
-            { label: t.rent24, name: "baseRent24Hr", type: "number" },
-            { label: t.rentFixed, name: "baseRentFixed", type: "number" },
-            { label: t.rent3, name: "baseRent3Hr", type: "number" },
-            { label: t.rent6, name: "baseRent6Hr", type: "number" },
+            { label: t.baseRent, name: "baseRent24Hr", type: "number" },
             { label: t.deposit, name: "defaultSecurityDeposit", type: "number" },
           ].map((field) => (
             <Grid item xs={4} key={field.name}>
@@ -296,6 +283,30 @@ export default function RoomInventoryPage() {
             </Grid>
           ))}
 
+          <Grid item xs={4} sx={{ display: "flex", alignItems: "center" }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.allowExtraPerson}
+                  onChange={(e) => setForm({ ...form, allowExtraPerson: e.target.checked })}
+                />
+              }
+              label={t.allowExtraPerson}
+            />
+          </Grid>
+
+          {form.allowExtraPerson && (
+            <Grid item xs={4}>
+              <TextField
+                fullWidth
+                type="number"
+                label={t.extraPersonCost}
+                value={form.extraPersonCost}
+                onChange={(e) => setForm({ ...form, extraPersonCost: e.target.value })}
+              />
+            </Grid>
+          )}
+
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -306,23 +317,6 @@ export default function RoomInventoryPage() {
               multiline
               rows={2}
             />
-          </Grid>
-
-          {/* Amenities */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle1">{t.amenities}</Typography>
-            <Grid container spacing={2}>
-              {amenities.map((a) => (
-                <Grid item xs={3} key={a.id}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label={a.name}
-                    onChange={(e) => handleAmenityChange(a.id, Number(e.target.value))}
-                  />
-                </Grid>
-              ))}
-            </Grid>
           </Grid>
 
           <Grid item xs={12}>
@@ -344,6 +338,7 @@ export default function RoomInventoryPage() {
             <TableRow>
               <TableCell>{t.room}</TableCell>
               <TableCell>{t.block}</TableCell>
+              <TableCell>{t.category2}</TableCell>
               <TableCell>{t.floor}</TableCell>
               <TableCell>{t.status}</TableCell>
               <TableCell>{t.cleaning}</TableCell>
@@ -355,6 +350,7 @@ export default function RoomInventoryPage() {
               <TableRow key={r.id}>
                 <TableCell>{r.roomNumber}</TableCell>
                 <TableCell>{r.blockName}</TableCell>
+                <TableCell>{categoryName(r.categoryId)}</TableCell>
                 <TableCell>{r.floor}</TableCell>
                 <TableCell>
                   {r.status === "AVAILABLE" ? (language === "hi" ? "उपलब्ध" : "Available")

@@ -69,18 +69,19 @@ const L = {
     addItem: "+ सामान जोड़ें",
     amountSec: "राशि विवरण",
     calcTotal: "कुल योग (गणना)", charged: "देय राशि", deposit: "जमानत राशि",
-    saveBtn: "सेव और प्रिंट करें", resetBtn: "रद्द करें",
+    saveBtn: "सेव और प्रिंट करें", resetBtn: "रीसेट करें",
     autoFilled: "✔ पिछले रिकॉर्ड से भरा गया",
     searching: "खोज रहे हैं...",
     selectItem: "-- सामान चुनें --",
     available: "उपलब्ध",
-    confirmTitle: "क्या आप सहेजना चाहते हैं?",
-    confirmSub: "कृपया विवरण जांचें और पुष्टि करें",
+    confirmTitle: "क्या आप सेव करना चाहते हैं?",
+    confirmSub: "कृपया विवरण जांचें और कन्फर्म करें",
     confirmSave: "हाँ, सेव करें",
     confirmCancel: "वापस जाएं",
     totalLabel: "कुल राशि", depositLabel: "जमानत",
     errMinItem: "कम से कम एक सामान जोड़ें",
-    errSelectItem: "सभी पंक्तियों में सामान चुनें",
+    errName: "कृपया ग्राहक का नाम दर्ज करें",
+    errMobile: "कृपया मान्य मोबाइल नंबर दर्ज करें (कम से कम 10 अंक)",
     loading: "इन्वेंट्री लोड हो रही है...",
     success: "किराया सफलतापूर्वक दर्ज हुआ और रसीद प्रिंट हो रही है।",
     error: "किराया दर्ज करने में त्रुटि",
@@ -107,7 +108,8 @@ const L = {
     confirmCancel: "Go Back",
     totalLabel: "Total Amount", depositLabel: "Deposit",
     errMinItem: "Add at least one item",
-    errSelectItem: "Please select item in all rows",
+    errName: "Please enter the customer's name",
+    errMobile: "Please enter a valid mobile number (at least 10 digits)",
     loading: "Loading inventory...",
     success: "Rental created and receipt is printing.",
     error: "Failed to create rental",
@@ -117,7 +119,7 @@ const L = {
 };
 
 const emptyCustomer = { customerName: "", mobile: "", address: "", aadhaar: "000" };
-const emptyItem = () => ({ inventoryItemId: "", quantity: 1, rate: 0 });
+const emptyItem = () => ({ inventoryItemId: "", quantity: "", rate: 0 });
 
 export default function RentalIssuePage() {
   const { auth, language } = useAuth();
@@ -191,17 +193,28 @@ export default function RentalIssuePage() {
     if (field === "inventoryItemId") {
       const inv = inventory.find(i => i.id === Number(val));
       upd[idx].rate = inv?.rate || 0;
+      // Default qty to 1 only once an item is actually picked — an unselected
+      // row showing "1" looked like a real line item before it was one.
+      if (val && !upd[idx].quantity) upd[idx].quantity = 1;
+      // Auto-grow: picking an item in the last row adds a fresh blank row,
+      // so the user doesn't have to reach for "+ Add Item" after every pick.
+      if (val && idx === upd.length - 1) upd.push(emptyItem());
     }
     setItems(upd);
   };
 
   const removeItem = (idx) => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); };
 
+  // Auto-grow always leaves one trailing blank row as the "next" placeholder —
+  // it's not a real line item, so it's dropped here rather than treated as
+  // an error or submitted to the backend.
+  const selectedItems = items.filter(i => i.inventoryItemId);
+
   const handleSaveClick = () => {
     setFormError("");
-    if (items.length === 0) { setFormError(t.errMinItem); return; }
-    const hasEmpty = items.some(i => !i.inventoryItemId);
-    if (hasEmpty) { setFormError(t.errSelectItem); return; }
+    if (!customer.customerName.trim()) { setFormError(t.errName); return; }
+    if (customer.mobile.trim().length < 10) { setFormError(t.errMobile); return; }
+    if (selectedItems.length === 0) { setFormError(t.errMinItem); return; }
     setShowConfirm(true);
   };
 
@@ -211,11 +224,11 @@ export default function RentalIssuePage() {
     try {
       const blob = await createRentalAndPrint({
         ...customer, category,
-        items: items.map(i => ({ inventoryItemId: i.inventoryItemId, quantity: i.quantity })),
+        items: selectedItems.map(i => ({ inventoryItemId: i.inventoryItemId, quantity: i.quantity })),
         calculatedTotalAmount: calcTotal,
         chargedAmount: chargedAmt || calcTotal,
         depositAmount: depositAmt || 0,
-      }, auth.username);
+      }, auth.username, language);
       const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
       window.open(url);
       showToast(t.success);
@@ -341,17 +354,18 @@ export default function RentalIssuePage() {
                     <option value="">{t.selectItem}</option>
                     {inventory.map(inv => (
                       <option key={inv.id} value={inv.id}>
-                        {inv.materialNameHi} ({t.available}: {inv.totalStock})
+                        {inv.materialNameEn ? `${inv.materialNameEn} / ${inv.materialNameHi}` : inv.materialNameHi} ({t.available}: {inv.totalStock})
                       </option>
                     ))}
                   </select>
 
                   {/* Qty */}
                   <input type="number" min={1} max={9999} value={row.quantity}
+                    disabled={!row.inventoryItemId}
                     onChange={e => { const v = Math.max(1, Math.min(9999, Number(e.target.value))); updateItem(idx, "quantity", v); }}
-                    style={{ ...inp({ textAlign: "right" }) }}
+                    style={{ ...inp({ textAlign: "right" }), ...(!row.inventoryItemId ? { background: "#f5f0ea", color: C.muted, cursor: "not-allowed" } : {}) }}
                     onFocus={e => { e.target.style.borderColor = C.accent; e.target.style.background = "#fff"; }}
-                    onBlur={e => { e.target.style.borderColor = C.border; e.target.style.background = "#fdf9f4"; }}
+                    onBlur={e => { e.target.style.borderColor = C.border; e.target.style.background = row.inventoryItemId ? "#fdf9f4" : "#f5f0ea"; }}
                   />
 
                   {/* Rate */}

@@ -77,12 +77,14 @@ public class DonationController {
             produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> createAndPrint(
             @RequestBody DonationRequestDto request,
-            @RequestParam String username) {
+            @RequestParam String username,
+            @RequestParam(defaultValue = "hi") String language) {
 
         byte[] pdf =
                 donationService.createDonationAndReturnReceiptPdf(
                         request,
-                        username
+                        username,
+                        language
                 );
 
         return ResponseEntity.ok()
@@ -93,9 +95,11 @@ public class DonationController {
     }
 
     @GetMapping(value = "/{id}/print", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> reprint(@PathVariable Long id) {
+    public ResponseEntity<byte[]> reprint(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "hi") String language) {
 
-        byte[] pdf = donationService.generateReceiptPdfById(id);
+        byte[] pdf = donationService.generateReceiptPdfById(id, language);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

@@ -13,6 +13,7 @@ public class RoomAvailabilityDto {
 
     private Long roomId;
     private String roomNumber;
+    private Long bhaktniwasBlockId;
     private String blockName;
     private RoomStatus roomStatus;
     private CleaningStatus cleaningStatus;

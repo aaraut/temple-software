@@ -219,7 +219,7 @@ export default function RentalReturnPage() {
 
   const handleReprint = async (receiptNumber) => {
     try {
-      const blob = await reprintRentalReceipt(receiptNumber);
+      const blob = await reprintRentalReceipt(receiptNumber, language);
       const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
       window.open(url);
     } catch (e) {

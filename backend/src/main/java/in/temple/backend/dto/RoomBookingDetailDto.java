@@ -20,6 +20,7 @@ public class RoomBookingDetailDto {
     // Room
     private Long roomId;
     private String roomNumber;
+    private Long bhaktniwasBlockId;
     private String blockName;
 
     // Customer
@@ -27,6 +28,7 @@ public class RoomBookingDetailDto {
     private String mobileNumber;
     private IdProofType idProofType;
     private String idProofNumber;
+    private Integer numPersons;
 
     // Booking
     private BookingType bookingType;

@@ -34,10 +34,11 @@ public interface DonationService {
 
     byte[] createDonationAndReturnReceiptPdf(
             DonationRequestDto req,
-            String username);
+            String username,
+            String language);
 
 
-    byte[] generateReceiptPdfById(Long id);
+    byte[] generateReceiptPdfById(Long id, String language);
 
     Donation getDonationById(Long id);
 

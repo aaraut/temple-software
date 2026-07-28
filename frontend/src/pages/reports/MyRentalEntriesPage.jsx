@@ -33,7 +33,7 @@ const STATUS_COLOR = { ISSUED: "warning", PARTIALLY_RETURNED: "info", CLOSED: "s
 
 const L = {
   hi: {
-    title: "किराया प्रविष्टियाँ",
+    title: "किराया एंट्रीज़",
     today: "आज", week: "इस सप्ताह", month: "इस माह",
     categoryLabel: "श्रेणी", all: "सभी", bartan: "बर्तन", bichayat: "बिछायत",
     from: "से", to: "तक",

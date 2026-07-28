@@ -24,9 +24,9 @@ export async function issueRental(payload) {
 /**
  * ✅ NEW: Save & Print Rental
  */
-export async function createRentalAndPrint(payload, username) {
+export async function createRentalAndPrint(payload, username, language = "hi") {
   const resp = await axiosClient.post(
-    `/rentals/create-and-print?username=${encodeURIComponent(username)}`,
+    `/rentals/create-and-print?username=${encodeURIComponent(username)}&language=${encodeURIComponent(language)}`,
     payload,
     {
       responseType: "blob"   // 🔥 VERY IMPORTANT (same as donation)
@@ -76,9 +76,9 @@ export async function returnRental(payload) {
 /**
  * ✅ Return rental items AND print Hindi receipt PDF
  */
-export async function returnRentalAndPrint(payload, username) {
+export async function returnRentalAndPrint(payload, username, language = "hi") {
   const resp = await axiosClient.post(
-    `/rentals/return-and-print?username=${encodeURIComponent(username)}`,
+    `/rentals/return-and-print?username=${encodeURIComponent(username)}&language=${encodeURIComponent(language)}`,
     payload,
     {
       responseType: "blob"   // 🔥 PDF blob
@@ -89,10 +89,10 @@ export async function returnRentalAndPrint(payload, username) {
 /**
  * Reprint original rental receipt by receipt number
  */
-export async function reprintRentalReceipt(receiptNumber) {
+export async function reprintRentalReceipt(receiptNumber, language = "hi") {
   const resp = await axiosClient.get(
     `/rentals/${encodeURIComponent(receiptNumber)}/print`,
-    { responseType: "blob" }
+    { params: { language }, responseType: "blob" }
   );
   return resp.data;
 }

@@ -18,6 +18,7 @@ public class RoomResponseDto {
 
     private Long categoryId;
 
+    private Long bhaktniwasBlockId;
     private String blockName;
     private String floor;
     private Integer maxOccupancy;
@@ -28,6 +29,9 @@ public class RoomResponseDto {
     private BigDecimal baseRent6Hr;
 
     private BigDecimal defaultSecurityDeposit;
+
+    private Boolean allowExtraPerson;
+    private BigDecimal extraPersonCost;
 
     private String remarks;
 

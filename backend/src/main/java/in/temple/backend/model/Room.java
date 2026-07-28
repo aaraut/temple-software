@@ -36,7 +36,10 @@ public class Room {
     @JoinColumn(name = "category_id", nullable = false)
     private RoomCategory category;
 
-    private String blockName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bhaktniwas_block_id", nullable = false)
+    private BhaktniwasBlock bhaktniwasBlock;
+
     private String floor;
 
     private Integer maxOccupancy;
@@ -47,6 +50,12 @@ public class Room {
     private BigDecimal baseRent6Hr;
 
     private BigDecimal defaultSecurityDeposit;
+
+    @Column(name = "allow_extra_person", nullable = false)
+    private Boolean allowExtraPerson = false;
+
+    @Column(name = "extra_person_cost", nullable = false, precision = 10, scale = 2)
+    private BigDecimal extraPersonCost = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     private RoomStatus status;
@@ -66,6 +75,9 @@ public class Room {
         createdAt = LocalDateTime.now();
         status = RoomStatus.AVAILABLE;
         cleaningStatus = CleaningStatus.CLEAN;
+        if (defaultSecurityDeposit == null) defaultSecurityDeposit = BigDecimal.ZERO;
+        if (allowExtraPerson == null) allowExtraPerson = false;
+        if (extraPersonCost == null) extraPersonCost = BigDecimal.ZERO;
     }
 
     @PreUpdate

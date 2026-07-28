@@ -46,8 +46,10 @@ public class RentalController {
     }
 
     @GetMapping(value = "/{receiptNumber}/print", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> reprintReceipt(@PathVariable String receiptNumber) {
-        byte[] pdf = rentalService.reprintReceipt(receiptNumber);
+    public ResponseEntity<byte[]> reprintReceipt(
+            @PathVariable String receiptNumber,
+            @RequestParam(defaultValue = "hi") String language) {
+        byte[] pdf = rentalService.reprintReceipt(receiptNumber, language);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rental-receipt.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
@@ -55,8 +57,11 @@ public class RentalController {
     }
 
     @PostMapping(value = "/create-and-print", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> createAndPrint(@RequestBody RentalIssueRequestDto request, @RequestParam String username) {
-        byte[] pdf = rentalService.createRentalAndReturnReceiptPdf(request, username);
+    public ResponseEntity<byte[]> createAndPrint(
+            @RequestBody RentalIssueRequestDto request,
+            @RequestParam String username,
+            @RequestParam(defaultValue = "hi") String language) {
+        byte[] pdf = rentalService.createRentalAndReturnReceiptPdf(request, username, language);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rental-receipt.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
@@ -64,8 +69,11 @@ public class RentalController {
     }
 
     @PostMapping(value = "/return-and-print", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> returnAndPrint(@RequestBody RentalReturnRequestDto request, @RequestParam String username) {
-        byte[] pdf = rentalService.returnRentalAndPrintReceipt(request, username);
+    public ResponseEntity<byte[]> returnAndPrint(
+            @RequestBody RentalReturnRequestDto request,
+            @RequestParam String username,
+            @RequestParam(defaultValue = "hi") String language) {
+        byte[] pdf = rentalService.returnRentalAndPrintReceipt(request, username, language);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rental-return-receipt.pdf")
                 .contentType(MediaType.APPLICATION_PDF)

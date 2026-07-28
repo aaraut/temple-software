@@ -140,7 +140,7 @@ export default function ForgotPassword() {
     dd: "दिन", mm: "माह", yyyy: "वर्ष",
     aadhaar:  "आधार के अंतिम 4 अंक",
     newPwd:   "नया पासवर्ड",
-    confirm:  "पासवर्ड पुष्टि करें",
+    confirm:  "पासवर्ड कन्फर्म करें",
     btn:      "पासवर्ड रीसेट करें",
     back:     "← लॉगिन पर जाएं",
     mismatch: "नया पासवर्ड और पुष्टि मेल नहीं खाते",

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -66,6 +67,18 @@ public class RoomBooking {
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
 
+    @Column(name = "num_persons")
+    private Integer numPersons;
+
+    @Column(name = "booking_date")
+    private LocalDate bookingDate;
+
+    @Column(name = "slot_number")
+    private Integer slotNumber;
+
+    @Column(name = "penalty_reason", columnDefinition = "text")
+    private String penaltyReason;
+
     private Long shiftedFromBookingId;
     private Long shiftedToBookingId;
 
@@ -75,6 +88,7 @@ public class RoomBooking {
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
-        status = BookingStatus.BOOKED;
+        if (status == null) status = BookingStatus.BOOKED;
+        if (numPersons == null) numPersons = 1;
     }
 }

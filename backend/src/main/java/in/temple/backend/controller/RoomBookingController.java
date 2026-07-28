@@ -23,8 +23,9 @@ public class RoomBookingController {
 
     @GetMapping(value = "/{bookingNumber}/print", produces = "application/pdf")
     public org.springframework.http.ResponseEntity<byte[]> printBookingReceipt(
-            @PathVariable String bookingNumber) {
-        byte[] pdf = bookingService.printBookingReceipt(bookingNumber);
+            @PathVariable String bookingNumber,
+            @RequestParam(defaultValue = "hi") String language) {
+        byte[] pdf = bookingService.printBookingReceipt(bookingNumber, language);
         return org.springframework.http.ResponseEntity.ok()
                 .header("Content-Disposition", "inline; filename=room-receipt-" + bookingNumber + ".pdf")
                 .body(pdf);
@@ -94,6 +95,17 @@ public class RoomBookingController {
             LocalDateTime end
     ) {
         return bookingService.getRevenue(username, start, end);
+    }
+
+    @GetMapping("/user-collection")
+    public UserCollectionReportDto getUserCollection(
+            @RequestParam String username,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            java.time.LocalDate date
+    ) {
+        return bookingService.getUserCollectionReport(
+                username, date != null ? date : java.time.LocalDate.now());
     }
 
 

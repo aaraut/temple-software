@@ -42,7 +42,7 @@ const L = {
         grandTotal: "Grand Total", clickForDetails: "Click for details",
     },
     hi: {
-        title: "कलेक्शन संक्षिप्त विवरण", period: "अवधि",
+        title: "कलेक्शन समरी", period: "अवधि",
         daily: "दैनिक", weekly: "साप्ताहिक", monthly: "मासिक",
         allUsers: "सभी यूज़र", user: "यूज़र",
         searchReceipt: "दान रसीद खोजें",
@@ -320,15 +320,21 @@ export default function CollectionDashboard() {
         navigate(`/reports/details?purpose=${purpose}&period=${period}&user=${selectedUser}`);
 
     const handlePrintReport = async () => {
-        const pd = await fetchDataForDate(printDate);
         const w = window.open("", "_blank");
+        if (!w) { alert(language === "hi" ? "पॉप-अप अवरोधित है। कृपया इस साइट के लिए पॉप-अप की अनुमति दें।" : "Popup blocked. Please allow popups for this site."); return; }
+        w.document.write("<p>Loading report...</p>");
+        const pd = await fetchDataForDate(printDate);
+        w.document.open();
         w.document.write(buildPrintMain(pd, fmtDate(printDate), resolveUserLabel(), fmt));
         w.document.close();
     };
 
     const handlePrintGoshala = async () => {
-        const pd = await fetchDataForDate(printDate);
         const w = window.open("", "_blank");
+        if (!w) { alert(language === "hi" ? "पॉप-अप अवरोधित है। कृपया इस साइट के लिए पॉप-अप की अनुमति दें।" : "Popup blocked. Please allow popups for this site."); return; }
+        w.document.write("<p>Loading report...</p>");
+        const pd = await fetchDataForDate(printDate);
+        w.document.open();
         w.document.write(buildPrintGoshala(pd, fmtDate(printDate), resolveUserLabel(), fmt));
         w.document.close();
     };
@@ -532,7 +538,7 @@ export default function CollectionDashboard() {
                     <Box sx={{ px: "1rem", py: "0.85rem", borderBottom: `1px solid ${brd}`, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <span style={{ fontSize: 14 }}>⚡</span>
                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: "#2d1f0f" }}>
-                            {language === "hi" ? "त्वरित कार्रवाई" : "Quick Actions"}
+                            {language === "hi" ? "क्विक एक्शन" : "Quick Actions"}
                         </Typography>
                     </Box>
                     {/* 2-col tile grid */}

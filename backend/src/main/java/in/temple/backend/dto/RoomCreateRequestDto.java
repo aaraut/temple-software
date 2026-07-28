@@ -16,7 +16,7 @@ public class RoomCreateRequestDto {
 
     private Long categoryId;
 
-    private String blockName;
+    private Long bhaktniwasBlockId;
 
     private String floor;
 
@@ -31,6 +31,10 @@ public class RoomCreateRequestDto {
     private BigDecimal baseRent6Hr;
 
     private BigDecimal defaultSecurityDeposit;
+
+    private Boolean allowExtraPerson;
+
+    private BigDecimal extraPersonCost;
 
     private String remarks;
 

@@ -14,4 +14,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     List<Room> findByIsActiveTrue();
 
+    List<Room> findByBhaktniwasBlock_IdAndIsActiveTrueOrderByRoomNumberAsc(Long bhaktniwasBlockId);
+
 }

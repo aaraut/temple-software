@@ -28,6 +28,29 @@ export const getRoomCategories = async () => {
   return response.data;
 };
 
+export const createRoomCategory = async (data) => {
+  const response = await axiosClient.post("/room-categories", data);
+  return response.data;
+};
+
+export const updateRoomCategory = async (id, data) => {
+  const response = await axiosClient.put(`/room-categories/${id}`, data);
+  return response.data;
+};
+
+export const getBhaktniwasBlocks = async () => {
+  const response = await axiosClient.get("/bhaktniwas/blocks");
+  return response.data;
+};
+
+export const getDailySheet = async (blockId, date) => {
+  const response = await axiosClient.get(
+    `/bhaktniwas/${blockId}/daily-sheet`,
+    { params: { date } }
+  );
+  return response.data;
+};
+
 export const getAmenities = async () => {
   const response = await axiosClient.get("/amenities");
   return response.data;

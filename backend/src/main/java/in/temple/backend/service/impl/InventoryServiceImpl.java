@@ -53,6 +53,7 @@ public class InventoryServiceImpl implements InventoryService {
 
         existing.setCategory(item.getCategory());
         existing.setMaterialNameHi(item.getMaterialNameHi());
+        existing.setMaterialNameEn(item.getMaterialNameEn());
         existing.setUnit(item.getUnit());
         existing.setRate(item.getRate());
         existing.setTotalStock(item.getTotalStock());

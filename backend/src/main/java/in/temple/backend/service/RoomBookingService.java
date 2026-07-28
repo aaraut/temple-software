@@ -2,6 +2,7 @@ package in.temple.backend.service;
 
 import in.temple.backend.dto.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -9,7 +10,7 @@ public interface RoomBookingService {
 
     String createBooking(RoomBookingCreateRequestDto request);
 
-    byte[] printBookingReceipt(String bookingNumber);
+    byte[] printBookingReceipt(String bookingNumber, String language);
 
     RoomBookingDetailDto getBookingDetail(String bookingNumber);
 
@@ -36,4 +37,8 @@ public interface RoomBookingService {
             String username,
             LocalDateTime start,
             LocalDateTime end);
+
+    List<DailySheetRoomDto> getDailySheet(Long bhaktniwasBlockId, LocalDate date);
+
+    UserCollectionReportDto getUserCollectionReport(String username, LocalDate date);
 }

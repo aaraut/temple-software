@@ -29,14 +29,16 @@ const NAV = {
   rental:            { en: "Rental",            hi: "किराया" },
   returnRental:      { en: "Return Rental",     hi: "किराया वापसी" },
   reports:           { en: "Reports",           hi: "रिपोर्ट" },
-  myEntries:         { en: "My Rental Entries", hi: "मेरी किराया प्रविष्टियाँ" },
+  myEntries:         { en: "My Rental Entries", hi: "मेरी किराया एंट्रीज़" },
   myRentalSummary:   { en: "My Rental Summary", hi: "मेरी किराया संक्षिप्त विवरण" },
   pendingRentals:    { en: "Pending Rentals",   hi: "लंबित किराया" },
   adminRental:       { en: "Rental Admin Summary", hi: "किराया एडमिन संक्षिप्त विवरण" },
   bhaktNiwas:        { en: "Bhakt Niwas",       hi: "भक्त निवास" },
   bhaktNiwasDash:    { en: "Bhakt Niwas Dashboard", hi: "भक्त निवास डैशबोर्ड" },
   roomInventory:     { en: "Room Inventory",    hi: "कमरा सूची" },
+  roomCategories:    { en: "Room Categories",   hi: "कमरा श्रेणियाँ" },
   roomBooking:       { en: "Room Booking",      hi: "कमरा बुकिंग" },
+  bookingSearch:     { en: "Search Bookings",   hi: "बुकिंग खोजें" },
   users:             { en: "Users",             hi: "यूज़र मैनेजमेंट" },
   changePassword:    { en: "Change Password",   hi: "पासवर्ड बदलें" },
   logout:            { en: "Logout",            hi: "लॉगआउट" },
@@ -90,22 +92,6 @@ export default function Header() {
             {t("donation")}
           </Button>
 
-          {/* Master Dropdown */}
-          <Button color="inherit" endIcon={<ArrowDropDownIcon />}
-            onClick={(e) => setInventoryAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
-            {t("master")}
-          </Button>
-          <Menu anchorEl={inventoryAnchor} open={openInventory} onClose={() => setInventoryAnchor(null)}
-            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-            transformOrigin={{ vertical: "top", horizontal: "left" }}>
-            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bartan"); }}>{t("bartan")}</MenuItem>
-            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bichayat"); }}>{t("bichayat")}</MenuItem>
-            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/gotra"); }}>{t("gotra")}</MenuItem>
-            {isAdmin && (
-              <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/master/donation-purpose"); }}>{t("donationPurpose")}</MenuItem>
-            )}
-          </Menu>
-
           {/* Rental Dropdown */}
           <Button color="inherit" endIcon={<ArrowDropDownIcon />}
             onClick={(e) => setRentalAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
@@ -117,6 +103,20 @@ export default function Header() {
             <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bartan"); }}>{t("bartan")}</MenuItem>
             <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bichayat"); }}>{t("bichayat")}</MenuItem>
             <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/return"); }}>{t("returnRental")}</MenuItem>
+          </Menu>
+
+          {/* Bhakt Niwas Dropdown */}
+          <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+            onClick={(e) => setRoomAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
+            {t("bhaktNiwas")}
+          </Button>
+          <Menu anchorEl={roomAnchor} open={openRoom} onClose={() => setRoomAnchor(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas"); }}>{t("bhaktNiwasDash")}</MenuItem>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas-search"); }}>{t("bookingSearch")}</MenuItem>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/rooms"); }}>{t("roomInventory")}</MenuItem>
+            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/room-categories"); }}>{t("roomCategories")}</MenuItem>
           </Menu>
 
           {/* Reports Dropdown */}
@@ -133,17 +133,20 @@ export default function Header() {
             )}
           </Menu>
 
-          {/* Bhakt Niwas Dropdown */}
+          {/* Master Dropdown */}
           <Button color="inherit" endIcon={<ArrowDropDownIcon />}
-            onClick={(e) => setRoomAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
-            {t("bhaktNiwas")}
+            onClick={(e) => setInventoryAnchor(e.currentTarget)} sx={{ fontSize: "0.82rem" }}>
+            {t("master")}
           </Button>
-          <Menu anchorEl={roomAnchor} open={openRoom} onClose={() => setRoomAnchor(null)}
+          <Menu anchorEl={inventoryAnchor} open={openInventory} onClose={() => setInventoryAnchor(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
             transformOrigin={{ vertical: "top", horizontal: "left" }}>
-            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas"); }}>{t("bhaktNiwasDash")}</MenuItem>
-            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/rooms"); }}>{t("roomInventory")}</MenuItem>
-            <MenuItem onClick={() => { setRoomAnchor(null); navigate("/rooms/bookings"); }}>{t("roomBooking")}</MenuItem>
+            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bartan"); }}>{t("bartan")}</MenuItem>
+            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bichayat"); }}>{t("bichayat")}</MenuItem>
+            <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/gotra"); }}>{t("gotra")}</MenuItem>
+            {isAdmin && (
+              <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/master/donation-purpose"); }}>{t("donationPurpose")}</MenuItem>
+            )}
           </Menu>
 
           {isAdmin && (

@@ -16,9 +16,9 @@ export async function createDonation(payload, username) {
 }
 
 // ✅ NEW: Save & Print donation
-export async function createDonationAndPrint(payload, username) {
+export async function createDonationAndPrint(payload, username, language = "hi") {
   const resp = await axiosClient.post(
-    `/donation/create-and-print?username=${encodeURIComponent(username)}`,
+    `/donation/create-and-print?username=${encodeURIComponent(username)}&language=${encodeURIComponent(language)}`,
     payload,
     {
       responseType: "blob"   // 🔥 VERY IMPORTANT
@@ -34,8 +34,9 @@ export const searchDonations = (payload) => {
 };
 
 // REPRINT RECEIPT
-export const printDonation = (id) => {
+export const printDonation = (id, language = "hi") => {
   return axiosClient.get(`/donation/${id}/print`, {
+    params: { language },
     responseType: "blob",
   });
 };

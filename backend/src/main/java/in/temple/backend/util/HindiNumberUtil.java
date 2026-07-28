@@ -45,4 +45,44 @@ public class HindiNumberUtil {
 
         return String.valueOf(number);
     }
+
+    // ── English (Indian numbering: thousand/lakh) amount-in-words ──────────────
+    private static final String[] ONES_EN = {
+            "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+            "Seventeen", "Eighteen", "Nineteen"
+    };
+    private static final String[] TENS_EN = {
+            "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+    };
+
+    public static String convertEnglish(BigDecimal amount) {
+        int number = amount.intValue();
+        return convertNumberEnglish(number) + " Rupees Only";
+    }
+
+    private static String convertNumberEnglish(int number) {
+
+        if (number == 0) return "Zero";
+
+        if (number < 20)
+            return ONES_EN[number];
+
+        if (number < 100)
+            return TENS_EN[number / 10] + (number % 10 != 0 ? " " + ONES_EN[number % 10] : "");
+
+        if (number < 1000)
+            return ONES_EN[number / 100] + " Hundred" +
+                    (number % 100 != 0 ? " " + convertNumberEnglish(number % 100) : "");
+
+        if (number < 100000)
+            return convertNumberEnglish(number / 1000) + " Thousand" +
+                    (number % 1000 != 0 ? " " + convertNumberEnglish(number % 1000) : "");
+
+        if (number < 10000000)
+            return convertNumberEnglish(number / 100000) + " Lakh" +
+                    (number % 100000 != 0 ? " " + convertNumberEnglish(number % 100000) : "");
+
+        return String.valueOf(number);
+    }
 }
