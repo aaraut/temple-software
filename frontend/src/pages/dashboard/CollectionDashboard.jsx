@@ -157,14 +157,16 @@ const buildPrintMain = (printData, reportDateFormatted, userLabel, fmt2) => {
 <title>Daily Cash Report</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap');
-  body{font-family:'Noto Sans Devanagari',Arial,sans-serif;padding:20px;font-size:14px}
-  .header{text-align:center;margin-bottom:10px}.header h2{margin:5px 0}.sub{font-size:13px}
-  .section-title{font-weight:bold;margin-top:15px;margin-bottom:5px}
-  table{width:100%;border-collapse:collapse;margin-bottom:10px}
-  table,th,td{border:1px solid black}th,td{padding:6px;text-align:left}
-  .total-box{width:50%;margin-top:15px}
-  .signature{margin-top:50px;display:flex;justify-content:space-between}
-  .sign-box{width:40%;border-top:1px solid black;text-align:center;padding-top:8px}
+  @page{size:A4;margin:8mm}
+  body{font-family:'Noto Sans Devanagari',Arial,sans-serif;padding:0;font-size:12px}
+  .header{text-align:center;margin-bottom:6px}.header h2{margin:3px 0;font-size:16px}.sub{font-size:11px}
+  .header h3{margin:4px 0;font-size:14px}
+  .section-title{font-weight:bold;margin-top:8px;margin-bottom:3px;font-size:13px}
+  table{width:100%;border-collapse:collapse;margin-bottom:6px}
+  table,th,td{border:1px solid black}th,td{padding:3px 6px;text-align:left}
+  .total-box{width:55%;margin-top:8px}
+  .signature{margin-top:24px;display:flex;justify-content:space-between;page-break-inside:avoid}
+  .sign-box{width:40%;border-top:1px solid black;text-align:center;padding-top:6px}
   @media print{body{margin:0}}
 </style>
 </head><body>
@@ -209,11 +211,12 @@ const buildPrintGoshala = (printData, reportDateFormatted, userLabel, fmt2) =>
 <title>Goshala Daan Report</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap');
-  body{font-family:'Noto Sans Devanagari',Arial,sans-serif;padding:30px;font-size:14px}
-  .header{text-align:center;margin-bottom:20px}.header h2{margin:3px 0}
-  table{width:100%;border-collapse:collapse;margin-top:15px}
-  table,th,td{border:1px solid black}th,td{padding:8px;text-align:left}
-  .signature{margin-top:70px;display:flex;justify-content:space-between}
+  @page{size:A4;margin:8mm}
+  body{font-family:'Noto Sans Devanagari',Arial,sans-serif;padding:0;font-size:13px}
+  .header{text-align:center;margin-bottom:10px}.header h2{margin:3px 0}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  table,th,td{border:1px solid black}th,td{padding:6px;text-align:left}
+  .signature{margin-top:36px;display:flex;justify-content:space-between;page-break-inside:avoid}
   .sign-box{width:40%;border-top:1px dotted black;text-align:center;padding-top:8px}
   @media print{body{margin:0}}
 </style>

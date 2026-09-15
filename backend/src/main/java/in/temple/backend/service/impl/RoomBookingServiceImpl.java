@@ -622,6 +622,8 @@ public class RoomBookingServiceImpl implements RoomBookingService {
                         .roomNumber(rb.getRoom().getRoomNumber())
                         .customerName(rb.getCustomerName())
                         .mobileNumber(rb.getMobileNumber())
+                        .idProofType(rb.getIdProofType() == null ? null : rb.getIdProofType().name())
+                        .idProofNumber(rb.getIdProofNumber())
                         .status(rb.getStatus())
                         .scheduledCheckIn(rb.getScheduledCheckIn())
                         .scheduledCheckOut(rb.getScheduledCheckOut())

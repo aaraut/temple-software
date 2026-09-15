@@ -98,6 +98,7 @@ AND rb.scheduledCheckIn < :end
         AND (rb.status = COALESCE(:status, rb.status))
         AND (rb.scheduled_check_in >= COALESCE(:fromDate, rb.scheduled_check_in))
         AND (rb.scheduled_check_in <= COALESCE(:toDate, rb.scheduled_check_in))
+        ORDER BY rb.created_at DESC
         """, nativeQuery = true)
     List<RoomBooking> searchBookings(
             @Param("bookingNumber") String bookingNumber,

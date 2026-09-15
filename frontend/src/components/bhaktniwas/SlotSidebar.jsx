@@ -13,10 +13,13 @@ import {
   Alert,
   Chip,
   CircularProgress,
+  IconButton,
 } from "@mui/material";
 import PrintIcon from "@mui/icons-material/Print";
+import CloseIcon from "@mui/icons-material/Close";
+import HotelIcon from "@mui/icons-material/Hotel";
 
-import { createBooking, checkoutBooking, getBookingDetail, printBookingReceipt } from "../../api/roomBookingApi";
+import { createBooking, checkoutBooking, getBookingDetail, printBookingReceipt, searchBookings } from "../../api/roomBookingApi";
 import { useAuth } from "../../context/AuthContext";
 import { formatDateTime } from "../../utils/dateUtils";
 
@@ -56,8 +59,10 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
       penalty: "Penalty / Deduction", penaltyReason: "Reason for Penalty / Deduction",
       remarks: "Remarks", netPayable: "Net Cash to Collect", confirmCheckout: "Confirm Checkout",
       guest: "Guest", checkIn: "Check-in", checkOut: "Check-out", room: "Room", category: "Category",
-      close: "Close", maxExceeded: "Exceeds this room's max occupancy", bookingNo: "Receipt No.",
+      close: "Close", cancel: "Cancel", maxExceeded: "Exceeds this room's max occupancy", bookingNo: "Receipt No.",
       base: "Base Amount", print: "Print Receipt", notActionable: "This room/date isn't actionable right now — details only, no actions.",
+      roomType: "Room Type", maxPersons: "Max Persons", available: "Available",
+      autoFilled: "✔ Auto-filled from previous record",
     },
     hi: {
       newBooking: "नई बुकिंग", guestName: "अतिथि नाम", mobile: "मोबाइल नंबर",
@@ -67,8 +72,10 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
       penalty: "पेनल्टी / कटौती", penaltyReason: "पेनल्टी / कटौती का कारण",
       remarks: "टिप्पणी", netPayable: "कुल नकद प्राप्त करना है", confirmCheckout: "चेकआउट कन्फर्म करें",
       guest: "अतिथि", checkIn: "चेक-इन", checkOut: "चेक-आउट", room: "कमरा", category: "श्रेणी",
-      close: "बंद करें", maxExceeded: "इस कमरे की अधिकतम क्षमता से अधिक", bookingNo: "रसीद क्रमांक",
+      close: "बंद करें", cancel: "कैंसल", maxExceeded: "इस कमरे की अधिकतम क्षमता से अधिक", bookingNo: "रसीद क्रमांक",
       base: "मूल राशि", print: "रसीद प्रिंट करें", notActionable: "यह कमरा/तारीख अभी कार्रवाई योग्य नहीं है — केवल विवरण देखे जा सकते हैं।",
+      roomType: "कमरा प्रकार", maxPersons: "अधिकतम व्यक्ति", available: "उपलब्ध",
+      autoFilled: "✔ पिछले रिकॉर्ड से भरा गया",
     },
   };
   const t = L[language] ?? L.en;
@@ -85,6 +92,8 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
+  const [searchingMobile, setSearchingMobile] = useState(false);
 
   const isEmpty = slot && slot.status === "AVAILABLE" && !readOnly;
   const isCheckedIn = slot && slot.status === "CHECKED_IN" && !readOnly;
@@ -100,6 +109,7 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
         customerName: "", mobileNumber: "", idProofType: "", idProofNumber: "",
         numPersons: 2, extraChargeAmount: 0, securityDeposit: 0,
       });
+      setAutoFilled(false);
     } else if (slot.bookingNumber) {
       setLoadingDetail(true);
       getBookingDetail(slot.bookingNumber)
@@ -122,6 +132,28 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
 
   const baseAmount = calcBaseAmount(room, form.numPersons);
   const personsExceeded = room.maxOccupancy != null && form.numPersons > room.maxOccupancy;
+
+  const handleMobileBlur = async () => {
+    if (form.mobileNumber.length !== 10 || autoFilled) return;
+    setSearchingMobile(true);
+    try {
+      const res = await searchBookings({ mobileNumber: form.mobileNumber });
+      const last = res.data?.[0];
+      if (last) {
+        setForm((f) => ({
+          ...f,
+          customerName: last.customerName || f.customerName,
+          idProofType: last.idProofType || f.idProofType,
+          idProofNumber: last.idProofNumber || f.idProofNumber,
+        }));
+        setAutoFilled(true);
+      }
+    } catch {
+      // silent — lookup is a convenience, not required for booking
+    } finally {
+      setSearchingMobile(false);
+    }
+  };
 
   const handleBook = async () => {
     setError("");
@@ -206,26 +238,52 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
       <Box sx={{ width: 400, p: 3 }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          {t.room} {room.roomNumber} · {room.categoryName}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {isEmpty ? t.newBooking : isCheckedIn ? t.checkoutTitle : t.room}
+          </Typography>
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
 
         {error && <Alert severity="error" sx={{ my: 1 }}>{error}</Alert>}
 
         {isEmpty && (
           <>
-            <Typography variant="h6" sx={{ mt: 1, mb: 2 }}>{t.newBooking}</Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              {t.price}: ₹{baseAmount}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+                <HotelIcon fontSize="small" color="action" />
+                {t.room} {room.roomNumber}
+              </Typography>
+              <Chip label={t.available} size="small" sx={{ backgroundColor: "#e6f4ea", color: "#1b5e20", fontWeight: 700 }} />
+            </Box>
 
-            <TextField fullWidth sx={{ mb: 2 }} label={t.guestName + " *"}
-              value={form.customerName}
-              onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+            <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1.5, mb: 3 }}>
+              <InfoRow label={t.roomType} value={room.categoryName} />
+              <InfoRow label={t.price} value={`₹${baseAmount} / ${language === "hi" ? "रात" : "night"}`} />
+              {room.maxOccupancy != null && <InfoRow label={t.maxPersons} value={room.maxOccupancy} />}
+            </Box>
 
             <TextField fullWidth sx={{ mb: 2 }} label={t.mobile + " *"}
               value={form.mobileNumber}
-              onChange={(e) => setForm({ ...form, mobileNumber: e.target.value })} />
+              onChange={(e) => {
+                setForm({ ...form, mobileNumber: e.target.value });
+                setAutoFilled(false);
+              }}
+              onBlur={handleMobileBlur}
+              InputProps={{
+                endAdornment: searchingMobile ? <CircularProgress size={16} /> : null,
+              }} />
+
+            <TextField fullWidth sx={{ mb: autoFilled ? 0.5 : 2 }} label={t.guestName + " *"}
+              value={form.customerName}
+              onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+            {autoFilled && (
+              <Typography variant="caption" sx={{ display: "block", color: "success.main", mb: 1.5 }}>
+                {t.autoFilled}
+              </Typography>
+            )}
 
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>{t.idProofType}</InputLabel>
@@ -254,9 +312,11 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
               value={form.securityDeposit}
               onChange={(e) => setForm({ ...form, securityDeposit: e.target.value })} />
 
-            <Button fullWidth variant="contained" disabled={submitting} onClick={handleBook}>
+            <Button fullWidth variant="contained" color="error" startIcon={<HotelIcon />} disabled={submitting} onClick={handleBook}>
               {t.bookAndCheckIn}
             </Button>
+
+            <Button fullWidth sx={{ mt: 1.5 }} color="error" onClick={onClose}>{t.cancel}</Button>
           </>
         )}
 
@@ -333,7 +393,9 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
           )
         )}
 
-        <Button fullWidth sx={{ mt: 2 }} onClick={onClose}>{t.close}</Button>
+        {!isEmpty && (
+          <Button fullWidth sx={{ mt: 2 }} onClick={onClose}>{t.close}</Button>
+        )}
       </Box>
     </Drawer>
   );

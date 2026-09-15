@@ -637,13 +637,13 @@ public class DonationServiceImpl implements DonationService {
             // Amount line — bold; wraps if the amount-in-words runs long
             // (English number words are noticeably longer than Hindi ones)
             String amountLine = en
-                    ? "Amount: Rs. " + formattedAmount + "/- (in words: " + amountInWords + ") Cash"
-                    : "राशि: ₹ " + formattedAmount + " /- (शब्दों में: " + amountInWords + ") नकद";
+                    ? "Amount: Rs. " + formattedAmount + "/- (" + amountInWords + ") Cash"
+                    : "राशि: ₹ " + formattedAmount + " /- (" + amountInWords + ") नकद";
             y = drawWrapped(g, amountLine, M, y, CONTENT_W, fBold, frc, LINE_H);
             y += 8 * SCALE;
 
             // Purpose on two lines
-            drawLine(g, en ? "Purpose:" : "उद्देश्य:", M, y, fNormal, frc);
+            drawLine(g, en ? "For:" : "उद्देश्य:", M, y, fNormal, frc);
             y += LINE_H;
             y = drawWrapped(g, en ? (purposeText + " Donation") : (purposeText + " हेतु दान राशि"),
                     M, y, CONTENT_W, fNormal, frc, LINE_H);

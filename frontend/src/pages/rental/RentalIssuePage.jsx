@@ -69,7 +69,7 @@ const L = {
     addItem: "+ सामान जोड़ें",
     amountSec: "राशि विवरण",
     calcTotal: "कुल योग (गणना)", charged: "देय राशि", deposit: "जमानत राशि",
-    saveBtn: "सेव और प्रिंट करें", resetBtn: "रीसेट करें",
+    saveBtn: "सेव और प्रिंट करें", resetBtn: "कैंसल",
     autoFilled: "✔ पिछले रिकॉर्ड से भरा गया",
     searching: "खोज रहे हैं...",
     selectItem: "-- सामान चुनें --",

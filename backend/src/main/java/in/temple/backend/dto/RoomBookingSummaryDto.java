@@ -17,6 +17,8 @@ public class RoomBookingSummaryDto {
     private String roomNumber;
     private String customerName;
     private String mobileNumber;
+    private String idProofType;
+    private String idProofNumber;
     private BookingStatus status;
     private LocalDateTime scheduledCheckIn;
     private LocalDateTime scheduledCheckOut;

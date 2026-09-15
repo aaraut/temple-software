@@ -281,7 +281,7 @@ export default function DonationForm() {
       amount: "राशि",
       gotra: "गोत्र",
       saveAndPrint: "सेव और प्रिंट करें",
-      reset: "रीसेट करें",
+      reset: "कैंसल",
     },
     en: {
       title: "Donation Entry",
