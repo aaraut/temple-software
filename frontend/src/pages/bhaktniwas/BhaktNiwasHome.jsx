@@ -16,11 +16,14 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import SearchIcon from "@mui/icons-material/Search";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import LockIcon from "@mui/icons-material/Lock";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
 
 import { getBhaktniwasBlocks, getDailySheet } from "../../api/roomApi";
 import { useAuth } from "../../context/AuthContext";
 import { todayStr, addDays } from "../../utils/dateUtils";
 import { localizeBlockName } from "../../utils/bhaktniwasUtils";
+import BlockRoomsDialog from "../../components/bhaktniwas/BlockRoomsDialog";
 
 import bhaktniwas1 from "../../assets/bhaktniwas-1.jpg";
 import bhaktniwas2 from "../../assets/bhaktniwas-2.jpg";
@@ -99,6 +102,7 @@ export default function BhaktNiwasHome() {
       loading: "Loading...",
       noBlocks: "No active blocks configured yet.",
       search: "Search Bookings",
+      blockRooms: "Block / Unblock",
       available: "Available",
       occupied: "Occupied",
       cleaning: "Cleaning",
@@ -115,6 +119,7 @@ export default function BhaktNiwasHome() {
       loading: "लोड हो रहा है...",
       noBlocks: "अभी तक कोई सक्रिय ब्लॉक कॉन्फ़िगर नहीं किया गया।",
       search: "बुकिंग खोजें",
+      blockRooms: "ब्लॉक / अनब्लॉक",
       available: "उपलब्ध",
       occupied: "व्यस्त",
       cleaning: "सफाई जारी",
@@ -129,6 +134,8 @@ export default function BhaktNiwasHome() {
   const [blocks, setBlocks] = useState([]);
   const [blockRooms, setBlockRooms] = useState({});
   const [loading, setLoading] = useState(true);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,7 +165,7 @@ export default function BhaktNiwasHome() {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, refreshKey]);
 
   const allRooms = Object.values(blockRooms).flat();
   const totals = computeCounts(allRooms);
@@ -208,16 +215,34 @@ export default function BhaktNiwasHome() {
             </IconButton>
           </Box>
 
-          <Tooltip title={t.search}>
-            <IconButton
-              onClick={() => navigate("/bhakt-niwas-search")}
-              sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2 }}
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button
+              onClick={() => setBlockDialogOpen(true)}
+              startIcon={<LockIcon />}
+              endIcon={<LockOpenIcon />}
+              sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, textTransform: "none" }}
             >
-              <SearchIcon />
-            </IconButton>
-          </Tooltip>
+              {t.blockRooms}
+            </Button>
+
+            <Tooltip title={t.search}>
+              <IconButton
+                onClick={() => navigate("/bhakt-niwas-search")}
+                sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2 }}
+              >
+                <SearchIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       </Box>
+
+      <BlockRoomsDialog
+        open={blockDialogOpen}
+        onClose={() => setBlockDialogOpen(false)}
+        blocks={blocks}
+        onSuccess={() => setRefreshKey((k) => k + 1)}
+      />
 
       {loading ? (
         <CircularProgress />
