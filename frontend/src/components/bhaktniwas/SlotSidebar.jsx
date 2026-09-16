@@ -236,8 +236,11 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
   };
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose}>
-      <Box sx={{ width: 400, p: 3 }}>
+    <Drawer anchor="right" open={open} onClose={(e, reason) => {
+      if (reason === "backdropClick") return;
+      onClose();
+    }}>
+      <Box sx={{ width: "40vw", minWidth: 400, p: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {isEmpty ? t.newBooking : isCheckedIn ? t.checkoutTitle : t.room}
@@ -302,15 +305,18 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
               value={form.numPersons}
               error={personsExceeded}
               helperText={personsExceeded ? t.maxExceeded : ""}
-              onChange={(e) => setForm({ ...form, numPersons: Number(e.target.value) })} />
+              inputProps={{ min: 1 }}
+              onChange={(e) => setForm({ ...form, numPersons: Math.max(1, Number(e.target.value)) })} />
 
             <TextField fullWidth sx={{ mb: 2 }} type="number" label={t.extraAmount}
               value={form.extraChargeAmount}
-              onChange={(e) => setForm({ ...form, extraChargeAmount: e.target.value })} />
+              inputProps={{ min: 0 }}
+              onChange={(e) => setForm({ ...form, extraChargeAmount: Math.max(0, Number(e.target.value)) })} />
 
             <TextField fullWidth sx={{ mb: 3 }} type="number" label={t.deposit}
               value={form.securityDeposit}
-              onChange={(e) => setForm({ ...form, securityDeposit: e.target.value })} />
+              inputProps={{ min: 0 }}
+              onChange={(e) => setForm({ ...form, securityDeposit: Math.max(0, Number(e.target.value)) })} />
 
             <Button fullWidth variant="contained" color="error" startIcon={<HotelIcon />} disabled={submitting} onClick={handleBook}>
               {t.bookAndCheckIn}
@@ -365,11 +371,13 @@ export default function SlotSidebar({ open, onClose, room, slot, onSuccess, read
 
                   <TextField fullWidth sx={{ mb: 2 }} type="number" label={t.extraAmount}
                     value={checkoutForm.extraChargeAmount}
-                    onChange={(e) => setCheckoutForm({ ...checkoutForm, extraChargeAmount: e.target.value })} />
+                    inputProps={{ min: 0 }}
+                    onChange={(e) => setCheckoutForm({ ...checkoutForm, extraChargeAmount: Math.max(0, Number(e.target.value)) })} />
 
                   <TextField fullWidth sx={{ mb: 2 }} type="number" label={t.penalty}
                     value={checkoutForm.deductionFromDeposit}
-                    onChange={(e) => setCheckoutForm({ ...checkoutForm, deductionFromDeposit: e.target.value })} />
+                    inputProps={{ min: 0 }}
+                    onChange={(e) => setCheckoutForm({ ...checkoutForm, deductionFromDeposit: Math.max(0, Number(e.target.value)) })} />
 
                   <TextField fullWidth sx={{ mb: 2 }} multiline rows={2}
                     label={Number(checkoutForm.deductionFromDeposit) > 0 ? t.penaltyReason + " *" : t.penaltyReason}

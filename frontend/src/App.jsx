@@ -32,6 +32,7 @@ import CollectionDashboard from "./pages/dashboard/CollectionDashboard";
 import DonationDetails from "./pages/reports/DonationDetails";
 import DonationEdit from "./pages/donation/DonationEdit";
 import DonationSearch from "./pages/donation/DonationSearch";
+import UpiDonationForm from "./pages/donation/UpiDonationForm";
 // import RoomPage from "./components/room/RoomPage";
 
 
@@ -329,6 +330,16 @@ function App() {
             <ProtectedRoute>
               <ProtectedLayout>
                 <DonationSearch  />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/donation/upi"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <UpiDonationForm />
               </ProtectedLayout>
             </ProtectedRoute>
           }

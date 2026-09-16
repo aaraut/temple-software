@@ -317,6 +317,11 @@ public class RentalServiceImpl implements RentalService {
             final int M      = 46  * SCALE;   // extra buffer vs. printer/paper clipping
             final int LINE_H = 22  * SCALE;
 
+            // Same pre-printed letterhead as the issue receipt — content starts
+            // below its header rule and must stay clear of the bottom edge.
+            final int HEADER_CLEARANCE = 172 * SCALE;
+            final int FOOTER_CLEARANCE = 20  * SCALE;
+
             java.awt.Font fNormal    = baseFont.deriveFont(12.0f * SCALE);
             java.awt.Font fBold      = baseFont.deriveFont(java.awt.Font.BOLD, 13.0f * SCALE);
             java.awt.Font fTitle     = baseFont.deriveFont(java.awt.Font.BOLD, 16.0f * SCALE);
@@ -339,7 +344,9 @@ public class RentalServiceImpl implements RentalService {
             java.awt.font.FontRenderContext frc = g.getFontRenderContext();
 
             final int CONTENT_W = W - 2 * M;
-            int y = 90 * SCALE;
+
+            // Heading — starts right below the pre-printed header's rule
+            int y = HEADER_CLEARANCE;
 
             // Title
             String titleText = categoryLabel + (en ? " Return Receipt" : " वापसी रसीद");
@@ -373,7 +380,10 @@ public class RentalServiceImpl implements RentalService {
             drawRentalLine(g, (en ? "Status: " : "स्थिति: ") + statusLabel, M, y, fBold, frc);
             y += LINE_H + 10 * SCALE;
 
-            // ── Items table ───────────────────────────────────────────────────────
+            // ── Items table — paginated across as many A5 pages as needed, so a
+            // long item list never gets silently clipped or throws. Every page
+            // repeats the receipt number, and continuation pages also print a
+            // "Page X of Y" indicator at the top.
             // col1 (name): M → col2X  (~55%)
             // col2 (जारी): col2X → col3X (~15%)
             // col3 (वापस): col3X → col4X (~15%)
@@ -384,92 +394,147 @@ public class RentalServiceImpl implements RentalService {
             int col4X      = M + 312 * SCALE;
             int tableRight = W - M;
             int PAD        = 6 * SCALE;
+            int rowH       = LINE_H + 4 * SCALE;
+            int avail      = H - FOOTER_CLEARANCE;
 
-            int tableTop = y - 4 * SCALE;
-            g.setColor(new java.awt.Color(230, 230, 230));
-            g.fillRect(col1X, tableTop, tableRight - col1X, LINE_H + 4 * SCALE);
-            g.setColor(java.awt.Color.BLACK);
-            g.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
-            g.drawRect(col1X, tableTop, tableRight - col1X, LINE_H + 4 * SCALE);
-            g.drawLine(col2X, tableTop, col2X, tableTop + LINE_H + 4 * SCALE);
-            g.drawLine(col3X, tableTop, col3X, tableTop + LINE_H + 4 * SCALE);
-            g.drawLine(col4X, tableTop, col4X, tableTop + LINE_H + 4 * SCALE);
+            int firstPageTableStartY = y; // captured right after the status line
+            int continuationMiniHeaderH = LINE_H + 8 * SCALE;
+            int continuationTableStartY = HEADER_CLEARANCE + continuationMiniHeaderH;
 
-            drawRentalLine(g, en ? "Item Name" : "वस्तु का नाम", col1X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            drawRentalLine(g, en ? "Issued"    : "जारी",          col2X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            drawRentalLine(g, en ? "Returned"  : "वापस",          col3X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            drawRentalLine(g, en ? "Remaining" : "शेष",           col4X + PAD, y + 2 * SCALE, fSmallBold, frc);
-            y += LINE_H + 4 * SCALE;
+            int remarksReserve = remarks.isEmpty() ? 0 : (LINE_H + 4 * SCALE);
+            int bottomBlockH = 10 * SCALE + rowH * 2 + remarksReserve + LINE_H + LINE_H;
 
-            for (RentalItem item : items) {
-                int remaining = item.getIssuedQty()
-                        - item.getReturnedQty()
-                        - item.getDamagedQty()
-                        - item.getMissingQty();
-                int rowTop = y - 4 * SCALE;
-                g.drawRect(col1X, rowTop, tableRight - col1X, LINE_H + 4 * SCALE);
-                g.drawLine(col2X, rowTop, col2X, rowTop + LINE_H + 4 * SCALE);
-                g.drawLine(col3X, rowTop, col3X, rowTop + LINE_H + 4 * SCALE);
-                g.drawLine(col4X, rowTop, col4X, rowTop + LINE_H + 4 * SCALE);
+            int capFirstNoBottom   = (avail - firstPageTableStartY - rowH) / rowH;
+            int capFirstWithBottom = (avail - bottomBlockH - firstPageTableStartY - rowH) / rowH;
+            int capContNoBottom    = (avail - continuationTableStartY - rowH) / rowH;
+            int capContWithBottom  = (avail - bottomBlockH - continuationTableStartY - rowH) / rowH;
 
-                drawRentalLine(g, item.getItemNameSnapshot(),            col1X + PAD, y + 2 * SCALE, fSmall, frc);
-                drawRentalLine(g, String.valueOf(item.getIssuedQty()),   col2X + PAD, y + 2 * SCALE, fSmall, frc);
-                drawRentalLine(g, String.valueOf(item.getReturnedQty()), col3X + PAD, y + 2 * SCALE, fSmall, frc);
-                drawRentalLine(g, String.valueOf(remaining),             col4X + PAD, y + 2 * SCALE, fSmall, frc);
-                y += LINE_H + 4 * SCALE;
+            List<Integer> pageCounts = new java.util.ArrayList<>();
+            int n = items.size();
+            if (n <= capFirstWithBottom) {
+                pageCounts.add(n);
+            } else {
+                pageCounts.add(capFirstNoBottom);
+                int remaining = n - capFirstNoBottom;
+                while (remaining > capContWithBottom) {
+                    pageCounts.add(capContNoBottom);
+                    remaining -= capContNoBottom;
+                }
+                pageCounts.add(remaining);
+            }
+            int totalPages = pageCounts.size();
+
+            List<byte[]> pagePngs = new java.util.ArrayList<>();
+            int itemIdx = 0;
+
+            for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                java.awt.image.BufferedImage pageImg = img;
+                java.awt.Graphics2D pg = g;
+                int py = y;
+
+                if (pageIndex > 0) {
+                    pageImg = new java.awt.image.BufferedImage(W, H, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    pg = pageImg.createGraphics();
+                    pg.setColor(java.awt.Color.WHITE);
+                    pg.fillRect(0, 0, W, H);
+                    pg.setColor(java.awt.Color.BLACK);
+                    pg.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                            java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                    pg.setRenderingHint(java.awt.RenderingHints.KEY_FRACTIONALMETRICS,
+                            java.awt.RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+
+                    py = HEADER_CLEARANCE;
+                    String pageLabel = en
+                            ? "Receipt No: " + rental.getReceiptNumber() + "   —   Page " + (pageIndex + 1) + " of " + totalPages
+                            : "रसीद क्रमांक: " + rental.getReceiptNumber() + "   —   पृष्ठ " + (pageIndex + 1) + " / " + totalPages;
+                    drawRentalLine(pg, pageLabel, M, py, fBold, pg.getFontRenderContext());
+                    py += continuationMiniHeaderH;
+                }
+
+                java.awt.font.FontRenderContext pageFrc = pg.getFontRenderContext();
+
+                // Table header (repeated on every page)
+                int tableTop = py - 4 * SCALE;
+                pg.setColor(new java.awt.Color(230, 230, 230));
+                pg.fillRect(col1X, tableTop, tableRight - col1X, rowH);
+                pg.setColor(java.awt.Color.BLACK);
+                pg.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
+                pg.drawRect(col1X, tableTop, tableRight - col1X, rowH);
+                pg.drawLine(col2X, tableTop, col2X, tableTop + rowH);
+                pg.drawLine(col3X, tableTop, col3X, tableTop + rowH);
+                pg.drawLine(col4X, tableTop, col4X, tableTop + rowH);
+
+                drawRentalLine(pg, en ? "Item Name" : "वस्तु का नाम", col1X + PAD, py + 2 * SCALE, fSmallBold, pageFrc);
+                drawRentalLine(pg, en ? "Issued"    : "जारी",          col2X + PAD, py + 2 * SCALE, fSmallBold, pageFrc);
+                drawRentalLine(pg, en ? "Returned"  : "वापस",          col3X + PAD, py + 2 * SCALE, fSmallBold, pageFrc);
+                drawRentalLine(pg, en ? "Remaining" : "शेष",           col4X + PAD, py + 2 * SCALE, fSmallBold, pageFrc);
+                py += rowH;
+
+                int rowsOnThisPage = pageCounts.get(pageIndex);
+                for (int r = 0; r < rowsOnThisPage; r++) {
+                    RentalItem item = items.get(itemIdx++);
+                    int remainingQty = item.getIssuedQty()
+                            - item.getReturnedQty()
+                            - item.getDamagedQty()
+                            - item.getMissingQty();
+                    int rowTop = py - 4 * SCALE;
+                    pg.drawRect(col1X, rowTop, tableRight - col1X, rowH);
+                    pg.drawLine(col2X, rowTop, col2X, rowTop + rowH);
+                    pg.drawLine(col3X, rowTop, col3X, rowTop + rowH);
+                    pg.drawLine(col4X, rowTop, col4X, rowTop + rowH);
+
+                    drawRentalLine(pg, item.getItemNameSnapshot(),            col1X + PAD, py + 2 * SCALE, fSmall, pageFrc);
+                    drawRentalLine(pg, String.valueOf(item.getIssuedQty()),   col2X + PAD, py + 2 * SCALE, fSmall, pageFrc);
+                    drawRentalLine(pg, String.valueOf(item.getReturnedQty()), col3X + PAD, py + 2 * SCALE, fSmall, pageFrc);
+                    drawRentalLine(pg, String.valueOf(remainingQty),          col4X + PAD, py + 2 * SCALE, fSmall, pageFrc);
+                    py += rowH;
+                }
+
+                if (pageIndex == totalPages - 1) {
+                    py += 10 * SCALE;
+
+                    drawRentalLine(pg, (en ? "Fine Amount: Rs. " : "जुर्माना राशि: ₹ ") + fineAmt + " /-", M, py, fBold, pageFrc);
+                    py += LINE_H + 4 * SCALE;
+                    drawRentalLine(pg, (en ? "Deposit: Rs. " : "जमानत राशि: ₹ ") + depositAmt + " /-", M, py, fNormal, pageFrc);
+                    py += LINE_H + 4 * SCALE;
+                    if (!remarks.isEmpty()) {
+                        py = drawRentalWrapped(pg, (en ? "Remarks: " : "टिप्पणी: ") + remarks, M, py, CONTENT_W, fSmall, pageFrc, LINE_H);
+                        py += 4 * SCALE;
+                    }
+                    py += LINE_H;
+
+                    drawRentalLine(pg, en ? "Received by:" : "प्राप्तकर्ता:", M, py, fNormal, pageFrc);
+                    py += LINE_H;
+
+                    if (py > H - FOOTER_CLEARANCE) {
+                        throw new IllegalStateException(
+                                "Rental return receipt content overflowed available space (y=" + py
+                                        + ", limit=" + (H - FOOTER_CLEARANCE) + ") — reduce content or spacing");
+                    }
+                }
+
+                pg.dispose();
+
+                ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
+                javax.imageio.ImageIO.write(pageImg, "png", imgOut);
+                pagePngs.add(imgOut.toByteArray());
             }
 
-            y += 10 * SCALE;
-
-            // Fine, Deposit, Remarks
-            drawRentalLine(g, (en ? "Fine Amount: Rs. " : "जुर्माना राशि: ₹ ") + fineAmt + " /-", M, y, fBold, frc);
-            y += LINE_H + 4 * SCALE;
-            drawRentalLine(g, (en ? "Deposit: Rs. " : "जमानत राशि: ₹ ") + depositAmt + " /-", M, y, fNormal, frc);
-            y += LINE_H + 4 * SCALE;
-            if (!remarks.isEmpty()) {
-                y = drawRentalWrapped(g, (en ? "Remarks: " : "टिप्पणी: ") + remarks, M, y, CONTENT_W, fSmall, frc, LINE_H);
-                y += 4 * SCALE;
-            }
-            y += LINE_H;
-
-            // Signatory
-            drawRentalLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
-            y += (int)(LINE_H * 1.5);
-            drawRentalLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc);
-            y += LINE_H;
-            drawRentalLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
-            y += LINE_H * 2;
-
-            // Footer
-            String footer = en
-                    ? "Thank you for your cooperation."
-                    : "धन्यवाद — आपके सहयोग के लिए आभार।";
-            java.awt.font.TextLayout ftl =
-                    new java.awt.font.TextLayout(footer, fSmall, frc);
-            int fx = (int)((W - ftl.getBounds().getWidth()) / 2);
-            drawRentalLine(g, footer, fx, y, fSmall, frc);
-            y += LINE_H;
-
-            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
-            g.drawLine(M, y, W - M, y);
-            g.dispose();
-
-            // PNG (lossless) → PDF
-            ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "png", imgOut);
-
+            // ── Embed all pages in one A5 PDF via OpenPDF ─────────────────────────
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             com.lowagie.text.Document document =
                     new com.lowagie.text.Document(
                             com.lowagie.text.PageSize.A5, 0, 0, 0, 0);
             com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
             document.open();
-            com.lowagie.text.Image pdfImg =
-                    com.lowagie.text.Image.getInstance(imgOut.toByteArray());
-            pdfImg.scaleToFit(com.lowagie.text.PageSize.A5.getWidth(),
-                    com.lowagie.text.PageSize.A5.getHeight());
-            pdfImg.setAbsolutePosition(0, 0);
-            document.add(pdfImg);
+            for (int p = 0; p < pagePngs.size(); p++) {
+                com.lowagie.text.Image pdfImg = com.lowagie.text.Image.getInstance(pagePngs.get(p));
+                pdfImg.scaleToFit(com.lowagie.text.PageSize.A5.getWidth(),
+                        com.lowagie.text.PageSize.A5.getHeight());
+                pdfImg.setAbsolutePosition(0, 0);
+                document.add(pdfImg);
+                if (p < pagePngs.size() - 1) document.newPage();
+            }
             document.close();
 
             return out.toByteArray();
@@ -527,6 +592,13 @@ public class RentalServiceImpl implements RentalService {
             final int TABLE_ROW_H = 17 * SCALE;   // compact table row — fits 10 rows easily
             final int PAD         = 5 * SCALE;    // inner cell left-padding
 
+            // Paper is pre-printed letterhead stock (temple logo/shloka/name/address/
+            // contact + a horizontal rule under the header) — same stock as the
+            // donation receipt. Content must start below that rule and stay clear
+            // of the bottom edge.
+            final int HEADER_CLEARANCE = 172 * SCALE;
+            final int FOOTER_CLEARANCE = 20  * SCALE;
+
             java.awt.Font fNormal    = baseFont.deriveFont(11.0f * SCALE);
             java.awt.Font fBold      = baseFont.deriveFont(java.awt.Font.BOLD, 11.0f * SCALE);
             java.awt.Font fTitle     = baseFont.deriveFont(java.awt.Font.BOLD, 15.0f * SCALE);
@@ -551,8 +623,8 @@ public class RentalServiceImpl implements RentalService {
 
             final int CONTENT_W = W - 2 * M;
 
-            // ── Top gap for pre-printed letterhead ───────────────────────────────
-            int y = 60 * SCALE;
+            // ── Heading — starts right below the pre-printed header's rule ───────
+            int y = HEADER_CLEARANCE;
 
             // ── Title (centred + underlined) ──────────────────────────────────────
             String titleText = categoryLabel + (en ? " Rental Receipt" : " किराया रसीद");
@@ -587,7 +659,10 @@ public class RentalServiceImpl implements RentalService {
             drawRentalLine(g, mobStr, W - M - mobW, y, fNormal, frc);
             y += LINE_H + 8 * SCALE;
 
-            // ── Items table ───────────────────────────────────────────────────────
+            // ── Items table — paginated across as many A5 pages as needed, so a
+            // long item list never gets silently clipped or throws. Every page
+            // repeats the receipt number, and continuation pages also print a
+            // "Page X of Y" indicator at the top.
             // Usable width = W - 2*M = (420-72)*2 = 696 px
             // col1 (item name) : M        → col2X   ~65%
             // col2 (qty)       : col2X    → col3X   ~16%
@@ -596,78 +671,132 @@ public class RentalServiceImpl implements RentalService {
             int col2X      = M + 228 * SCALE;
             int col3X      = M + 282 * SCALE;
             int tableRight = W - M;
-
-            // Header
-            int hdrTop = y;
-            int hdrH   = TABLE_ROW_H + 2 * SCALE;
-            g.setColor(new java.awt.Color(220, 220, 220));
-            g.fillRect(col1X, hdrTop, tableRight - col1X, hdrH);
-            g.setColor(java.awt.Color.BLACK);
-            g.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
-            g.drawRect(col1X, hdrTop, tableRight - col1X, hdrH);
-            g.drawLine(col2X, hdrTop, col2X, hdrTop + hdrH);
-            g.drawLine(col3X, hdrTop, col3X, hdrTop + hdrH);
-
-            int textY = hdrTop + (int)(hdrH * 0.72);   // baseline inside row
-            drawRentalLine(g, en ? "Item Name"  : "वस्तु का नाम", col1X + PAD, textY, fTableHdr, frc);
-            drawRentalLine(g, en ? "Qty"        : "मात्रा",        col2X + PAD, textY, fTableHdr, frc);
-            drawRentalLine(g, en ? "Rate (Rs.)" : "दर (₹)",        col3X + PAD, textY, fTableHdr, frc);
-            y += hdrH;
-
-            // Data rows
+            int hdrH = TABLE_ROW_H + 2 * SCALE;
             int rowH = TABLE_ROW_H + 2 * SCALE;
-            for (RentalItem item : items) {
-                int rowTop = y;
-                g.drawRect(col1X, rowTop, tableRight - col1X, rowH);
-                g.drawLine(col2X, rowTop, col2X, rowTop + rowH);
-                g.drawLine(col3X, rowTop, col3X, rowTop + rowH);
+            int avail = H - FOOTER_CLEARANCE;
 
-                int rY = rowTop + (int)(rowH * 0.72);
-                String rateStr = "₹ " + String.format("%.0f", item.getRateAtIssue());
-                drawRentalLine(g, item.getItemNameSnapshot(),          col1X + PAD, rY, fTableBody, frc);
-                drawRentalLine(g, String.valueOf(item.getIssuedQty()), col2X + PAD, rY, fTableBody, frc);
-                drawRentalLine(g, rateStr,                             col3X + PAD, rY, fTableBody, frc);
-                y += rowH;
+            int firstPageTableStartY = y; // captured right after Address/Mobile line
+            int continuationMiniHeaderH = LINE_H + 8 * SCALE; // "Receipt No | Page X of Y" line + gap
+            int continuationTableStartY = HEADER_CLEARANCE + continuationMiniHeaderH;
+            int bottomBlockH = 6 * SCALE + (LINE_H + 8 * SCALE) + (LINE_H + 8 * SCALE) + LINE_H; // gap + total/deposit + received-by + footer
+
+            int capFirstNoBottom   = (avail - firstPageTableStartY - hdrH) / rowH;
+            int capFirstWithBottom = (avail - bottomBlockH - firstPageTableStartY - hdrH) / rowH;
+            int capContNoBottom    = (avail - continuationTableStartY - hdrH) / rowH;
+            int capContWithBottom  = (avail - bottomBlockH - continuationTableStartY - hdrH) / rowH;
+
+            List<Integer> pageCounts = new java.util.ArrayList<>();
+            int n = items.size();
+            if (n <= capFirstWithBottom) {
+                pageCounts.add(n);
+            } else {
+                pageCounts.add(capFirstNoBottom);
+                int remaining = n - capFirstNoBottom;
+                while (remaining > capContWithBottom) {
+                    pageCounts.add(capContNoBottom);
+                    remaining -= capContNoBottom;
+                }
+                pageCounts.add(remaining);
+            }
+            int totalPages = pageCounts.size();
+
+            List<byte[]> pagePngs = new java.util.ArrayList<>();
+            int itemIdx = 0;
+
+            for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                java.awt.image.BufferedImage pageImg = img;
+                java.awt.Graphics2D pg = g;
+                int py = y;
+
+                if (pageIndex > 0) {
+                    pageImg = new java.awt.image.BufferedImage(W, H, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    pg = pageImg.createGraphics();
+                    pg.setColor(java.awt.Color.WHITE);
+                    pg.fillRect(0, 0, W, H);
+                    pg.setColor(java.awt.Color.BLACK);
+                    pg.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                            java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                    pg.setRenderingHint(java.awt.RenderingHints.KEY_FRACTIONALMETRICS,
+                            java.awt.RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+                    java.awt.font.FontRenderContext pfrc = pg.getFontRenderContext();
+
+                    py = HEADER_CLEARANCE;
+                    String pageLabel = en
+                            ? "Receipt No: " + rental.getReceiptNumber() + "   —   Page " + (pageIndex + 1) + " of " + totalPages
+                            : "रसीद क्रमांक: " + rental.getReceiptNumber() + "   —   पृष्ठ " + (pageIndex + 1) + " / " + totalPages;
+                    drawRentalLine(pg, pageLabel, M, py, fBold, pfrc);
+                    py += continuationMiniHeaderH;
+                }
+
+                java.awt.font.FontRenderContext pageFrc = pg.getFontRenderContext();
+
+                // Table header (repeated on every page)
+                int hdrTop = py;
+                pg.setColor(new java.awt.Color(220, 220, 220));
+                pg.fillRect(col1X, hdrTop, tableRight - col1X, hdrH);
+                pg.setColor(java.awt.Color.BLACK);
+                pg.setStroke(new java.awt.BasicStroke(1.0f * SCALE));
+                pg.drawRect(col1X, hdrTop, tableRight - col1X, hdrH);
+                pg.drawLine(col2X, hdrTop, col2X, hdrTop + hdrH);
+                pg.drawLine(col3X, hdrTop, col3X, hdrTop + hdrH);
+
+                int textY = hdrTop + (int) (hdrH * 0.72);
+                drawRentalLine(pg, en ? "Item Name"  : "वस्तु का नाम", col1X + PAD, textY, fTableHdr, pageFrc);
+                drawRentalLine(pg, en ? "Qty"        : "मात्रा",        col2X + PAD, textY, fTableHdr, pageFrc);
+                drawRentalLine(pg, en ? "Rate (Rs.)" : "दर (₹)",        col3X + PAD, textY, fTableHdr, pageFrc);
+                py += hdrH;
+
+                int rowsOnThisPage = pageCounts.get(pageIndex);
+                for (int r = 0; r < rowsOnThisPage; r++) {
+                    RentalItem item = items.get(itemIdx++);
+                    int rowTop = py;
+                    pg.drawRect(col1X, rowTop, tableRight - col1X, rowH);
+                    pg.drawLine(col2X, rowTop, col2X, rowTop + rowH);
+                    pg.drawLine(col3X, rowTop, col3X, rowTop + rowH);
+
+                    int rY = rowTop + (int) (rowH * 0.72);
+                    String rateStr = "₹ " + String.format("%.0f", item.getRateAtIssue());
+                    drawRentalLine(pg, item.getItemNameSnapshot(),          col1X + PAD, rY, fTableBody, pageFrc);
+                    drawRentalLine(pg, String.valueOf(item.getIssuedQty()), col2X + PAD, rY, fTableBody, pageFrc);
+                    drawRentalLine(pg, rateStr,                             col3X + PAD, rY, fTableBody, pageFrc);
+                    py += rowH;
+                }
+
+                if (pageIndex == totalPages - 1) {
+                    py += 6 * SCALE;
+
+                    drawRentalLine(pg, (en ? "Total Rent: Rs. " : "कुल किराया राशि: ₹ ") + chargedAmt + " /-", M, py, fBold, pageFrc);
+                    String depStr = (en ? "Deposit: Rs. " : "जमानत राशि: ₹ ") + depositAmt + " /-";
+                    int depW = (int) new java.awt.font.TextLayout(depStr, fNormal, pageFrc).getBounds().getWidth();
+                    drawRentalLine(pg, depStr, W - M - depW, py, fNormal, pageFrc);
+                    py += LINE_H + 8 * SCALE;
+
+                    drawRentalLine(pg, en ? "Received by:" : "प्राप्तकर्ता:", M, py, fNormal, pageFrc);
+                    py += LINE_H + 8 * SCALE;
+
+                    String footer = en
+                            ? "Please return items on time. Fine applicable for damage."
+                            : "वस्तुएँ समय पर वापस करें। क्षति पर जुर्माना लागू होगा।";
+                    java.awt.font.TextLayout ftl = new java.awt.font.TextLayout(footer, fTableBody, pageFrc);
+                    int fx = (int) ((W - ftl.getBounds().getWidth()) / 2);
+                    drawRentalLine(pg, footer, fx, py, fTableBody, pageFrc);
+                    py += LINE_H;
+
+                    if (py > H - FOOTER_CLEARANCE) {
+                        throw new IllegalStateException(
+                                "Rental receipt content overflowed available space (y=" + py
+                                        + ", limit=" + (H - FOOTER_CLEARANCE) + ") — reduce content or spacing");
+                    }
+                }
+
+                pg.dispose();
+
+                ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
+                javax.imageio.ImageIO.write(pageImg, "png", imgOut);
+                pagePngs.add(imgOut.toByteArray());
             }
 
-            y += 6 * SCALE;
-
-            // ── Total rent  |  Deposit (same line) ───────────────────────────────
-            drawRentalLine(g, (en ? "Total Rent: Rs. " : "कुल किराया राशि: ₹ ") + chargedAmt + " /-", M, y, fBold, frc);
-            String depStr = (en ? "Deposit: Rs. " : "जमानत राशि: ₹ ") + depositAmt + " /-";
-            int depW = (int) new java.awt.font.TextLayout(depStr, fNormal, frc).getBounds().getWidth();
-            drawRentalLine(g, depStr, W - M - depW, y, fNormal, frc);
-            y += LINE_H + 8 * SCALE;
-
-            // ── Signatory ─────────────────────────────────────────────────────────
-            drawRentalLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
-            y += LINE_H;
-            drawRentalLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc);
-            y += LINE_H;
-            drawRentalLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
-            y += LINE_H + 8 * SCALE;
-
-            // ── Footer (centred) ──────────────────────────────────────────────────
-            String footer = en
-                    ? "Please return items on time. Fine applicable for damage."
-                    : "वस्तुएँ समय पर वापस करें। क्षति पर जुर्माना लागू होगा।";
-            java.awt.font.TextLayout ftl =
-                    new java.awt.font.TextLayout(footer, fTableBody, frc);
-            int fx = (int)((W - ftl.getBounds().getWidth()) / 2);
-            drawRentalLine(g, footer, fx, y, fTableBody, frc);
-            y += LINE_H;
-
-            // ── Horizontal rule ───────────────────────────────────────────────────
-            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
-            g.drawLine(M, y, W - M, y);
-
-            g.dispose();
-
-            // ── 5. Encode BufferedImage → PNG (lossless) ──────────────────────────
-            ByteArrayOutputStream imgOut = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "png", imgOut);
-
-            // ── 6. Embed PNG in A5 PDF via OpenPDF ────────────────────────────────
+            // ── Embed all pages in one A5 PDF via OpenPDF ─────────────────────────
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             com.lowagie.text.Document document =
                     new com.lowagie.text.Document(
@@ -676,12 +805,14 @@ public class RentalServiceImpl implements RentalService {
                     );
             com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
             document.open();
-            com.lowagie.text.Image pdfImg =
-                    com.lowagie.text.Image.getInstance(imgOut.toByteArray());
-            pdfImg.scaleToFit(com.lowagie.text.PageSize.A5.getWidth(),
-                    com.lowagie.text.PageSize.A5.getHeight());
-            pdfImg.setAbsolutePosition(0, 0);
-            document.add(pdfImg);
+            for (int p = 0; p < pagePngs.size(); p++) {
+                com.lowagie.text.Image pdfImg = com.lowagie.text.Image.getInstance(pagePngs.get(p));
+                pdfImg.scaleToFit(com.lowagie.text.PageSize.A5.getWidth(),
+                        com.lowagie.text.PageSize.A5.getHeight());
+                pdfImg.setAbsolutePosition(0, 0);
+                document.add(pdfImg);
+                if (p < pagePngs.size() - 1) document.newPage();
+            }
             document.close();
 
             return out.toByteArray();

@@ -26,13 +26,13 @@ const L = {
         daily: "Daily", weekly: "Weekly", monthly: "Monthly",
         allUsers: "All Users", user: "User",
         searchReceipt: "Search Donation",
-        rentalSearch: "Search Rental",
+        rentalSearch: "Search Bichayat Receipt",
         printDaily: "Print Report",
         donationCollection: "Donation Collection",
         receipts: "Receipts",
-        rentalCollection: "Rental Collection",
-        rentalBartan: "Bartan Rental", rentalBichayat: "Bichayat Rental",
-        bhaktNiwasTitle: "Bhakt Niwas", bhaktNiwasRent: "Room Rent",
+        rentalCollection: "Facility Usage Collection",
+        rentalBartan: "Bartan Seva Donation", rentalBichayat: "Bichayat Seva Donation",
+        bhaktNiwasTitle: "Bhakt Niwas", bhaktNiwasRent: "Room Donation Amount",
         bhaktNiwasDeposit: "Deposit", bhaktNiwasDeduction: "Deduction",
         bhaktNiwasBookings: "Bookings",
         transactions: "Txn", rent: "Rent", deposit: "Deposit",
@@ -46,13 +46,13 @@ const L = {
         daily: "दैनिक", weekly: "साप्ताहिक", monthly: "मासिक",
         allUsers: "सभी यूज़र", user: "यूज़र",
         searchReceipt: "दान रसीद खोजें",
-        rentalSearch: "किराया रसीद खोजें",
+        rentalSearch: "बिछायत रसीद खोजें",
         printDaily: "रिपोर्ट प्रिंट",
         donationCollection: "दान कलेक्शन",
         receipts: "रसीदें",
-        rentalCollection: "किराया कलेक्शन",
-        rentalBartan: "बर्तन किराया", rentalBichayat: "बिछायत किराया",
-        bhaktNiwasTitle: "भक्त निवास", bhaktNiwasRent: "कक्ष किराया",
+        rentalCollection: "सुविधा उपयोग संग्रह",
+        rentalBartan: "बर्तन सेवा दान राशि", rentalBichayat: "बिछायत सेवा दान राशि",
+        bhaktNiwasTitle: "भक्त निवास", bhaktNiwasRent: "कक्ष दान राशि",
         bhaktNiwasDeposit: "जमानत", bhaktNiwasDeduction: "कटौती",
         bhaktNiwasBookings: "बुकिंग",
         transactions: "लेन", rent: "किराया", deposit: "जमा",
@@ -75,7 +75,7 @@ const today = () => {
 
 /* colour palette per donation-purpose index */
 const CARD_ACCENTS = [
-    "#E07B54", "#F7C59F", "#EFEFD0", "#004E89",
+    "#E07B54", "#6B4226", "#C99A2E", "#004E89",
     "#1A936F", "#C6AC8F", "#E84855", "#3A86FF",
     "#8338EC", "#FB5607",
 ];
@@ -94,7 +94,8 @@ function StatBadge({ label, value, accent = "#E07B54", icon }) {
     );
 }
 
-function DonationCard({ item, accent, receiptsLabel, clickLabel, onClick }) {
+function DonationCard({ item, accent, receiptsLabel, clickLabel, onClick, language }) {
+    const displayPurpose = language === "hi" ? (item.purposeHi || item.purpose) : item.purpose;
     return (
         <Box onClick={onClick} sx={{
             borderRadius: "12px", cursor: "pointer", overflow: "hidden",
@@ -106,7 +107,7 @@ function DonationCard({ item, accent, receiptsLabel, clickLabel, onClick }) {
         }}>
             <Box sx={{ height: 7, background: accent, flexShrink: 0 }} />
             <Box sx={{ p: "14px 14px 12px", display: "flex", flexDirection: "column", flex: 1 }}>
-                <Typography sx={{ fontWeight: 800, fontSize: 14, mb: "3px", color: "#1a1a2e" }}>{item.purpose}</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: 14, mb: "3px", color: "#1a1a2e" }}>{displayPurpose}</Typography>
                 <Typography sx={{ fontSize: 11, color: "#4a3a2a", mb: "10px", fontWeight: 700 }}>
                     {receiptsLabel}: <span style={{ fontWeight: 900 }}>{item.receiptCount ?? 0}</span>
                 </Typography>
@@ -157,16 +158,16 @@ const buildPrintMain = (printData, reportDateFormatted, userLabel, fmt2) => {
 <title>Daily Cash Report</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap');
-  @page{size:A4;margin:8mm}
-  body{font-family:'Noto Sans Devanagari',Arial,sans-serif;padding:0;font-size:12px}
-  .header{text-align:center;margin-bottom:6px}.header h2{margin:3px 0;font-size:16px}.sub{font-size:11px}
-  .header h3{margin:4px 0;font-size:14px}
-  .section-title{font-weight:bold;margin-top:8px;margin-bottom:3px;font-size:13px}
-  table{width:100%;border-collapse:collapse;margin-bottom:6px}
-  table,th,td{border:1px solid black}th,td{padding:3px 6px;text-align:left}
-  .total-box{width:55%;margin-top:8px}
-  .signature{margin-top:24px;display:flex;justify-content:space-between;page-break-inside:avoid}
-  .sign-box{width:40%;border-top:1px solid black;text-align:center;padding-top:6px}
+  @page{size:A4;margin:14mm}
+  body{font-family:'Noto Sans Devanagari',Arial,sans-serif;padding:0;font-size:15px}
+  .header{text-align:center;margin-bottom:14px}.header h2{margin:5px 0;font-size:22px}.sub{font-size:13px}
+  .header h3{margin:8px 0;font-size:18px}
+  .section-title{font-weight:bold;margin-top:16px;margin-bottom:6px;font-size:16px}
+  table{width:100%;border-collapse:collapse;margin-bottom:10px}
+  table,th,td{border:1px solid black}th,td{padding:8px 12px;text-align:left}
+  .total-box{width:65%;margin-top:14px}
+  .signature{margin-top:48px;display:flex;justify-content:space-between;page-break-inside:avoid}
+  .sign-box{width:40%;border-top:1px solid black;text-align:center;padding-top:8px}
   @media print{body{margin:0}}
 </style>
 </head><body>
@@ -179,24 +180,21 @@ const buildPrintMain = (printData, reportDateFormatted, userLabel, fmt2) => {
 </div>
 <div class="section-title">दान कलेक्शन</div>
 <table><thead><tr><th>उद्देश्य</th><th>रसीद संख्या</th><th>राशि</th></tr></thead><tbody>${donationRows}</tbody></table>
-<div class="section-title">किराया कलेक्शन</div>
+<div class="section-title">सुविधा उपयोग संग्रह</div>
 <table>
-  <tr><td><strong>बर्तन किराया</strong></td><td>लेनदेन: ${printData?.rentalBartan?.transactions || 0}</td><td>&#8377; ${fmt2(printData?.rentalBartan?.rentTotal)}</td></tr>
-  <tr><td><strong>बिछायत किराया</strong></td><td>लेनदेन: ${printData?.rentalBichayat?.transactions || 0}</td><td>&#8377; ${fmt2(printData?.rentalBichayat?.rentTotal)}</td></tr>
+  <tr><td><strong>बर्तन सेवा दान राशि</strong></td><td>लेनदेन: ${printData?.rentalBartan?.transactions || 0}</td><td>&#8377; ${fmt2(printData?.rentalBartan?.rentTotal)}</td></tr>
+  <tr><td><strong>बिछायत सेवा दान राशि</strong></td><td>लेनदेन: ${printData?.rentalBichayat?.transactions || 0}</td><td>&#8377; ${fmt2(printData?.rentalBichayat?.rentTotal)}</td></tr>
 </table>
-<div class="section-title">भक्त निवास (कक्ष किराया)</div>
+<div class="section-title">भक्त निवास</div>
 <table>
   <tr><th>विवरण</th><th>राशि</th></tr>
-  <tr><td>कक्ष किराया (आज)</td><td>&#8377; ${fmt2(printData?.bhaktNiwas?.totalRent)}</td></tr>
-  <tr><td>जमानत राशि प्राप्त</td><td>&#8377; ${fmt2(printData?.bhaktNiwas?.depositCollected)}</td></tr>
-  <tr><td>जमानत कटौती</td><td>&#8377; ${fmt2(printData?.bhaktNiwas?.depositDeducted)}</td></tr>
+  <tr><td>कक्ष दान राशि</td><td>&#8377; ${fmt2((printData?.bhaktNiwas?.totalRent ?? 0) + (printData?.bhaktNiwas?.depositDeducted ?? 0))}</td></tr>
 </table>
 <div class="section-title">संक्षिप्त विवरण</div>
 <table class="total-box">
   <tr><td><strong>कुल कलेक्शन राशि</strong></td><td>&#8377; ${fmt2(printData?.collectionTotal)}</td></tr>
-  <tr><td><strong>भक्त निवास किराया</strong></td><td>&#8377; ${fmt2(printData?.bhaktNiwas?.totalRent)}</td></tr>
-  <tr><td><strong>कुल जमा राशि (डिपॉजिट)</strong></td><td>&#8377; ${fmt2((printData?.depositTotal ?? 0) + (printData?.bhaktNiwas?.depositCollected ?? 0))}</td></tr>
-  <tr><td><strong>समग्र कुल</strong></td><td><strong>&#8377; ${fmt2((printData?.collectionTotal ?? 0) + (printData?.bhaktNiwas?.totalRent ?? 0))}</strong></td></tr>
+  <tr><td><strong>भक्त निवास दान राशि</strong></td><td>&#8377; ${fmt2((printData?.bhaktNiwas?.totalRent ?? 0) + (printData?.bhaktNiwas?.depositDeducted ?? 0))}</td></tr>
+  <tr><td><strong>समग्र कुल</strong></td><td><strong>&#8377; ${fmt2((printData?.collectionTotal ?? 0) + (printData?.bhaktNiwas?.totalRent ?? 0) + (printData?.bhaktNiwas?.depositDeducted ?? 0))}</strong></td></tr>
 </table>
 <div class="signature">
   <div class="sign-box">जमाकर्ता के हस्ताक्षर</div>
@@ -474,7 +472,7 @@ export default function CollectionDashboard() {
                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: "12px", alignItems: "stretch" }}>
                                 {data?.donations?.map((item, i) => (
                                     <DonationCard key={item.purpose} item={item} accent={CARD_ACCENTS[i % CARD_ACCENTS.length]}
-                                        receiptsLabel={t.receipts} clickLabel={t.clickForDetails} onClick={() => handleCardClick(item.purpose)} />
+                                        receiptsLabel={t.receipts} clickLabel={t.clickForDetails} onClick={() => handleCardClick(item.purpose)} language={language} />
                                 ))}
                             </Box>
                         </Box>
@@ -486,8 +484,8 @@ export default function CollectionDashboard() {
                                 <Typography sx={{ fontWeight: 800, fontSize: 14, color: txt }}>{t.rentalCollection}</Typography>
                             </Box>
                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: "12px", alignItems: "stretch" }}>
-                                <RentalCard title={t.rentalBartan} data={data?.rentalBartan} t={t} accent="#3A86FF" />
-                                <RentalCard title={t.rentalBichayat} data={data?.rentalBichayat} t={t} accent="#8338EC" />
+                                <RentalCard title={t.rentalBartan} data={data?.rentalBartan} t={t} accent="#C2185B" />
+                                <RentalCard title={t.rentalBichayat} data={data?.rentalBichayat} t={t} accent="#5E548E" />
 
                                 {/* Goshala — same tinted style, clicks like Daan */}
                                 <Box onClick={() => handleCardClick("GOSHALA_DAAN")} sx={{
@@ -548,14 +546,16 @@ export default function CollectionDashboard() {
                     <Box sx={{ p: "0.8rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                         {[
                             { icon: "🙏", label: language === "hi" ? "दान करें"    : "New Donation",      path: "/donation",       color: "#E07B54", bg: "#fff5f0" },
-                            { icon: "🍳", label: language === "hi" ? "बर्तन किराया"     : "Bartan Rental",     path: "/rentals/bartan",        color: "#3A86FF", bg: "#f0f5ff" },
-                            { icon: "🛏️", label: language === "hi" ? "बिछायत किराया"   : "Bichayat Rental",   path: "/rentals/bichayat",      color: "#8338EC", bg: "#f5f0ff" }, 
-                            { icon: "↩️", label: language === "hi" ? "किराया वापसी"     : "Rental Return",     path: "/rentals/return",        color: "#FB5607", bg: "#fff3ee" },
-                            { icon: "🏠", label: language === "hi" ? "भक्त निवास"       : "Room Booking",      path: "/rooms/bookings",        color: "#FF6B35", bg: "#fff4f0" },
-                            { icon: "📊", label: language === "hi" ? "रिपोर्ट"           : "Reports",            path: "/reports/admin-summary", color: "#2d7a2d", bg: "#f0fff0" },
-                            { icon: "🌳", label: language === "hi" ? "गोत्र अपडेट"      : "Update Gotra",      path: "/gotra",          color: "#1A936F", bg: "#f0faf5" },
-                            { icon: "🍶", label: language === "hi" ? "बर्तन सूची"       : "Bartan List",       path: "/inventory/bartan",      color: "#8a6030", bg: "#fdf8f0" },
-                            { icon: "🛋️", label: language === "hi" ? "बिछायत सूची"     : "Bichayat List",     path: "/inventory/bichayat",    color: "#6B4226", bg: "#fdf5ee" },
+                            { icon: "📲", label: language === "hi" ? "यूपीआई दान बिल" : "UPI Donation Bill", path: "/donation/upi",  color: "#5C6BC0", bg: "#f0f1ff" },
+                            // Hidden per request — keep for later, don't delete:
+                            // { icon: "🍳", label: language === "hi" ? "बर्तन किराया"     : "Bartan Rental",     path: "/rentals/bartan",        color: "#3A86FF", bg: "#f0f5ff" },
+                            // { icon: "🛏️", label: language === "hi" ? "बिछायत किराया"   : "Bichayat Rental",   path: "/rentals/bichayat",      color: "#8338EC", bg: "#f5f0ff" },
+                            // { icon: "↩️", label: language === "hi" ? "किराया वापसी"     : "Rental Return",     path: "/rentals/return",        color: "#FB5607", bg: "#fff3ee" },
+                            // { icon: "🏠", label: language === "hi" ? "भक्त निवास"       : "Room Booking",      path: "/rooms/bookings",        color: "#FF6B35", bg: "#fff4f0" },
+                            // { icon: "📊", label: language === "hi" ? "रिपोर्ट"           : "Reports",            path: "/reports/admin-summary", color: "#2d7a2d", bg: "#f0fff0" },
+                            // { icon: "🌳", label: language === "hi" ? "गोत्र अपडेट"      : "Update Gotra",      path: "/gotra",          color: "#1A936F", bg: "#f0faf5" },
+                            // { icon: "🍶", label: language === "hi" ? "बर्तन सूची"       : "Bartan List",       path: "/inventory/bartan",      color: "#8a6030", bg: "#fdf8f0" },
+                            // { icon: "🛋️", label: language === "hi" ? "बिछायत सूची"     : "Bichayat List",     path: "/inventory/bichayat",    color: "#6B4226", bg: "#fdf5ee" },
                         ].map(({ icon, label, path, color, bg }) => (
                             <button key={path} onClick={() => navigate(path)} style={{
                                 display: "flex", flexDirection: "column",

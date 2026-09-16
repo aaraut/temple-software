@@ -572,6 +572,14 @@ public class DonationServiceImpl implements DonationService {
             final int M      = 46  * SCALE;   // 46 pt margin — extra buffer vs. printer/paper clipping
             final int LINE_H = 22  * SCALE;   // 22 pt line height
 
+            // Paper is pre-printed letterhead stock (temple logo/shloka/name/address/
+            // contact + a horizontal rule under the header). Our content must start
+            // below that rule and stay clear of any pre-printed footer.
+            // NOTE: 172pt is an estimate based on a sample printout — retest and
+            // adjust this one constant if the heading still overlaps the letterhead.
+            final int HEADER_CLEARANCE = 172 * SCALE;
+            final int FOOTER_CLEARANCE = 20  * SCALE;
+
             java.awt.Font fNormal = baseFont.deriveFont(12.0f * SCALE);
             java.awt.Font fBold   = baseFont.deriveFont(java.awt.Font.BOLD, 13.0f * SCALE);
             java.awt.Font fTitle  = baseFont.deriveFont(java.awt.Font.BOLD, 16.0f * SCALE);
@@ -592,46 +600,61 @@ public class DonationServiceImpl implements DonationService {
 
             java.awt.font.FontRenderContext frc = g.getFontRenderContext();
 
-            // ── Top gap for pre-printed header ────────────────────────────────────
-            int y = 90 * SCALE;
+            // Content width available between the left/right margins — anything
+            // wider than this must wrap, otherwise Graphics2D silently clips it
+            // at the bitmap edge and the printed receipt shows cut-off text.
+            final int CONTENT_W = W - 2 * M;
 
-            // Title — centred + underlined
+            // Two consistent spacing units used throughout — every gap in this
+            // layout is one of these two, so vertical rhythm stays even instead
+            // of a mix of ad hoc numbers.
+            final int FIELD_GAP = 8  * SCALE;   // between one field and the next
+            final int GROUP_GAP = 16 * SCALE;   // around section dividers
+
+            // ── Heading — starts right below the pre-printed header's rule ────────
+            int y = HEADER_CLEARANCE;
             String title = en ? "Donation Receipt" : "दान रसीद";
             java.awt.font.TextLayout titleLayout =
                     new java.awt.font.TextLayout(title, fTitle, frc);
             int titleW = (int) titleLayout.getBounds().getWidth();
             int titleX = (W - titleW) / 2;
             titleLayout.draw(g, titleX, y);
-            int titleBottom = y + (int) titleLayout.getDescent() + 2 * SCALE;
-            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
-            g.drawLine(titleX, titleBottom, titleX + titleW, titleBottom);
-            y += (int) titleLayout.getBounds().getHeight() + 18 * SCALE;
+            int titleBottom = y + (int) titleLayout.getDescent() + 3 * SCALE;
+            g.setStroke(new java.awt.BasicStroke(1.2f * SCALE));
+            g.drawLine(titleX - 6 * SCALE, titleBottom, titleX + titleW + 6 * SCALE, titleBottom);
+            y += (int) titleLayout.getBounds().getHeight() + 20 * SCALE;
 
-            // Receipt number & date
-            drawLine(g, (en ? "Receipt No: " : "रसीद क्रमांक: ") + donation.getReceiptNumber(), M, y, fNormal, frc);
-            drawLine(g, (en ? "Date: " : "दिनांक: ") + donation.getCreatedAt().format(formatter), M + 200 * SCALE, y, fNormal, frc);
-            y += LINE_H + 8 * SCALE;
+            // Receipt number (left) & date (right) — same baseline
+            drawLine(g, (en ? "Receipt No: " : "रसीद क्रमांक: ") + donation.getReceiptNumber(), M, y, fBold, frc);
+            String dateStr = (en ? "Date: " : "दिनांक: ") + donation.getCreatedAt().format(formatter);
+            java.awt.font.TextLayout dateLayout = new java.awt.font.TextLayout(dateStr, fBold, frc);
+            drawLine(g, dateStr, (int) (W - M - dateLayout.getBounds().getWidth()), y, fBold, frc);
+            y += LINE_H + FIELD_GAP;
 
-            // Content width available between the left/right margins — anything
-            // wider than this must wrap, otherwise Graphics2D silently clips it
-            // at the bitmap edge and the printed receipt shows cut-off text.
-            final int CONTENT_W = W - 2 * M;
+            g.setStroke(new java.awt.BasicStroke(0.75f * SCALE));
+            g.setColor(new java.awt.Color(150, 150, 150));
+            g.drawLine(M, y, W - M, y);
+            g.setColor(java.awt.Color.BLACK);
+            y += GROUP_GAP;
 
             // Donor
             String donorLine = en
                     ? "Received with thanks from Mr./Mrs. " + donation.getDonorName()
                     : "श्रीमान/श्रीमती " + donation.getDonorName() + " जी से सादर प्राप्त";
             y = drawWrapped(g, donorLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
-            y += 4 * SCALE;
+            y += FIELD_GAP;
 
-            // Address & mobile on separate lines
+            // Address & mobile — each is a single "label: value" line, wrapping
+            // independently, same pattern as every other field below.
             y = drawWrapped(g, (en ? "Address: " : "पता: ") + address, M, y, CONTENT_W, fNormal, frc, LINE_H);
-            drawLine(g, (en ? "Mobile: " : "मोबाइल: ") + donation.getMobile(), M, y, fNormal, frc);
-            y += LINE_H + 8 * SCALE;
+            y += FIELD_GAP;
+            y = drawWrapped(g, (en ? "Mobile: " : "मोबाइल: ") + donation.getMobile(), M, y, CONTENT_W, fNormal, frc, LINE_H);
+            y += FIELD_GAP;
 
             // Gotra — only when present
             if (!gotra.isEmpty()) {
                 y = drawWrapped(g, (en ? "Gotra: " : "गोत्र: ") + gotra, M, y, CONTENT_W, fNormal, frc, LINE_H);
+                y += FIELD_GAP;
             }
 
             // Amount line — bold; wraps if the amount-in-words runs long
@@ -640,36 +663,35 @@ public class DonationServiceImpl implements DonationService {
                     ? "Amount: Rs. " + formattedAmount + "/- (" + amountInWords + ") Cash"
                     : "राशि: ₹ " + formattedAmount + " /- (" + amountInWords + ") नकद";
             y = drawWrapped(g, amountLine, M, y, CONTENT_W, fBold, frc, LINE_H);
-            y += 8 * SCALE;
+            y += FIELD_GAP;
 
-            // Purpose on two lines
-            drawLine(g, en ? "For:" : "उद्देश्य:", M, y, fNormal, frc);
-            y += LINE_H;
-            y = drawWrapped(g, en ? (purposeText + " Donation") : (purposeText + " हेतु दान राशि"),
-                    M, y, CONTENT_W, fNormal, frc, LINE_H);
-            y += LINE_H;
+            // Purpose — one "label: value" line like every field above it,
+            // instead of a separate label line followed by the value.
+            String purposeLine = en
+                    ? "For: " + purposeText + " Donation"
+                    : "उद्देश्य: " + purposeText + " हेतु दान राशि";
+            y = drawWrapped(g, purposeLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            y += GROUP_GAP - FIELD_GAP;
 
-            // Signatory block
-            drawLine(g, en ? "Received by:" : "प्राप्तकर्ता:", M, y, fNormal, frc);
-            y += (int)(LINE_H * 1.5);
-            drawLine(g, cashierName, M, y, fNormal, frc); y += LINE_H;
-            drawLine(g, en ? "Chamatkarik Shree Hanuman Mandir Sansthan" : "चमत्कारिक श्री हनुमान मंदिर संस्थान", M, y, fNormal, frc); y += LINE_H;
-            drawLine(g, en ? "(Hanuman Lok) Jamsawli" : "(हनुमान लोक) जामसावली", M, y, fNormal, frc);
-            y += LINE_H * 2;
-
-            // Footer — centred
-            String footer = en
-                    ? "Your contribution is invaluable for temple development."
-                    : "आपका सहयोग मंदिर विकास हेतु अमूल्य है।";
-            java.awt.font.TextLayout tl =
-                    new java.awt.font.TextLayout(footer, fNormal, frc);
-            int fx = (int)((W - tl.getBounds().getWidth()) / 2);
-            drawLine(g, footer, fx, y, fNormal, frc);
-            y += LINE_H;
-
-            // Horizontal rule
-            g.setStroke(new java.awt.BasicStroke(1.5f * SCALE));
+            g.setStroke(new java.awt.BasicStroke(0.75f * SCALE));
+            g.setColor(new java.awt.Color(150, 150, 150));
             g.drawLine(M, y, W - M, y);
+            g.setColor(java.awt.Color.BLACK);
+            y += GROUP_GAP;
+
+            // Signatory — only the variable field (who processed it); the org
+            // name/address is already on the pre-printed letterhead, so it is
+            // not repeated here. Kept as one line, consistent with the fields above.
+            y = drawWrapped(g, (en ? "Received by: " : "प्राप्तकर्ता: ") + cashierName, M, y, CONTENT_W, fNormal, frc, LINE_H);
+
+            // Safety check — if a future field addition pushes content past the
+            // reserved footer clearance, this fails loudly instead of silently
+            // printing off the bottom edge of the page.
+            if (y > H - FOOTER_CLEARANCE) {
+                throw new IllegalStateException(
+                        "Donation receipt content overflowed available space (y=" + y
+                                + ", limit=" + (H - FOOTER_CLEARANCE) + ") — reduce content or spacing");
+            }
 
             g.dispose();
 

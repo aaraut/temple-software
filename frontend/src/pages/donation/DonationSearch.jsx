@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { searchDonations, printDonation, changeDonationStatus } from "../../api/donationApi";
+import { searchUpiDonations, printUpiDonation } from "../../api/upiDonationApi";
 import { useNavigate } from "react-router-dom";
 
 const C = {
@@ -43,6 +44,8 @@ const L = {
     colPurpose: "उद्देश्य", colAmount: "राशि", colDate: "दिनांक", colAction: "कार्य",
     view: "देखें", print: "प्रिंट", update: "अपडेट", disable: "बंद करें",
     results: "परिणाम",
+    paymentMode: "भुगतान माध्यम", cash: "नकद", upi: "यूपीआई",
+    colRef: "यूपीआई संदर्भ",
   },
   en: {
     title: "Search Donations", sub: "Donation",
@@ -54,6 +57,8 @@ const L = {
     colPurpose: "Purpose", colAmount: "Amount", colDate: "Date", colAction: "Actions",
     view: "View", print: "Print", update: "Update", disable: "Disable",
     results: "Results",
+    paymentMode: "Payment Mode", cash: "Cash", upi: "UPI",
+    colRef: "UPI Ref",
   },
 };
 
@@ -66,6 +71,7 @@ export default function DonationSearch() {
   const t = L[language] ?? L.en;
   const isAdmin = auth?.role === "ADMIN" || auth?.role === "SUPER_ADMIN";
 
+  const [mode,     setMode]     = useState("CASH"); // "CASH" | "UPI" — always defaults to CASH
   const [receipt,  setReceipt]  = useState("");
   const [mobile,   setMobile]   = useState("");
   const [name,     setName]     = useState("");
@@ -81,15 +87,25 @@ export default function DonationSearch() {
   const onMobileChange  = (e) => { setMobile(e.target.value.replace(/\D/g, "").slice(0, 11)); setReceipt(""); setName(""); setRows([]); setSearched(false); };
   const onNameChange    = (e) => { setName(e.target.value); setReceipt(""); setMobile(""); setRows([]); setSearched(false); };
 
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setReceipt(""); setMobile(""); setName(""); setRows([]); setSearched(false);
+  };
+
   const handleSearch = async () => {
     if (!receipt.trim() && !mobile.trim() && !name.trim()) return;
     setLoading(true);
     try {
-      const res = await searchDonations({
-        receiptNumber: receipt.trim() || undefined,
-        mobile: mobile.trim() || undefined,
-        donorName: name.trim() || undefined,
-      });
+      const res = mode === "UPI"
+        ? await searchUpiDonations({
+            receiptNumber: receipt.trim() || undefined,
+            mobile: mobile.trim() || undefined,
+          })
+        : await searchDonations({
+            receiptNumber: receipt.trim() || undefined,
+            mobile: mobile.trim() || undefined,
+            donorName: name.trim() || undefined,
+          });
       setRows(res.data || []);
       setSearched(true);
     } catch (e) {
@@ -99,7 +115,9 @@ export default function DonationSearch() {
 
   const handlePrint = async (row) => {
     try {
-      const response = await printDonation(row.id, language);
+      const response = mode === "UPI"
+        ? await printUpiDonation(row.id, language)
+        : await printDonation(row.id, language);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
       window.open(url);
     } catch { showToast(language === "hi" ? "प्रिंट में त्रुटि" : "Print failed", "error"); }
@@ -132,6 +150,15 @@ export default function DonationSearch() {
 
       {/* Search card */}
       <div style={{ background: C.card, borderRadius: "14px", border: `1px solid ${C.border}`, boxShadow: "0 2px 10px rgba(139,100,60,0.07)", marginBottom: "1rem", overflow: "visible" }}>
+        <div style={{ padding: "1rem 1.2rem 0", display: "flex", gap: "1.2rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.68rem", fontWeight: 700, color: C.muted, letterSpacing: "0.05em", textTransform: "uppercase" }}>{t.paymentMode}</span>
+          {[["CASH", t.cash], ["UPI", t.upi]].map(([val, label]) => (
+            <label key={val} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem", fontWeight: 600, color: C.text, cursor: "pointer" }}>
+              <input type="radio" name="paymentMode" checked={mode === val} onChange={() => handleModeChange(val)} />
+              {label}
+            </label>
+          ))}
+        </div>
         <div style={{ padding: "1rem 1.2rem", display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
           <Field label={t.receipt}>
             <Inp value={receipt} onChange={onReceiptChange} onKeyDown={e => e.key === "Enter" && handleSearch()} placeholder={t.receiptPh} maxLength={30} />
@@ -139,9 +166,11 @@ export default function DonationSearch() {
           <Field label={t.mobile}>
             <Inp value={mobile} onChange={onMobileChange} onKeyDown={e => e.key === "Enter" && handleSearch()} placeholder={t.mobilePh} maxLength={11} />
           </Field>
-          <Field label={t.name}>
-            <Inp value={name} onChange={onNameChange} onKeyDown={e => e.key === "Enter" && handleSearch()} placeholder={t.namePh} maxLength={60} />
-          </Field>
+          {mode === "CASH" && (
+            <Field label={t.name}>
+              <Inp value={name} onChange={onNameChange} onKeyDown={e => e.key === "Enter" && handleSearch()} placeholder={t.namePh} maxLength={60} />
+            </Field>
+          )}
           <button onClick={handleSearch} disabled={!ready || loading} style={{
             padding: "0.62rem 1.5rem", border: "none", borderRadius: 9,
             background: (!ready || loading) ? "#e8e0d8" : `linear-gradient(135deg, ${C.accent}, ${C.accentDk})`,
@@ -176,7 +205,7 @@ export default function DonationSearch() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
                 <tr style={{ background: "#fdf6ee" }}>
-                  {[t.colReceipt, t.colName, t.colMobile, t.colPurpose, t.colAmount, t.colDate, t.colAction].map(h => (
+                  {[t.colReceipt, t.colName, t.colMobile, t.colPurpose, t.colAmount, ...(mode === "UPI" ? [t.colRef] : []), t.colDate, t.colAction].map(h => (
                     <th key={h} style={{ padding: "0.55rem 0.9rem", textAlign: "left", fontSize: "0.65rem", fontWeight: 700, color: C.muted, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: `2px solid ${C.border}`, background: "#fdf6ee" }}>{h}</th>
                   ))}
                 </tr>
@@ -193,15 +222,20 @@ export default function DonationSearch() {
                     <td style={{ padding: "0.55rem 0.9rem", fontSize: "0.8rem", color: C.muted }}>{row.mobile}</td>
                     <td style={{ padding: "0.55rem 0.9rem", fontSize: "0.8rem", color: C.muted }}>{row.purposeNameEn || row.purposeNameHi}</td>
                     <td style={{ padding: "0.55rem 0.9rem", fontSize: "0.85rem", fontWeight: 700, color: C.text }}>₹{fmt(row.amount)}</td>
+                    {mode === "UPI" && (
+                      <td style={{ padding: "0.55rem 0.9rem", fontSize: "0.8rem", color: C.muted }}>XXXX{row.paymentRefLast4}</td>
+                    )}
                     <td style={{ padding: "0.55rem 0.9rem", fontSize: "0.75rem", color: C.muted }}>{fmtDate(row.createdAt)}</td>
                     <td style={{ padding: "0.55rem 0.9rem" }}>
                       <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
                         {[
-                          { label: t.view,  color: C.blue,   bg: C.blueBg,        onClick: () => navigate(`/donation/edit/${row.id}?mode=view`) },
                           { label: t.print, color: C.green,  bg: C.greenBg,       onClick: () => handlePrint(row) },
-                          ...(isAdmin ? [
-                            { label: t.update,  color: C.accent, bg: `${C.accent}15`, onClick: () => navigate(`/donation/edit/${row.id}`) },
-                            { label: t.disable, color: C.red,    bg: C.redBg,         onClick: () => handleDisable(row) },
+                          ...(mode === "CASH" ? [
+                            { label: t.view,  color: C.blue,   bg: C.blueBg,        onClick: () => navigate(`/donation/edit/${row.id}?mode=view`) },
+                            ...(isAdmin ? [
+                              { label: t.update,  color: C.accent, bg: `${C.accent}15`, onClick: () => navigate(`/donation/edit/${row.id}`) },
+                              { label: t.disable, color: C.red,    bg: C.redBg,         onClick: () => handleDisable(row) },
+                            ] : []),
                           ] : []),
                         ].map(({ label, color, bg, onClick }) => (
                           <button key={label} onClick={onClick} style={{ padding: "0.28rem 0.65rem", background: bg, color, border: `1.5px solid ${color}30`, borderRadius: 6, fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}

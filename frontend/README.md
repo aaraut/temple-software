@@ -21,3 +21,9 @@ const base = "http://192.168.1.102:8080/api/gotras";
 after adding user list not auto updated
 no force password change for new user added
 edit gotra not present
+
+## Temporarily hidden (commented out, not deleted)
+
+Features below are commented out in code so they can be restored later without rebuilding them.
+
+- **Home page → Quick Actions**: all tiles except "New Donation" (Bartan Rental, Bichayat Rental, Rental Return, Room Booking, Reports, Update Gotra, Bartan List, Bichayat List). — `src/pages/dashboard/CollectionDashboard.jsx`
