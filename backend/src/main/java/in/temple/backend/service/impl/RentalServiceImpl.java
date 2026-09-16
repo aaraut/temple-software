@@ -314,7 +314,7 @@ public class RentalServiceImpl implements RentalService {
             final int SCALE  = 3;
             final int W      = 420 * SCALE;
             final int H      = 595 * SCALE;
-            final int M      = 36  * SCALE;
+            final int M      = 46  * SCALE;   // extra buffer vs. printer/paper clipping
             final int LINE_H = 22  * SCALE;
 
             java.awt.Font fNormal    = baseFont.deriveFont(12.0f * SCALE);
@@ -520,7 +520,7 @@ public class RentalServiceImpl implements RentalService {
             final int SCALE  = 3;
             final int W      = 420 * SCALE;   // 840 px
             final int H      = 595 * SCALE;   // 1190 px
-            final int M      = 36  * SCALE;   // left/right margin
+            final int M      = 46  * SCALE;   // left/right margin — extra buffer vs. printer/paper clipping
 
             // Row heights (in px)
             final int LINE_H      = 20 * SCALE;   // normal text line

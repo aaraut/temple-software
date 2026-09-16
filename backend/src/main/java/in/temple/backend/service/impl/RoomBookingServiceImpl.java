@@ -986,7 +986,7 @@ public class RoomBookingServiceImpl implements RoomBookingService {
             final int SCALE  = 3;
             final int W      = 420 * SCALE;
             final int H      = 595 * SCALE;
-            final int M      = 36  * SCALE;   // left/right margin
+            final int M      = 46  * SCALE;   // left/right margin — extra buffer vs. printer/paper clipping
             final int RIGHT  = W - M;          // right edge
             final int LINE_H = 22  * SCALE;
 

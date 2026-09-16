@@ -569,7 +569,7 @@ public class DonationServiceImpl implements DonationService {
             final int SCALE  = 3;
             final int W      = 420 * SCALE;   // 840 px
             final int H      = 595 * SCALE;   // 1190 px
-            final int M      = 36  * SCALE;   // 36 pt margin
+            final int M      = 46  * SCALE;   // 46 pt margin — extra buffer vs. printer/paper clipping
             final int LINE_H = 22  * SCALE;   // 22 pt line height
 
             java.awt.Font fNormal = baseFont.deriveFont(12.0f * SCALE);
