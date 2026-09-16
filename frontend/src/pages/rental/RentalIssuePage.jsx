@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { createRentalAndPrint } from "../../api/rentalApi";
+import { createRentalAndPrint, searchRentalsByMobile } from "../../api/rentalApi";
 import { getInventoryItems } from "../../api/inventoryApi";
 import { searchDonorByMobile } from "../../api/rentalApi";
 import { useAuth } from "../../context/AuthContext";
@@ -177,10 +177,19 @@ export default function RentalIssuePage() {
     if (!customer.mobile || customer.mobile.length < 5) return;
     setSearching(true);
     try {
-      const res = await searchDonorByMobile(customer.mobile);
-      if (res?.length > 0) {
-        const r = res[0];
-        setCustomer(p => ({ ...p, customerName: r.donorName || p.customerName, address: r.address || p.address }));
+      const [donorRes, rentalRes] = await Promise.allSettled([
+        searchDonorByMobile(customer.mobile),
+        searchRentalsByMobile(customer.mobile),
+      ]);
+      const donor = donorRes.status === "fulfilled" ? donorRes.value?.[0] : null;
+      const rental = rentalRes.status === "fulfilled" ? rentalRes.value?.[0] : null;
+      const match = donor || rental;
+      if (match) {
+        setCustomer(p => ({
+          ...p,
+          customerName: match.donorName || match.customerName || p.customerName,
+          address: match.address || p.address,
+        }));
         setAutoFilled(true);
       }
     } catch { /* silent */ }
@@ -233,6 +242,7 @@ export default function RentalIssuePage() {
       window.open(url);
       showToast(t.success);
       reset();
+      getInventoryItems(category).then(d => setInventory(d || [])).catch(() => {});
     } catch (e) {
       // API uses responseType:"blob" — on error, response.data is a Blob, not JSON
       // Must read the blob as text first, then parse JSON to get the message
@@ -277,7 +287,7 @@ export default function RentalIssuePage() {
       {/* Page header */}
       <div style={{ marginBottom: "1.2rem" }}>
         <p style={{ margin: 0, fontSize: "0.62rem", fontWeight: 700, color: C.accent, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-          {language === "hi" ? "किराया" : "Rental"}
+          {language === "hi" ? "बिछायत सुविधा" : "Bichayat Facility"}
         </p>
         <h1 style={{ margin: "0.1rem 0 0", fontSize: "1.3rem", fontWeight: 800, color: C.text, lineHeight: 1 }}>
           {catIcon} {category === "BARTAN" ? t.titleBartan : t.titleBichayat}
@@ -464,6 +474,8 @@ export default function RentalIssuePage() {
             position: "fixed", top: "50%", left: "50%",
             transform: "translate(-50%, -50%)",
             zIndex: 201, width: "min(440px, 92vw)",
+            maxHeight: "85vh",
+            display: "flex", flexDirection: "column",
             background: "#fff", borderRadius: "20px",
             boxShadow: "0 20px 60px rgba(45,31,15,0.25)",
             overflow: "hidden",
@@ -478,8 +490,9 @@ export default function RentalIssuePage() {
               <p style={{ margin: "0.3rem 0 0", fontSize: "0.78rem", color: "#fff9" }}>{t.confirmSub}</p>
             </div>
 
-            {/* Summary */}
-            <div style={{ padding: "1.2rem 1.5rem" }}>
+            {/* Summary — scrolls independently so a long item list doesn't push
+                the header/footer off-screen with no way to reach them */}
+            <div style={{ padding: "1.2rem 1.5rem", overflowY: "auto", flex: "1 1 auto" }}>
               {/* Customer row */}
               {customer.customerName && (
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.8rem", padding: "0.6rem 0.8rem", background: C.blueBg, borderRadius: 10 }}>
@@ -491,14 +504,28 @@ export default function RentalIssuePage() {
                 </div>
               )}
 
-              {/* Items summary */}
+              {/* Items summary — same item picked more than once gets clubbed
+                  into a single row (qty and amount summed) instead of showing
+                  duplicate entries */}
               <div style={{ marginBottom: "0.8rem" }}>
-                {items.filter(i => i.inventoryItemId).map((item, idx) => {
+                {Object.values(
+                  items.filter(i => i.inventoryItemId).reduce((acc, item) => {
+                    const key = item.inventoryItemId;
+                    const amount = item.rate * item.quantity;
+                    if (acc[key]) {
+                      acc[key].quantity += Number(item.quantity);
+                      acc[key].amount += amount;
+                    } else {
+                      acc[key] = { inventoryItemId: key, quantity: Number(item.quantity), amount };
+                    }
+                    return acc;
+                  }, {})
+                ).map((item) => {
                   const inv = inventory.find(i => i.id === Number(item.inventoryItemId));
                   return (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "0.4rem 0", borderBottom: `1px solid ${C.border}`, fontSize: "0.82rem" }}>
+                    <div key={item.inventoryItemId} style={{ display: "flex", justifyContent: "space-between", padding: "0.4rem 0", borderBottom: `1px solid ${C.border}`, fontSize: "0.82rem" }}>
                       <span style={{ color: C.text, fontWeight: 600 }}>{inv?.materialNameHi || "?"} × {item.quantity}</span>
-                      <span style={{ fontWeight: 700, color: C.text }}>₹{fmt(item.rate * item.quantity)}</span>
+                      <span style={{ fontWeight: 700, color: C.text }}>₹{fmt(item.amount)}</span>
                     </div>
                   );
                 })}

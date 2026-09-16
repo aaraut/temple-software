@@ -64,7 +64,7 @@ export default function RentalDetailPage() {
             </Stack>
             <div className="print-area">
                 <Typography variant="h5" gutterBottom>
-                    किराया विवरण
+                    बिछायत विवरण
                 </Typography>
 
                 {/* -------- Header Info -------- */}
@@ -97,7 +97,7 @@ export default function RentalDetailPage() {
 
                 {/* -------- Item Table -------- */}
                 <Typography variant="h6" gutterBottom>
-                    किराया सामान
+                    बिछायत सामान
                 </Typography>
 
                 <Table>

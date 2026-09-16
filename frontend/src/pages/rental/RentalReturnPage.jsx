@@ -44,7 +44,7 @@ function Field({ label, children }) {
 
 const L = {
   hi: {
-    title: "किराया वापसी", sub: "किराया",
+    title: "बिछायत वापसी", sub: "बिछायत सुविधा",
     tabReceipt: "रसीद नंबर", tabMobile: "मोबाइल", tabName: "नाम",
     receiptPh: "रसीद नंबर दर्ज करें", mobilePh: "मोबाइल नंबर", namePh: "नाम के अक्षर टाइप करें...",
     searchBtn: "खोजें", searching: "खोज रहे हैं...",
@@ -65,7 +65,7 @@ const L = {
     errorMsgs: { "Rental already closed": "किराया पहले से बंद हो चुका है", "Rental already returned": "किराया पहले से वापस हो चुका है", "Receipt not found": "रसीद नहीं मिली", "Rental not found": "किराया नहीं मिला", "Invalid receipt number": "अमान्य रसीद नंबर", "Invalid receipt": "अमान्य रसीद" },
   },
   en: {
-    title: "Rental Return", sub: "Rental",
+    title: "Bichayat Return", sub: "Bichayat Facility",
     tabReceipt: "Receipt No.", tabMobile: "Mobile", tabName: "Name",
     receiptPh: "Enter receipt number", mobilePh: "Mobile number", namePh: "Type customer name...",
     searchBtn: "Search", searching: "Searching...",
