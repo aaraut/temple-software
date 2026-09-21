@@ -4,6 +4,7 @@ import in.temple.backend.dto.*;
 import in.temple.backend.model.Donation;
 import in.temple.backend.service.DonationService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -26,7 +27,7 @@ public class DonationController {
 
     @PostMapping
     public ResponseEntity<DonationResponseDto> submit(
-            @RequestBody DonationRequestDto request,
+            @Valid @RequestBody DonationRequestDto request,
             @RequestParam String username) {
 
         return ResponseEntity.ok(
@@ -76,7 +77,7 @@ public class DonationController {
             value = "/create-and-print",
             produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> createAndPrint(
-            @RequestBody DonationRequestDto request,
+            @Valid @RequestBody DonationRequestDto request,
             @RequestParam String username,
             @RequestParam(defaultValue = "hi") String language) {
 

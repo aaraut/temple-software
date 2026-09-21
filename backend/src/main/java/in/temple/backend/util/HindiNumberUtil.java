@@ -21,7 +21,7 @@ public class HindiNumberUtil {
 
     public static String convert(BigDecimal amount) {
         int number = amount.intValue();
-        return convertNumber(number) + " रुपये मात्र";
+        return convertNumber(number) + " रुपये";
     }
 
     private static String convertNumber(int number) {
@@ -58,7 +58,7 @@ public class HindiNumberUtil {
 
     public static String convertEnglish(BigDecimal amount) {
         int number = amount.intValue();
-        return convertNumberEnglish(number) + " Rupees Only";
+        return convertNumberEnglish(number) + " Rupees";
     }
 
     private static String convertNumberEnglish(int number) {

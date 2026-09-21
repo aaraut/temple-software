@@ -14,6 +14,7 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuditService auditService;
+    private final ModuleAccessService moduleAccessService;
 
     public LoginResponse login(LoginRequest request) {
 
@@ -68,6 +69,7 @@ public class AuthService {
         response.setToken(
                 jwtService.generateToken(user.getUsername(), user.getRole())
         );
+        response.setModuleAccess(moduleAccessService.resolveForRole(user.getRole()));
         return response;
     }
 

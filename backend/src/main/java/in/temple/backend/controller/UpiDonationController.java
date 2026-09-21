@@ -5,6 +5,7 @@ import in.temple.backend.dto.UpiDonationRequestDto;
 import in.temple.backend.dto.UpiDonationSearchRequestDto;
 import in.temple.backend.service.UpiDonationService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,7 +23,7 @@ public class UpiDonationController {
 
     @PostMapping(value = "/create-and-print", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> createAndPrint(
-            @RequestBody UpiDonationRequestDto request,
+            @Valid @RequestBody UpiDonationRequestDto request,
             @RequestParam String username,
             @RequestParam(defaultValue = "hi") String language) {
 

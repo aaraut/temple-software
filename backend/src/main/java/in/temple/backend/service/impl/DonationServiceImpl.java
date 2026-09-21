@@ -525,7 +525,15 @@ public class DonationServiceImpl implements DonationService {
             String purposeText     = en
                     ? (donation.getPurposeNameEn() != null ? donation.getPurposeNameEn() : donation.getPurposeNameHi())
                     : (donation.getPurposeNameHi() != null ? donation.getPurposeNameHi() : donation.getPurposeNameEn());
-            String address         = donation.getAddress() != null ? donation.getAddress() : "";
+            // Donors who don't type an address keep the frontend's default
+            // "Nagpur / Chhindwara" (always stored in English, per the form's
+            // design). Translate that one known default for the Hindi receipt —
+            // any other (donor-typed) address is free text and can't be
+            // auto-translated, so it prints exactly as entered.
+            String rawAddress      = donation.getAddress() != null ? donation.getAddress() : "";
+            String address         = (!en && "Nagpur / Chhindwara".equalsIgnoreCase(rawAddress.trim()))
+                    ? "नागपुर / छिंदवाड़ा"
+                    : rawAddress;
 
             // Gotra — only present for Abhishek-type purposes
             String gotra = en
@@ -637,11 +645,13 @@ public class DonationServiceImpl implements DonationService {
             g.setColor(java.awt.Color.BLACK);
             y += GROUP_GAP;
 
-            // Donor
-            String donorLine = en
-                    ? "Received with thanks from Mr./Mrs. " + donation.getDonorName()
-                    : "श्रीमान/श्रीमती " + donation.getDonorName() + " जी से सादर प्राप्त";
-            y = drawWrapped(g, donorLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
+            // Donor name — plain "label: value" field, consistent with every
+            // field below it (was previously a "Received with thanks from..."
+            // sentence; changed to a structured Name field per requirement).
+            String nameLine = en
+                    ? "Name: Shree/Smt " + donation.getDonorName()
+                    : "नाम: श्री/श्रीमती " + donation.getDonorName();
+            y = drawWrapped(g, nameLine, M, y, CONTENT_W, fNormal, frc, LINE_H);
             y += FIELD_GAP;
 
             // Address & mobile — each is a single "label: value" line, wrapping
@@ -661,7 +671,7 @@ public class DonationServiceImpl implements DonationService {
             // (English number words are noticeably longer than Hindi ones)
             String amountLine = en
                     ? "Amount: Rs. " + formattedAmount + "/- (" + amountInWords + ") Cash"
-                    : "राशि: ₹ " + formattedAmount + " /- (" + amountInWords + ") नकद";
+                    : "राशि: ₹ " + formattedAmount + " /- (" + amountInWords + ") नगद";
             y = drawWrapped(g, amountLine, M, y, CONTENT_W, fBold, frc, LINE_H);
             y += FIELD_GAP;
 

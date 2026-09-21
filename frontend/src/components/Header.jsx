@@ -27,6 +27,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
 import { useTheme } from "@mui/material/styles";
+import { MODULE_KEYS, isModuleVisible } from "../constants/modules";
 
 // All nav labels in both languages
 const NAV = {
@@ -52,6 +53,7 @@ const NAV = {
   bookingSearch:     { en: "Search Bookings",   hi: "बुकिंग खोजें" },
   users:             { en: "Users",             hi: "यूज़र मैनेजमेंट" },
   changePassword:    { en: "Change Password",   hi: "पासवर्ड बदलें" },
+  moduleAccess:      { en: "Module Access",     hi: "मॉड्यूल एक्सेस" },
   logout:            { en: "Logout",            hi: "लॉगआउट" },
 };
 
@@ -92,6 +94,12 @@ export default function Header() {
   const t = (key) => NAV[key]?.[language] ?? NAV[key]?.en ?? key;
 
   const isAdmin = auth.role === "ADMIN" || auth.role === "SUPER_ADMIN";
+
+  const showDaan = isModuleVisible(auth, MODULE_KEYS.DAAN);
+  const showBichayat = isModuleVisible(auth, MODULE_KEYS.BICHAYAT);
+  const showBhaktNiwas = isModuleVisible(auth, MODULE_KEYS.BHAKT_NIWAS);
+  const showReports = isModuleVisible(auth, MODULE_KEYS.REPORTS);
+  const showMaster = isModuleVisible(auth, MODULE_KEYS.MASTER);
 
   const openInventory = Boolean(inventoryAnchor);
   const openRental    = Boolean(rentalAnchor);
@@ -190,6 +198,11 @@ export default function Header() {
             <MenuItem onClick={() => { setProfileAnchor(null); navigate("/change-password"); }}>
               {t("changePassword")}
             </MenuItem>
+            {isAdmin && (
+              <MenuItem onClick={() => { setProfileAnchor(null); navigate("/settings/module-access"); }}>
+                {t("moduleAccess")}
+              </MenuItem>
+            )}
             <MenuItem
               onClick={() => { setProfileAnchor(null); logout(); }}
               sx={{ color: "#7a1f1f", fontWeight: 500 }}
@@ -217,66 +230,84 @@ export default function Header() {
               {t("home")}
             </Button>
 
-            <Button color="inherit" onClick={() => navigate("/donation")} sx={navSx("donation")}>
-              {t("donation")}
-            </Button>
+            {showDaan && (
+              <Button color="inherit" onClick={() => navigate("/donation")} sx={navSx("donation")}>
+                {t("donation")}
+              </Button>
+            )}
 
             {/* Rental Dropdown */}
-            <Button color="inherit" endIcon={<ArrowDropDownIcon />}
-              onClick={(e) => setRentalAnchor(e.currentTarget)} sx={navSx("rental")}>
-              {t("rental")}
-            </Button>
-            <Menu anchorEl={rentalAnchor} open={openRental} onClose={() => setRentalAnchor(null)}
-              anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-              transformOrigin={{ vertical: "top", horizontal: "left" }}>
-              <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bartan"); }}>{t("bartan")}</MenuItem>
-              <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bichayat"); }}>{t("bichayat")}</MenuItem>
-              <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/return"); }}>{t("returnRental")}</MenuItem>
-            </Menu>
+            {showBichayat && (
+              <>
+                <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+                  onClick={(e) => setRentalAnchor(e.currentTarget)} sx={navSx("rental")}>
+                  {t("rental")}
+                </Button>
+                <Menu anchorEl={rentalAnchor} open={openRental} onClose={() => setRentalAnchor(null)}
+                  anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                  transformOrigin={{ vertical: "top", horizontal: "left" }}>
+                  <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bartan"); }}>{t("bartan")}</MenuItem>
+                  <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/bichayat"); }}>{t("bichayat")}</MenuItem>
+                  <MenuItem onClick={() => { setRentalAnchor(null); navigate("/rentals/return"); }}>{t("returnRental")}</MenuItem>
+                </Menu>
+              </>
+            )}
 
             {/* Bhakt Niwas Dropdown */}
-            <Button color="inherit" endIcon={<ArrowDropDownIcon />}
-              onClick={(e) => setRoomAnchor(e.currentTarget)} sx={navSx("bhaktNiwas")}>
-              {t("bhaktNiwas")}
-            </Button>
-            <Menu anchorEl={roomAnchor} open={openRoom} onClose={() => setRoomAnchor(null)}
-              anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-              transformOrigin={{ vertical: "top", horizontal: "left" }}>
-              <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas"); }}>{t("bhaktNiwasDash")}</MenuItem>
-              <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas-search"); }}>{t("bookingSearch")}</MenuItem>
-              <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/rooms"); }}>{t("roomInventory")}</MenuItem>
-              <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/room-categories"); }}>{t("roomCategories")}</MenuItem>
-            </Menu>
+            {showBhaktNiwas && (
+              <>
+                <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+                  onClick={(e) => setRoomAnchor(e.currentTarget)} sx={navSx("bhaktNiwas")}>
+                  {t("bhaktNiwas")}
+                </Button>
+                <Menu anchorEl={roomAnchor} open={openRoom} onClose={() => setRoomAnchor(null)}
+                  anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                  transformOrigin={{ vertical: "top", horizontal: "left" }}>
+                  <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas"); }}>{t("bhaktNiwasDash")}</MenuItem>
+                  <MenuItem onClick={() => { setRoomAnchor(null); navigate("/bhakt-niwas-search"); }}>{t("bookingSearch")}</MenuItem>
+                  <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/rooms"); }}>{t("roomInventory")}</MenuItem>
+                  <MenuItem onClick={() => { setRoomAnchor(null); navigate("/inventory/room-categories"); }}>{t("roomCategories")}</MenuItem>
+                </Menu>
+              </>
+            )}
 
             {/* Reports Dropdown */}
-            <Button color="inherit" endIcon={<ArrowDropDownIcon />}
-              onClick={(e) => setReportAnchor(e.currentTarget)} sx={navSx("reports")}>
-              {t("reports")}
-            </Button>
-            <Menu anchorEl={reportAnchor} open={openReport} onClose={() => setReportAnchor(null)}>
-              <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/my-entries"); }}>{t("myEntries")}</MenuItem>
-              <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/my"); }}>{t("myRentalSummary")}</MenuItem>
-              <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/pending"); }}>{t("pendingRentals")}</MenuItem>
-              {isAdmin && (
-                <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/admin"); }}>{t("adminRental")}</MenuItem>
-              )}
-            </Menu>
+            {showReports && (
+              <>
+                <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+                  onClick={(e) => setReportAnchor(e.currentTarget)} sx={navSx("reports")}>
+                  {t("reports")}
+                </Button>
+                <Menu anchorEl={reportAnchor} open={openReport} onClose={() => setReportAnchor(null)}>
+                  <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/my-entries"); }}>{t("myEntries")}</MenuItem>
+                  <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/my"); }}>{t("myRentalSummary")}</MenuItem>
+                  <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/pending"); }}>{t("pendingRentals")}</MenuItem>
+                  {isAdmin && (
+                    <MenuItem onClick={() => { setReportAnchor(null); navigate("/reports/rentals/admin"); }}>{t("adminRental")}</MenuItem>
+                  )}
+                </Menu>
+              </>
+            )}
 
             {/* Master Dropdown */}
-            <Button color="inherit" endIcon={<ArrowDropDownIcon />}
-              onClick={(e) => setInventoryAnchor(e.currentTarget)} sx={navSx("master")}>
-              {t("master")}
-            </Button>
-            <Menu anchorEl={inventoryAnchor} open={openInventory} onClose={() => setInventoryAnchor(null)}
-              anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-              transformOrigin={{ vertical: "top", horizontal: "left" }}>
-              <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bartan"); }}>{t("bartan")}</MenuItem>
-              <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bichayat"); }}>{t("bichayat")}</MenuItem>
-              <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/gotra"); }}>{t("gotra")}</MenuItem>
-              {isAdmin && (
-                <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/master/donation-purpose"); }}>{t("donationPurpose")}</MenuItem>
-              )}
-            </Menu>
+            {showMaster && (
+              <>
+                <Button color="inherit" endIcon={<ArrowDropDownIcon />}
+                  onClick={(e) => setInventoryAnchor(e.currentTarget)} sx={navSx("master")}>
+                  {t("master")}
+                </Button>
+                <Menu anchorEl={inventoryAnchor} open={openInventory} onClose={() => setInventoryAnchor(null)}
+                  anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                  transformOrigin={{ vertical: "top", horizontal: "left" }}>
+                  <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bartan"); }}>{t("bartan")}</MenuItem>
+                  <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/inventory/bichayat"); }}>{t("bichayat")}</MenuItem>
+                  <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/gotra"); }}>{t("gotra")}</MenuItem>
+                  {isAdmin && (
+                    <MenuItem onClick={() => { setInventoryAnchor(null); navigate("/master/donation-purpose"); }}>{t("donationPurpose")}</MenuItem>
+                  )}
+                </Menu>
+              </>
+            )}
 
             {isAdmin && (
               <Button color="inherit" onClick={() => navigate("/users")} sx={navSx("users")}>
@@ -294,66 +325,84 @@ export default function Header() {
             <ListItemButton selected={matchesNav(location.pathname, "home")} onClick={() => goMobile("/")}>
               <ListItemText primary={t("home")} />
             </ListItemButton>
-            <ListItemButton selected={matchesNav(location.pathname, "donation")} onClick={() => goMobile("/donation")}>
-              <ListItemText primary={t("donation")} />
-            </ListItemButton>
+            {showDaan && (
+              <ListItemButton selected={matchesNav(location.pathname, "donation")} onClick={() => goMobile("/donation")}>
+                <ListItemText primary={t("donation")} />
+              </ListItemButton>
+            )}
 
             <Divider />
 
-            <ListItemButton selected={matchesNav(location.pathname, "rental")} onClick={() => toggleGroup("rental")}>
-              <ListItemText primary={t("rental")} />
-              {mobileExpanded === "rental" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </ListItemButton>
-            <Collapse in={mobileExpanded === "rental"} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/rentals/bartan")}><ListItemText primary={t("bartan")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/rentals/bichayat")}><ListItemText primary={t("bichayat")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/rentals/return")}><ListItemText primary={t("returnRental")} /></ListItemButton>
-              </List>
-            </Collapse>
+            {showBichayat && (
+              <>
+                <ListItemButton selected={matchesNav(location.pathname, "rental")} onClick={() => toggleGroup("rental")}>
+                  <ListItemText primary={t("rental")} />
+                  {mobileExpanded === "rental" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+                <Collapse in={mobileExpanded === "rental"} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/rentals/bartan")}><ListItemText primary={t("bartan")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/rentals/bichayat")}><ListItemText primary={t("bichayat")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/rentals/return")}><ListItemText primary={t("returnRental")} /></ListItemButton>
+                  </List>
+                </Collapse>
+              </>
+            )}
 
-            <ListItemButton selected={matchesNav(location.pathname, "bhaktNiwas")} onClick={() => toggleGroup("bhaktNiwas")}>
-              <ListItemText primary={t("bhaktNiwas")} />
-              {mobileExpanded === "bhaktNiwas" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </ListItemButton>
-            <Collapse in={mobileExpanded === "bhaktNiwas"} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/bhakt-niwas")}><ListItemText primary={t("bhaktNiwasDash")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/bhakt-niwas-search")}><ListItemText primary={t("bookingSearch")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/rooms")}><ListItemText primary={t("roomInventory")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/room-categories")}><ListItemText primary={t("roomCategories")} /></ListItemButton>
-              </List>
-            </Collapse>
+            {showBhaktNiwas && (
+              <>
+                <ListItemButton selected={matchesNav(location.pathname, "bhaktNiwas")} onClick={() => toggleGroup("bhaktNiwas")}>
+                  <ListItemText primary={t("bhaktNiwas")} />
+                  {mobileExpanded === "bhaktNiwas" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+                <Collapse in={mobileExpanded === "bhaktNiwas"} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/bhakt-niwas")}><ListItemText primary={t("bhaktNiwasDash")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/bhakt-niwas-search")}><ListItemText primary={t("bookingSearch")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/rooms")}><ListItemText primary={t("roomInventory")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/room-categories")}><ListItemText primary={t("roomCategories")} /></ListItemButton>
+                  </List>
+                </Collapse>
+              </>
+            )}
 
-            <ListItemButton selected={matchesNav(location.pathname, "reports")} onClick={() => toggleGroup("reports")}>
-              <ListItemText primary={t("reports")} />
-              {mobileExpanded === "reports" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </ListItemButton>
-            <Collapse in={mobileExpanded === "reports"} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/my-entries")}><ListItemText primary={t("myEntries")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/my")}><ListItemText primary={t("myRentalSummary")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/pending")}><ListItemText primary={t("pendingRentals")} /></ListItemButton>
-                {isAdmin && (
-                  <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/admin")}><ListItemText primary={t("adminRental")} /></ListItemButton>
-                )}
-              </List>
-            </Collapse>
+            {showReports && (
+              <>
+                <ListItemButton selected={matchesNav(location.pathname, "reports")} onClick={() => toggleGroup("reports")}>
+                  <ListItemText primary={t("reports")} />
+                  {mobileExpanded === "reports" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+                <Collapse in={mobileExpanded === "reports"} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/my-entries")}><ListItemText primary={t("myEntries")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/my")}><ListItemText primary={t("myRentalSummary")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/pending")}><ListItemText primary={t("pendingRentals")} /></ListItemButton>
+                    {isAdmin && (
+                      <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/reports/rentals/admin")}><ListItemText primary={t("adminRental")} /></ListItemButton>
+                    )}
+                  </List>
+                </Collapse>
+              </>
+            )}
 
-            <ListItemButton selected={matchesNav(location.pathname, "master")} onClick={() => toggleGroup("master")}>
-              <ListItemText primary={t("master")} />
-              {mobileExpanded === "master" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </ListItemButton>
-            <Collapse in={mobileExpanded === "master"} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/bartan")}><ListItemText primary={t("bartan")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/bichayat")}><ListItemText primary={t("bichayat")} /></ListItemButton>
-                <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/gotra")}><ListItemText primary={t("gotra")} /></ListItemButton>
-                {isAdmin && (
-                  <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/master/donation-purpose")}><ListItemText primary={t("donationPurpose")} /></ListItemButton>
-                )}
-              </List>
-            </Collapse>
+            {showMaster && (
+              <>
+                <ListItemButton selected={matchesNav(location.pathname, "master")} onClick={() => toggleGroup("master")}>
+                  <ListItemText primary={t("master")} />
+                  {mobileExpanded === "master" ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+                <Collapse in={mobileExpanded === "master"} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/bartan")}><ListItemText primary={t("bartan")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/inventory/bichayat")}><ListItemText primary={t("bichayat")} /></ListItemButton>
+                    <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/gotra")}><ListItemText primary={t("gotra")} /></ListItemButton>
+                    {isAdmin && (
+                      <ListItemButton sx={{ pl: 4 }} onClick={() => goMobile("/master/donation-purpose")}><ListItemText primary={t("donationPurpose")} /></ListItemButton>
+                    )}
+                  </List>
+                </Collapse>
+              </>
+            )}
 
             {isAdmin && (
               <ListItemButton selected={matchesNav(location.pathname, "users")} onClick={() => goMobile("/users")}>

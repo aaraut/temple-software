@@ -1,7 +1,9 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { isModuleVisible } from "../constants/modules";
+import ModuleNotAvailable from "../pages/ModuleNotAvailable";
 
-export default function ProtectedRoute({ children, roles }) {
+export default function ProtectedRoute({ children, roles, moduleKey }) {
   const { auth } = useAuth();
   const location = useLocation();
 
@@ -16,6 +18,10 @@ export default function ProtectedRoute({ children, roles }) {
 
   if (roles && !roles.includes(auth.role)) {
     return <Navigate to="/" replace />;
+  }
+
+  if (moduleKey && !isModuleVisible(auth, moduleKey)) {
+    return <ModuleNotAvailable />;
   }
 
   return children;

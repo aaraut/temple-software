@@ -179,7 +179,13 @@ public class UpiDonationServiceImpl implements UpiDonationService {
             String purposeText = en
                     ? (donation.getPurposeNameEn() != null ? donation.getPurposeNameEn() : donation.getPurposeNameHi())
                     : (donation.getPurposeNameHi() != null ? donation.getPurposeNameHi() : donation.getPurposeNameEn());
-            String address = donation.getAddress() != null ? donation.getAddress() : "";
+            // Same default-address translation as the cash donation receipt —
+            // the frontend's default "Nagpur / Chhindwara" is always stored in
+            // English, so translate just that known default for Hindi receipts.
+            String rawAddress = donation.getAddress() != null ? donation.getAddress() : "";
+            String address = (!en && "Nagpur / Chhindwara".equalsIgnoreCase(rawAddress.trim()))
+                    ? "नागपुर / छिंदवाड़ा"
+                    : rawAddress;
 
             String gotra = en
                     ? ((donation.getGotraNameEn() != null && !donation.getGotraNameEn().isBlank())

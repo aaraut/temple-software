@@ -18,6 +18,7 @@ import { getDashboardSummary } from "../../api/dashboardApi";
 import { getRevenueReport } from "../../api/roomBookingApi";
 import { listUsers } from "../../api/userApi";
 import { useNavigate } from "react-router-dom";
+import { MODULE_KEYS, isModuleVisible } from "../../constants/modules";
 
 /* ─── i18n ───────────────────────────────────────────────────── */
 const L = {
@@ -148,9 +149,17 @@ function RentalCard({ title, data, t, accent }) {
 }
 
 /* ─── PRINT helpers (unchanged logic) ───────────────────────── */
+// These build raw HTML strings written via document.write() into the print
+// popup — any dynamic value must be escaped here, since React's JSX escaping
+// does not apply to this path.
+const escapeHtml = (value) =>
+    String(value ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+
 const buildPrintMain = (printData, reportDateFormatted, userLabel, fmt2) => {
     const donationRows = printData?.donations?.map((d) =>
-        `<tr><td>${d.purposeHi || d.purpose}</td><td>${d.receiptCount || 0}</td><td>&#8377; ${fmt2(d.amount)}</td></tr>`
+        `<tr><td>${escapeHtml(d.purposeHi || d.purpose)}</td><td>${d.receiptCount || 0}</td><td>&#8377; ${fmt2(d.amount)}</td></tr>`
     ).join("") || "";
 
     return `<html><head>
@@ -176,7 +185,7 @@ const buildPrintMain = (printData, reportDateFormatted, userLabel, fmt2) => {
   <div class="sub">जामसावली, ता. सौसर, जि. छिंदवाड़ा (म. प्र.)</div>
   <div class="sub">Reg. No: 48/90 | URN: AABTC40DICF2023 | Email: jamsawlimandir@gmail.com</div>
   <h3>दैनिक नगद विवरण</h3>
-  <div>दिनांक: ${reportDateFormatted}</div><div>यूज़र: ${userLabel}</div>
+  <div>दिनांक: ${escapeHtml(reportDateFormatted)}</div><div>यूज़र: ${escapeHtml(userLabel)}</div>
 </div>
 <div class="section-title">दान कलेक्शन</div>
 <table><thead><tr><th>उद्देश्य</th><th>रसीद संख्या</th><th>राशि</th></tr></thead><tbody>${donationRows}</tbody></table>
@@ -225,11 +234,11 @@ const buildPrintGoshala = (printData, reportDateFormatted, userLabel, fmt2) =>
   <div>सौसर, तह. सौसर जि. पांढुर्णा (म. प्र.)</div>
   <div>रजि.नं.: 658 / 04 | ईमेल: jamsawlimandir@gmail.com</div>
   <h3 style="margin-top:15px;">दैनिक नगद विवरण</h3>
-  <div>दिनांक: ${reportDateFormatted}</div><div>यूज़र: ${userLabel}</div>
+  <div>दिनांक: ${escapeHtml(reportDateFormatted)}</div><div>यूज़र: ${escapeHtml(userLabel)}</div>
 </div>
 <table>
   <tr><th>गौशाला दान खाते</th><th>राशि</th></tr>
-  <tr><td>${printData?.goshalaDaan?.purposeHi || "गौशाला दान"}</td><td>&#8377; ${fmt2(printData?.goshalaDaan?.amount)}</td></tr>
+  <tr><td>${escapeHtml(printData?.goshalaDaan?.purposeHi || "गौशाला दान")}</td><td>&#8377; ${fmt2(printData?.goshalaDaan?.amount)}</td></tr>
   <tr><td><strong>कुल राशि</strong></td><td><strong>&#8377; ${fmt2(printData?.goshalaDaan?.amount)}</strong></td></tr>
 </table>
 <div class="signature">
@@ -252,6 +261,10 @@ export default function CollectionDashboard() {
     const [printDate, setPrintDate] = useState(today());
 
     const isAdmin = auth?.role === "ADMIN";
+
+    const showDaan = isModuleVisible(auth, MODULE_KEYS.DAAN);
+    const showBichayat = isModuleVisible(auth, MODULE_KEYS.BICHAYAT);
+    const showBhaktNiwas = isModuleVisible(auth, MODULE_KEYS.BHAKT_NIWAS);
 
     useEffect(() => { if (isAdmin) loadUsers(); }, [isAdmin]);
     useEffect(() => { fetchData(); }, [period]);
@@ -400,18 +413,22 @@ export default function CollectionDashboard() {
 
                 {/* User filter (admin) */}
                 {isAdmin && (
-                    <select
-                        value={selectedUser}
-                        onChange={e => { setSelectedUser(e.target.value); fetchData(e.target.value); }}
-                        style={{
-                            padding: "0.45rem 0.7rem", border: `1.5px solid ${brd}`, borderRadius: 9,
-                            fontSize: "0.78rem", color: txt, background: "#fdf9f4",
-                            fontFamily: "inherit", cursor: "pointer", outline: "none",
-                        }}
-                    >
-                        <option value="ALL">{t.allUsers}</option>
-                        {users.map(u => <option key={u.id} value={u.username}>{u.username}</option>)}
-                    </select>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <PersonIcon sx={{ fontSize: "1rem", color: mut }} />
+                        <Typography sx={{ fontSize: "0.72rem", color: mut, fontWeight: 600 }}>{t.user}:</Typography>
+                        <select
+                            value={selectedUser}
+                            onChange={e => { setSelectedUser(e.target.value); fetchData(e.target.value); }}
+                            style={{
+                                padding: "0.45rem 0.7rem", border: `1.5px solid ${brd}`, borderRadius: 9,
+                                fontSize: "0.78rem", color: txt, background: "#fdf9f4",
+                                fontFamily: "inherit", cursor: "pointer", outline: "none",
+                            }}
+                        >
+                            <option value="ALL">{t.allUsers}</option>
+                            {users.map(u => <option key={u.id} value={u.username}>{u.name ? `${u.name} (${u.username})` : u.username}</option>)}
+                        </select>
+                    </Box>
                 )}
 
                 {/* Report date */}
@@ -424,22 +441,28 @@ export default function CollectionDashboard() {
 
                 {/* Action buttons */}
                 <ActionBtn icon="🖨️" label={t.printDaily} onClick={handlePrintReport} color="#9a6030" bg2="#fff3e8" />
-                <ActionBtn icon="🌿" label={t.printGoshala} onClick={handlePrintGoshala} color="#2d7a2d" bg2="#e8f5e8" />
+                {showDaan && (
+                    <ActionBtn icon="🌿" label={t.printGoshala} onClick={handlePrintGoshala} color="#2d7a2d" bg2="#e8f5e8" />
+                )}
                 {/* Search buttons — pushed to right end */}
                 <Box sx={{ ml: "auto", display: "flex", gap: "0.6rem" }}>
-                    <ActionBtn icon="🔍" label={t.searchReceipt} onClick={() => navigate("/donation/search")} color={acc} bg2="#fff8f2" />
-                    <ActionBtn icon="↩️" label={t.rentalSearch} onClick={() => navigate("/rentals/return")} color="#3A86FF" bg2="#f0f5ff" />
+                    {showDaan && (
+                        <ActionBtn icon="🔍" label={t.searchReceipt} onClick={() => navigate("/donation/search")} color={acc} bg2="#fff8f2" />
+                    )}
+                    {showBichayat && (
+                        <ActionBtn icon="↩️" label={t.rentalSearch} onClick={() => navigate("/rentals/return")} color="#3A86FF" bg2="#f0f5ff" />
+                    )}
                 </Box>
             </Box>
 
             {/* ── Summary cards ── */}
             <Box sx={{ px: "1.5rem", pt: "1.2rem", pb: "0.8rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.8rem" }}>
                 {[
-                    { label: t.totalCollection, value: donationTotal, color: "#E07B54", icon: "💰" },
-                    { label: t.totalDeposit,    value: depositTotal,  color: "#3A86FF", icon: "🏦" },
-                    { label: t.goshalaDaan,      value: goshalaAmt,    color: "#2d7a2d", icon: "🌿" },
-                    { label: t.bhaktNiwasTitle,  value: data?.bhaktNiwas?.totalRent ?? 0, color: "#FF6B35", icon: "🏠" },
-                ].map(({ label, value, color, icon }) => (
+                    { label: t.totalCollection, value: donationTotal, color: "#E07B54", icon: "💰", show: showDaan },
+                    { label: t.totalDeposit,    value: depositTotal,  color: "#3A86FF", icon: "🏦", show: showBichayat || showBhaktNiwas },
+                    { label: t.goshalaDaan,      value: goshalaAmt,    color: "#2d7a2d", icon: "🌿", show: showDaan },
+                    { label: t.bhaktNiwasTitle,  value: data?.bhaktNiwas?.totalRent ?? 0, color: "#FF6B35", icon: "🏠", show: showBhaktNiwas },
+                ].filter(c => c.show).map(({ label, value, color, icon }) => (
                     <Box key={label} sx={{ background: "#fff", borderRadius: "12px", p: "0.9rem 1.1rem", border: `1px solid ${brd}`, boxShadow: "0 1px 6px rgba(139,100,60,0.06)", position: "relative", overflow: "hidden" }}>
                         <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, height: "3px", background: color, borderRadius: "12px 12px 0 0" }} />
                         <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", mb: "0.3rem" }}>
@@ -461,74 +484,86 @@ export default function CollectionDashboard() {
                 ) : (
                     <>
                         {/* Donation */}
-                        <Box sx={{ mb: "1.5rem" }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: "8px", mb: "12px" }}>
-                                <Box sx={{ width: 4, height: 20, background: "#E07B54", borderRadius: 2 }} />
-                                <Typography sx={{ fontWeight: 800, fontSize: 14, color: txt }}>{t.donationCollection}</Typography>
-                                <Box sx={{ px: "8px", py: "1px", borderRadius: 20, background: "#E07B5425", border: "1.5px solid #E07B5460" }}>
-                                    <Typography sx={{ fontSize: 11, color: "#E07B54", fontWeight: 800 }}>{data?.donations?.length ?? 0}</Typography>
+                        {showDaan && (
+                            <Box sx={{ mb: "1.5rem" }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: "8px", mb: "12px" }}>
+                                    <Box sx={{ width: 4, height: 20, background: "#E07B54", borderRadius: 2 }} />
+                                    <Typography sx={{ fontWeight: 800, fontSize: 14, color: txt }}>{t.donationCollection}</Typography>
+                                    <Box sx={{ px: "8px", py: "1px", borderRadius: 20, background: "#E07B5425", border: "1.5px solid #E07B5460" }}>
+                                        <Typography sx={{ fontSize: 11, color: "#E07B54", fontWeight: 800 }}>{data?.donations?.length ?? 0}</Typography>
+                                    </Box>
+                                </Box>
+                                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: "12px", alignItems: "stretch" }}>
+                                    {data?.donations?.map((item, i) => (
+                                        <DonationCard key={item.purpose} item={item} accent={CARD_ACCENTS[i % CARD_ACCENTS.length]}
+                                            receiptsLabel={t.receipts} clickLabel={t.clickForDetails} onClick={() => handleCardClick(item.purpose)} language={language} />
+                                    ))}
                                 </Box>
                             </Box>
-                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: "12px", alignItems: "stretch" }}>
-                                {data?.donations?.map((item, i) => (
-                                    <DonationCard key={item.purpose} item={item} accent={CARD_ACCENTS[i % CARD_ACCENTS.length]}
-                                        receiptsLabel={t.receipts} clickLabel={t.clickForDetails} onClick={() => handleCardClick(item.purpose)} language={language} />
-                                ))}
-                            </Box>
-                        </Box>
+                        )}
 
                         {/* किराया + गौशाला + भक्त निवास */}
-                        <Box>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: "8px", mb: "12px" }}>
-                                <Box sx={{ width: 4, height: 20, background: "#3A86FF", borderRadius: 2 }} />
-                                <Typography sx={{ fontWeight: 800, fontSize: 14, color: txt }}>{t.rentalCollection}</Typography>
-                            </Box>
-                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: "12px", alignItems: "stretch" }}>
-                                <RentalCard title={t.rentalBartan} data={data?.rentalBartan} t={t} accent="#C2185B" />
-                                <RentalCard title={t.rentalBichayat} data={data?.rentalBichayat} t={t} accent="#5E548E" />
-
-                                {/* Goshala — same tinted style, clicks like Daan */}
-                                <Box onClick={() => handleCardClick("GOSHALA_DAAN")} sx={{
-                                    borderRadius: "12px", border: "2px solid #4caf50",
-                                    background: "#4caf5018", overflow: "hidden",
-                                    boxShadow: "0 3px 14px #4caf5022", display: "flex", flexDirection: "column",
-                                    cursor: "pointer", transition: "all 0.18s",
-                                    "&:hover": { boxShadow: "0 10px 32px #4caf5040", transform: "translateY(-3px)", background: "#4caf5028" },
-                                }}>
-                                    <Box sx={{ height: 7, background: "#4caf50", flexShrink: 0 }} />
-                                    <Box sx={{ p: "14px", flex: 1, display: "flex", flexDirection: "column" }}>
-                                        <Typography sx={{ fontWeight: 800, fontSize: 14, mb: "3px", color: "#1a1a2e" }}>{t.goshalaDaan}</Typography>
-                                        <Typography sx={{ fontSize: 11, color: "#4a3a2a", mb: "10px", fontWeight: 700 }}>
-                                            {t.receipts}: <span style={{ fontWeight: 900 }}>{data?.goshalaDaan?.receiptCount ?? 0}</span>
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 28, fontWeight: 900, color: "#4caf50", lineHeight: 1, mt: "auto" }}>
-                                            ₹{fmt(data?.goshalaDaan?.amount ?? 0)}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 11, color: "#4caf50", mt: "6px", fontWeight: 800 }}>{t.clickForDetails} →</Typography>
-                                    </Box>
+                        {(showBichayat || showDaan || showBhaktNiwas) && (
+                            <Box>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: "8px", mb: "12px" }}>
+                                    <Box sx={{ width: 4, height: 20, background: "#3A86FF", borderRadius: 2 }} />
+                                    <Typography sx={{ fontWeight: 800, fontSize: 14, color: txt }}>{t.rentalCollection}</Typography>
                                 </Box>
+                                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: "12px", alignItems: "stretch" }}>
+                                    {showBichayat && (
+                                        <>
+                                            <RentalCard title={t.rentalBartan} data={data?.rentalBartan} t={t} accent="#C2185B" />
+                                            <RentalCard title={t.rentalBichayat} data={data?.rentalBichayat} t={t} accent="#5E548E" />
+                                        </>
+                                    )}
 
-                                {/* Bhakt Niwas */}
-                                <Box sx={{ borderRadius: "12px", border: "2px solid #FF6B35", background: "#FF6B3518", overflow: "hidden", boxShadow: "0 3px 14px #FF6B3522", display: "flex", flexDirection: "column" }}>
-                                    <Box sx={{ height: 7, background: "#FF6B35", flexShrink: 0 }} />
-                                    <Box sx={{ p: "14px", flex: 1 }}>
-                                        <Typography sx={{ fontWeight: 800, fontSize: 14, mb: "14px", color: "#1a1a2e" }}>{t.bhaktNiwasTitle}</Typography>
-                                        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-                                            {[
-                                                { label: t.bhaktNiwasRent,      value: `₹${fmt(data?.bhaktNiwas?.totalRent)}` },
-                                                { label: t.bhaktNiwasDeposit,   value: `₹${fmt(data?.bhaktNiwas?.depositCollected)}` },
-                                                { label: t.bhaktNiwasDeduction, value: `₹${fmt(data?.bhaktNiwas?.depositDeducted)}` },
-                                            ].map(({ label, value }) => (
-                                                <Box key={label} sx={{ textAlign: "center", py: "10px", px: "4px", borderRadius: "8px", background: "#FF6B3528", border: "1.5px solid #FF6B3550" }}>
-                                                    <Typography sx={{ fontSize: 10, color: "#4a3a2a", mb: "4px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</Typography>
-                                                    <Typography sx={{ fontSize: 18, fontWeight: 900, color: "#FF6B35", lineHeight: 1 }}>{value}</Typography>
-                                                </Box>
-                                            ))}
+                                    {/* Goshala — same tinted style, clicks like Daan */}
+                                    {showDaan && (
+                                        <Box onClick={() => handleCardClick("GOSHALA_DAAN")} sx={{
+                                            borderRadius: "12px", border: "2px solid #4caf50",
+                                            background: "#4caf5018", overflow: "hidden",
+                                            boxShadow: "0 3px 14px #4caf5022", display: "flex", flexDirection: "column",
+                                            cursor: "pointer", transition: "all 0.18s",
+                                            "&:hover": { boxShadow: "0 10px 32px #4caf5040", transform: "translateY(-3px)", background: "#4caf5028" },
+                                        }}>
+                                            <Box sx={{ height: 7, background: "#4caf50", flexShrink: 0 }} />
+                                            <Box sx={{ p: "14px", flex: 1, display: "flex", flexDirection: "column" }}>
+                                                <Typography sx={{ fontWeight: 800, fontSize: 14, mb: "3px", color: "#1a1a2e" }}>{t.goshalaDaan}</Typography>
+                                                <Typography sx={{ fontSize: 11, color: "#4a3a2a", mb: "10px", fontWeight: 700 }}>
+                                                    {t.receipts}: <span style={{ fontWeight: 900 }}>{data?.goshalaDaan?.receiptCount ?? 0}</span>
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 28, fontWeight: 900, color: "#4caf50", lineHeight: 1, mt: "auto" }}>
+                                                    ₹{fmt(data?.goshalaDaan?.amount ?? 0)}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 11, color: "#4caf50", mt: "6px", fontWeight: 800 }}>{t.clickForDetails} →</Typography>
+                                            </Box>
                                         </Box>
-                                    </Box>
+                                    )}
+
+                                    {/* Bhakt Niwas */}
+                                    {showBhaktNiwas && (
+                                        <Box sx={{ borderRadius: "12px", border: "2px solid #FF6B35", background: "#FF6B3518", overflow: "hidden", boxShadow: "0 3px 14px #FF6B3522", display: "flex", flexDirection: "column" }}>
+                                            <Box sx={{ height: 7, background: "#FF6B35", flexShrink: 0 }} />
+                                            <Box sx={{ p: "14px", flex: 1 }}>
+                                                <Typography sx={{ fontWeight: 800, fontSize: 14, mb: "14px", color: "#1a1a2e" }}>{t.bhaktNiwasTitle}</Typography>
+                                                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                                                    {[
+                                                        { label: t.bhaktNiwasRent,      value: `₹${fmt(data?.bhaktNiwas?.totalRent)}` },
+                                                        { label: t.bhaktNiwasDeposit,   value: `₹${fmt(data?.bhaktNiwas?.depositCollected)}` },
+                                                        { label: t.bhaktNiwasDeduction, value: `₹${fmt(data?.bhaktNiwas?.depositDeducted)}` },
+                                                    ].map(({ label, value }) => (
+                                                        <Box key={label} sx={{ textAlign: "center", py: "10px", px: "4px", borderRadius: "8px", background: "#FF6B3528", border: "1.5px solid #FF6B3550" }}>
+                                                            <Typography sx={{ fontSize: 10, color: "#4a3a2a", mb: "4px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</Typography>
+                                                            <Typography sx={{ fontSize: 18, fontWeight: 900, color: "#FF6B35", lineHeight: 1 }}>{value}</Typography>
+                                                        </Box>
+                                                    ))}
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                    )}
                                 </Box>
                             </Box>
-                        </Box>
+                        )}
                     </>
                 )}
                 </Box>
@@ -545,8 +580,8 @@ export default function CollectionDashboard() {
                     {/* 2-col tile grid */}
                     <Box sx={{ p: "0.8rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                         {[
-                            { icon: "🙏", label: language === "hi" ? "दान करें"    : "New Donation",      path: "/donation",       color: "#E07B54", bg: "#fff5f0" },
-                            { icon: "📲", label: language === "hi" ? "यूपीआई दान बिल" : "UPI Donation Bill", path: "/donation/upi",  color: "#5C6BC0", bg: "#f0f1ff" },
+                            showDaan && { icon: "🙏", label: language === "hi" ? "दान करें"    : "New Donation",      path: "/donation",       color: "#E07B54", bg: "#fff5f0" },
+                            showDaan && { icon: "📲", label: language === "hi" ? "यूपीआई दान बिल" : "UPI Donation Bill", path: "/donation/upi",  color: "#5C6BC0", bg: "#f0f1ff" },
                             // Hidden per request — keep for later, don't delete:
                             // { icon: "🍳", label: language === "hi" ? "बर्तन किराया"     : "Bartan Rental",     path: "/rentals/bartan",        color: "#3A86FF", bg: "#f0f5ff" },
                             // { icon: "🛏️", label: language === "hi" ? "बिछायत किराया"   : "Bichayat Rental",   path: "/rentals/bichayat",      color: "#8338EC", bg: "#f5f0ff" },
@@ -556,7 +591,7 @@ export default function CollectionDashboard() {
                             // { icon: "🌳", label: language === "hi" ? "गोत्र अपडेट"      : "Update Gotra",      path: "/gotra",          color: "#1A936F", bg: "#f0faf5" },
                             // { icon: "🍶", label: language === "hi" ? "बर्तन सूची"       : "Bartan List",       path: "/inventory/bartan",      color: "#8a6030", bg: "#fdf8f0" },
                             // { icon: "🛋️", label: language === "hi" ? "बिछायत सूची"     : "Bichayat List",     path: "/inventory/bichayat",    color: "#6B4226", bg: "#fdf5ee" },
-                        ].map(({ icon, label, path, color, bg }) => (
+                        ].filter(Boolean).map(({ icon, label, path, color, bg }) => (
                             <button key={path} onClick={() => navigate(path)} style={{
                                 display: "flex", flexDirection: "column",
                                 alignItems: "center", justifyContent: "center",

@@ -3,6 +3,7 @@ package in.temple.backend.controller;
 import in.temple.backend.dto.RentalIssueRequestDto;
 import in.temple.backend.dto.RentalReturnRequestDto;
 import in.temple.backend.service.RentalService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -19,7 +20,7 @@ public class RentalController {
     private final RentalService rentalService;
 
     @PostMapping("/issue")
-    public ResponseEntity<?> issueRental(@RequestBody RentalIssueRequestDto request) {
+    public ResponseEntity<?> issueRental(@Valid @RequestBody RentalIssueRequestDto request) {
         String receiptNumber = rentalService.issueRental(request);
         return ResponseEntity.ok(Map.of("message", "Rental issued successfully", "receiptNumber", receiptNumber));
     }
@@ -58,7 +59,7 @@ public class RentalController {
 
     @PostMapping(value = "/create-and-print", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> createAndPrint(
-            @RequestBody RentalIssueRequestDto request,
+            @Valid @RequestBody RentalIssueRequestDto request,
             @RequestParam String username,
             @RequestParam(defaultValue = "hi") String language) {
         byte[] pdf = rentalService.createRentalAndReturnReceiptPdf(request, username, language);

@@ -33,6 +33,10 @@ import DonationDetails from "./pages/reports/DonationDetails";
 import DonationEdit from "./pages/donation/DonationEdit";
 import DonationSearch from "./pages/donation/DonationSearch";
 import UpiDonationForm from "./pages/donation/UpiDonationForm";
+import ModuleAccessSettings from "./pages/settings/ModuleAccessSettings";
+import { MODULE_KEYS } from "./constants/modules";
+import MobileBlocked from "./pages/MobileBlocked";
+import { isMobileDevice } from "./utils/deviceDetect";
 // import RoomPage from "./components/room/RoomPage";
 
 
@@ -46,6 +50,15 @@ function App() {
       fontSize: 16,       // base font size for MUI to scale from
     },
   });
+
+  if (isMobileDevice()) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <MobileBlocked />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -73,7 +86,7 @@ function App() {
         <Route
           path="/gotra"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.MASTER}>
               <ProtectedLayout>
                 <GotraList />
               </ProtectedLayout>
@@ -107,7 +120,7 @@ function App() {
         <Route
           path="/donation"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.DAAN}>
               <ProtectedLayout>
                 <DonationCreatePage />
               </ProtectedLayout>
@@ -117,7 +130,7 @@ function App() {
         <Route
           path="/rentals/bartan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BICHAYAT}>
               <ProtectedLayout>
                 <RentalIssuePage />
               </ProtectedLayout>
@@ -127,7 +140,7 @@ function App() {
         <Route
           path="/bhakt-niwas"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BHAKT_NIWAS}>
               <ProtectedLayout>
                 <BhaktNiwasPage />
               </ProtectedLayout>
@@ -137,7 +150,7 @@ function App() {
         <Route
           path="/bhakt-niwas/:blockId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BHAKT_NIWAS}>
               <ProtectedLayout>
                 <RoomGridPage />
               </ProtectedLayout>
@@ -147,7 +160,7 @@ function App() {
         <Route
           path="/bhakt-niwas-search"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BHAKT_NIWAS}>
               <ProtectedLayout>
                 <BookingSearchPage />
               </ProtectedLayout>
@@ -159,7 +172,7 @@ function App() {
         <Route
           path="/rentals/bichayat"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BICHAYAT}>
               <ProtectedLayout>
                 <RentalIssuePage />
               </ProtectedLayout>
@@ -169,7 +182,7 @@ function App() {
         <Route
           path="/inventory/rooms"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BHAKT_NIWAS}>
               <ProtectedLayout>
                 <RoomPage />
               </ProtectedLayout>
@@ -179,7 +192,7 @@ function App() {
         <Route
           path="/inventory/room-categories"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BHAKT_NIWAS}>
               <ProtectedLayout>
                 <RoomCategoryPage />
               </ProtectedLayout>
@@ -190,7 +203,7 @@ function App() {
         <Route
           path="/rooms/bookings"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BHAKT_NIWAS}>
               <ProtectedLayout>
                 <RoomBookingPage />
               </ProtectedLayout>
@@ -198,13 +211,13 @@ function App() {
           }
         />
 
-            
+
 
 
         <Route
           path="/inventory/bartan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.MASTER}>
               <ProtectedLayout>
                 <InventoryPage />
               </ProtectedLayout>
@@ -215,7 +228,7 @@ function App() {
         <Route
           path="/inventory/bichayat"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.MASTER}>
               <ProtectedLayout>
                 <InventoryPage />
               </ProtectedLayout>
@@ -226,7 +239,7 @@ function App() {
         <Route
           path="/rentals/return"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BICHAYAT}>
               <ProtectedLayout>
                 <RentalReturnPage />
               </ProtectedLayout>
@@ -236,7 +249,7 @@ function App() {
         <Route
           path="/reports/rentals/my"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.REPORTS}>
               <ProtectedLayout>
                 <MyRentalSummaryPage />
               </ProtectedLayout>
@@ -247,7 +260,7 @@ function App() {
         <Route
           path="/reports/rentals/pending"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.REPORTS}>
               <ProtectedLayout>
                 <PendingRentalReportPage />
               </ProtectedLayout>
@@ -258,7 +271,7 @@ function App() {
         <Route
           path="/reports/rentals/admin"
           element={
-            <ProtectedRoute roles={["ADMIN", "SUPER_ADMIN"]}>
+            <ProtectedRoute roles={["ADMIN", "SUPER_ADMIN"]} moduleKey={MODULE_KEYS.REPORTS}>
               <ProtectedLayout>
                 <AdminRentalSummaryPage />
               </ProtectedLayout>
@@ -268,7 +281,7 @@ function App() {
         <Route
           path="/reports/rentals/my-entries"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.REPORTS}>
               <ProtectedLayout>
                 <MyRentalEntriesPage />
               </ProtectedLayout>
@@ -278,7 +291,7 @@ function App() {
         <Route
           path="/rentals/view/:receiptNumber"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.BICHAYAT}>
               <ProtectedLayout>
                 <RentalDetailPage />
               </ProtectedLayout>
@@ -289,9 +302,21 @@ function App() {
         <Route
           path="/master/donation-purpose"
           element={
-            <ProtectedLayout roles={["ADMIN", "SUPER_ADMIN"]}>
-              <DonationPurposePage />
-            </ProtectedLayout>
+            <ProtectedRoute roles={["ADMIN", "SUPER_ADMIN"]} moduleKey={MODULE_KEYS.MASTER}>
+              <ProtectedLayout>
+                <DonationPurposePage />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/module-access"
+          element={
+            <ProtectedRoute roles={["ADMIN", "SUPER_ADMIN"]}>
+              <ProtectedLayout>
+                <ModuleAccessSettings />
+              </ProtectedLayout>
+            </ProtectedRoute>
           }
         />
         <Route
@@ -307,7 +332,7 @@ function App() {
         <Route
           path="/reports/details"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.REPORTS}>
               <ProtectedLayout>
                 <DonationDetails />
               </ProtectedLayout>
@@ -317,7 +342,7 @@ function App() {
         <Route
           path="/donation/edit/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.DAAN}>
               <ProtectedLayout>
                 <DonationEdit />
               </ProtectedLayout>
@@ -327,7 +352,7 @@ function App() {
         <Route
           path="donation/search"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.DAAN}>
               <ProtectedLayout>
                 <DonationSearch  />
               </ProtectedLayout>
@@ -337,7 +362,7 @@ function App() {
         <Route
           path="/donation/upi"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute moduleKey={MODULE_KEYS.DAAN}>
               <ProtectedLayout>
                 <UpiDonationForm />
               </ProtectedLayout>

@@ -187,13 +187,20 @@ export default function DonationForm() {
   };
 
   const handleReset = () => {
+    // Same default-purpose logic as the initial metadata-load effect — reset
+    // should land back on the default (Sankalp Abhishek), not a blank select.
+    const defaultPurpose = metadata?.purposes?.find(
+      (p) => p.nameEn === "Sankalp Abhishek"
+    );
+    const defaultGotra = metadata?.gotras?.find((g) => g.nameEn?.toLowerCase().startsWith("kashyap"));
+
     setForm({
       donorName: "",
       address: DEFAULT_ADDRESS_EN,
       mobile: "",
-      purposeId: "",
+      purposeId: defaultPurpose?.id || "",
       amount: "",
-      gotraId: "",
+      gotraId: defaultPurpose?.requiresGotra && defaultGotra ? defaultGotra.id : "",
     });
     setAutoFilled(false);
     setMobileMatches([]);
