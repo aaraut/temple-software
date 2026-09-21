@@ -227,5 +227,14 @@ http://100.122.78.33:8081/login
 ** Pgadmin
 http://100.122.78.33:5050/browser/
 
+Email: admin@temple.com
+Password: admin123
+Once logged in, you'll need to register the Postgres server inside pgAdmin (first time only) — use:
+
+Host: postgres (the service name — pgAdmin reaches it over the internal Docker network, not via Tailscale/localhost)
+Port: 5432
+Username: temple
+Password: temple123
+Database: templedb
 
 jsut wanted to check how to access now server url using tailscale on my windows
